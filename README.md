@@ -4,7 +4,7 @@
 - **프로젝트명**: Brution 운영지원툴
 - **목표**: 리포트 제작 시간 70% 단축, 고객 셀프서비스 제공, 내부 산출물 버전/승인/공개 체계화
 - **기술 스택**: Next.js 15 (App Router) + TypeScript + TailwindCSS + Supabase(Auth/Postgres/Storage)
-- **상태**: ✅ STEP4 백엔드/권한/DB 구현 완료
+- **상태**: ✅ STEP4 백엔드/권한/DB 구현 + API 라우트 복구
 
 ## 완료된 기능
 ### ✅ 백엔드/권한
@@ -74,6 +74,8 @@
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_STORAGE_BUCKET=brution-assets
+SIGNED_URL_EXPIRES_IN=3600
 USAGE_MONTHLY_LIMIT_KRW=200000
 USAGE_MONTHLY_LIMIT_EXEC=200
 ```
@@ -88,6 +90,26 @@ USAGE_MONTHLY_LIMIT_EXEC=200
 - **StaffAdmin**: 회사 생성/사용자 발급/Publish 전환/다운로드
 - **StaffMember**: 리뷰/승인까지 가능, published 전환 불가
 - **Client**: 자기 회사 프로젝트만 접근, published 아닌 자산 다운로드 차단 확인
+
+## API 테스트 (curl 예시)
+```bash
+# 세션 쿠키/토큰 포함
+curl -H "Authorization: Bearer <ACCESS_TOKEN>" http://localhost:3000/api/auth/me
+
+curl -X POST http://localhost:3000/api/auth/password-change \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"newPassword":"NewPassword123!"}'
+
+curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  http://localhost:3000/api/projects
+
+curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  http://localhost:3000/api/projects/<PROJECT_ID>
+
+curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  http://localhost:3000/api/assets/<ASSET_ID>/download
+```
 
 ## 프로젝트 구조 (핵심)
 ```
