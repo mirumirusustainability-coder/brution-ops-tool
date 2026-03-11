@@ -1,250 +1,123 @@
-# Brution 운영지원툴 - UI 구현 (Step 3-A)
+# Brution 운영지원툴 (STEP4 - Supabase 백엔드/RLS)
 
 ## 프로젝트 개요
-
-- **프로젝트명**: Brution 운영지원툴 (브루션 데이터로 더 똑똑해진 생성형 AI)
+- **프로젝트명**: Brution 운영지원툴
 - **목표**: 리포트 제작 시간 70% 단축, 고객 셀프서비스 제공, 내부 산출물 버전/승인/공개 체계화
-- **기술 스택**: Next.js 15 (App Router) + TypeScript + TailwindCSS + Lucide Icons
-- **상태**: UI 프로토타입 완성 (백엔드/API 미구현)
+- **기술 스택**: Next.js 15 (App Router) + TypeScript + TailwindCSS + Supabase(Auth/Postgres/Storage)
+- **상태**: ✅ STEP4 백엔드/권한/DB 구현 완료
 
-## 주요 기능
+## 완료된 기능
+### ✅ 백엔드/권한
+- Supabase Auth 기반 발급형 로그인(StaffAdmin만 사용자 생성)
+- must_change_password 강제 변경 (middleware + `/force-password-change`)
+- Seat 5 하드 제한(서버에서 active client 사용자 5명 초과 생성 차단)
+- published-only 다운로드 서버 검증(테넌시 + published + deliverable 연결 필수)
+- usage_monthly 월 사용량 제한(초과 시 429, StaffAdmin override 지원)
+- 모든 핵심 이벤트 audit_logs 기록
 
-### ✅ 완성된 화면
+### ✅ UI (STEP3-A)
+- 프로젝트/산출물/다운로드/관리자 화면 등 UI 프로토타입 유지
 
-1. **로그인** (`/login`)
-   - 발급형 계정 로그인 (셀프 회원가입 없음)
-   - 관리자 발급 계정 안내 문구 표시
+## URL
+- **Production**: (배포 전)
+- **API 예시**: `/api/auth/me`, `/api/projects`, `/api/assets/{id}/download`
 
-2. **프로젝트 관리** (`/app/projects`)
-   - 프로젝트 목록 조회
-   - 역할별 프로젝트 필터링 (고객은 자기 회사 프로젝트만)
+## 데이터 아키텍처
+- **DB**: Supabase Postgres + RLS
+- **마이그레이션**: `supabase/migrations/0001_init.sql`
+- **주요 테이블**:
+  - companies
+  - profiles (role, status, must_change_password)
+  - projects
+  - deliverables (type, visibility)
+  - deliverable_versions (status)
+  - assets (deliverable_version_id nullable)
+  - evidences (internal)
+  - jobs
+  - audit_logs
+  - usage_monthly
+- **스토리지**: Supabase Storage (signed URL로 다운로드)
 
-3. **프로젝트 허브** (`/app/projects/[id]`)
-   - 산출물 목록 및 버전 관리
-   - 상태별 다운로드 권한 제어
-   - StaffAdmin만 published 전환 UI 노출
+## 핵심 보안/하드룰
+- Client 다운로드는 **published 상태만 허용**
+- **StaffAdmin만 published 전환 가능**
+- 고객 셀프 가입 없음(발급형)
+- 고객사 사용자 **최대 5명** (서버 차단)
+- 테넌시: 고객은 자기 회사 데이터만
 
-4. **키워드 분석** (`/app/tools/keyword`)
-   - Excel/JSON 업로드 (최대 10MB)
-   - 필수 컬럼: 키워드 / 선택 컬럼: 검색량, 상품수, 카테고리, 광고비
-   - 분석 결과 요약 및 미리보기
-   - published 상태만 다운로드 가능 (고객)
+## API 요약
+### Auth
+- `GET /api/auth/me`
+- `POST /api/auth/password-change`
 
-5. **광고 보조** (`/app/tools/ads`)
-   - 캠페인 정보 입력 폼
-   - 생성량 프리셋: 10개 / 20개 (전체 항목 적용)
-   - 헤드라인, 본문, 후킹, CTA, 소재 생성
-   - 항목별 선택/보류/제외 상태 관리
+### Admin (StaffAdmin)
+- `GET /api/admin/companies`
+- `POST /api/admin/companies`
+- `POST /api/admin/companies/{companyId}/users` (Seat5 체크)
+- `POST /api/admin/users/{userId}/reset-password`
+- `PATCH /api/admin/users/{userId}` (inactive)
 
-6. **시장조사** (`/app/tools/market`)
-   - 내부 전용 (고객 접근 차단)
-   - 접근 권한 없음 화면 표시
+### Projects / Versions
+- `GET /api/projects`
+- `POST /api/projects`
+- `PATCH /api/deliverable-versions/{versionId}/status` (published는 StaffAdmin만)
 
-7. **브랜드 아이덴티티** (`/app/tools/brand-identity`)
-   - 내부 전용 (고객 접근 차단)
-   - PDF 업로드 (최대 30MB)
-   - StaffAdmin만 published 전환 가능
+### Assets
+- `POST /api/projects/{projectId}/assets`
+- `GET /api/assets/{assetId}/download` (테넌시 + published-only 검증)
 
-8. **고객사 관리** (`/app/admin/companies`)
-   - StaffAdmin 전용
-   - 고객사 목록 조회
+### Usage
+- `POST /api/usage/increment`
 
-9. **사용자 발급** (`/app/admin/companies/[id]`)
-   - StaffAdmin 전용
-   - 사용자 발급 폼
-   - **Seat 5 하드 제한**: 5명 이상이면 "사용자 추가" 버튼 비활성화 + 안내 문구
+## 환경변수
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+USAGE_MONTHLY_LIMIT_KRW=200000
+USAGE_MONTHLY_LIMIT_EXEC=200
+```
 
-### 🎯 SSOT 하드룰 UI 반영 체크리스트
+## 사용자 가이드 (간단)
+1. StaffAdmin이 고객사 생성 → 고객 사용자 발급(임시 비밀번호 제공)
+2. 고객 첫 로그인 → 비밀번호 강제 변경
+3. 프로젝트/산출물 작업 → StaffAdmin 승인/공개(published)
+4. 고객은 published 상태만 다운로드 가능
 
-#### ✅ 1. published-only 다운로드 (고객)
-- **구현 위치**: `components/download-button.tsx`, 프로젝트 허브
-- **동작**: 고객(Client) 역할은 `status === 'published'` 일 때만 다운로드 버튼 활성화
-- **비활성 시**: 버튼 비활성 + "승인 완료 후 다운로드 가능합니다" 안내 문구 표시
-- **직원(Staff)**: 모든 상태에서 다운로드 가능 (내부 작업용)
+## 로컬 테스트 시나리오 (필수 3계정)
+- **StaffAdmin**: 회사 생성/사용자 발급/Publish 전환/다운로드
+- **StaffMember**: 리뷰/승인까지 가능, published 전환 불가
+- **Client**: 자기 회사 프로젝트만 접근, published 아닌 자산 다운로드 차단 확인
 
-#### ✅ 2. published 전환 UI는 StaffAdmin만 노출
-- **구현 위치**: `/app/projects/[id]/page.tsx` (프로젝트 허브)
-- **동작**: `currentUser.role === 'staff_admin'` 일 때만 "공개하기" 버튼 렌더링
-- **StaffMember**: published 전환 UI 자체를 숨김 (비활성 X, 미노출 O)
-
-#### ✅ 3. 필수 컬럼 문구 (키워드 분석)
-- **구현 위치**: `/app/tools/keyword/page.tsx`
-- **필수 컬럼**: 키워드
-- **선택 컬럼**: 검색량, 상품수, 카테고리, 광고비
-- **안내 문구**: "선택 컬럼이 없어도 분석 가능합니다"
-- **주의**: "검색량 필수" 문구 사용 금지 (SSOT 위반)
-
-#### ✅ 4. 광고 생성량 프리셋 10/20 (전체 적용)
-- **구현 위치**: `/app/tools/ads/page.tsx`
-- **프리셋**: 10개 / 20개 (기본값 20)
-- **적용 범위**: 전체 생성량 (헤드라인/본문/후킹/CTA/소재 모두)
-- **안내 문구**: "선택한 개수만큼 헤드라인, 본문, 후킹, CTA, 소재가 생성됩니다"
-
-#### ✅ 5. Seat 5 하드 제한
-- **구현 위치**: `/app/admin/companies/[id]/page.tsx`
-- **제한 조건**: `userCount >= 5`일 때 "사용자 발급" 버튼 비활성화
-- **안내 문구**: 
-  - 상단 경고: "MVP 하드 제한으로 고객사당 최대 5명까지만 사용자를 발급할 수 있습니다"
-  - 버튼 하단: "최대 5명 제한에 도달했습니다. 새 사용자를 추가하려면 기존 사용자를 비활성화하세요"
-
-## 프로젝트 구조
-
+## 프로젝트 구조 (핵심)
 ```
 webapp/
 ├── app/
-│   ├── page.tsx                        # 홈 (랜딩)
-│   ├── login/page.tsx                  # 로그인
-│   ├── app/
-│   │   ├── projects/
-│   │   │   ├── page.tsx                # 프로젝트 목록
-│   │   │   └── [id]/page.tsx           # 프로젝트 상세/허브
-│   │   ├── tools/
-│   │   │   ├── keyword/page.tsx        # 키워드 분석
-│   │   │   ├── ads/page.tsx            # 광고 보조
-│   │   │   ├── market/page.tsx         # 시장조사 (내부 전용)
-│   │   │   └── brand-identity/page.tsx # 브랜드 아이덴티티 (내부 전용)
-│   │   └── admin/
-│   │       └── companies/
-│   │           ├── page.tsx            # 고객사 관리
-│   │           └── [id]/page.tsx       # 사용자 발급
-│   ├── layout.tsx                      # Root Layout
-│   └── globals.css                     # Global Styles
-├── components/
-│   ├── app-layout.tsx                  # 앱 레이아웃 (Sidebar + Topbar)
-│   ├── sidebar.tsx                     # 사이드바
-│   ├── topbar.tsx                      # 상단바
-│   ├── status-badge.tsx                # 상태 뱃지
-│   ├── download-button.tsx             # 다운로드 버튼 (권한 제어)
-│   └── role-toggle.tsx                 # 역할 토글 (개발 전용)
+│   ├── api/                          # App Router API
+│   ├── force-password-change/        # must_change_password 강제 변경
+│   └── app/                          # UI
 ├── lib/
-│   ├── utils.ts                        # 유틸리티 (cn 함수)
-│   └── mock-data.ts                    # Mock 데이터
-├── types/
-│   └── index.ts                        # TypeScript 타입 정의
-├── public/                             # Static Assets
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-├── next.config.mjs
+│   └── supabase/
+│       ├── server.ts                 # Supabase 서버 클라이언트
+│       └── auth.ts                   # 인증/권한 헬퍼
+├── supabase/
+│   └── migrations/0001_init.sql
+├── middleware.ts                     # must_change_password 강제 리다이렉트
 └── README.md
 ```
 
-## 핵심 컴포넌트
+## 미구현/차기 단계
+- 키워드/광고/시장조사/브랜드아이덴티티 실제 처리 로직
+- Evidence 자동 매핑(SSOT상 2차 이월)
+- 외부 API 연동(네이버/쿠팡 등 2차 이월)
 
-### 1. AppLayout
-- **Props**: `user`, `children`, `currentProject`, `showRoleToggle`, `onRoleChange`
-- **기능**: 전체 앱 레이아웃 (Sidebar + Topbar + Main Content)
-- **역할 토글**: 개발용 RoleToggle 컴포넌트 포함 (우측 상단)
+## 다음 권장 작업
+- Supabase 프로젝트 생성 후 `0001_init.sql` 적용
+- Storage 버킷 생성 및 정책 설정
+- 프론트 로그인/세션 관리 Supabase 연동
+- QA: published-only, 테넌시, Seat5, must_change_password 우회 검증
 
-### 2. Sidebar
-- **Props**: `userRole`, `isOpen`, `onClose`
-- **기능**: 역할별 메뉴 필터링, 모바일 반응형 (Overlay + Slide)
-- **메뉴 항목**: 역할별 allowedRoles 배열로 접근 제어
-
-### 3. Topbar
-- **Props**: `user`, `currentProject`, `onMenuClick`, `onLogout`
-- **기능**: 프로젝트 선택 드롭다운, 사용자 정보, 로그아웃
-
-### 4. StatusBadge
-- **Props**: `status: VersionStatus`, `className?`
-- **기능**: draft/review/approved/published 상태를 색상으로 표시
-
-### 5. DownloadButton
-- **Props**: `status`, `userRole`, `fileName`, `fileUrl`, `className?`
-- **기능**: 
-  - 고객: `status === 'published'`만 다운로드 가능
-  - 직원: 모든 상태에서 다운로드 가능
-  - 비활성 시 안내 문구 표시
-
-### 6. RoleToggle
-- **Props**: `currentRole`, `onRoleChange`
-- **기능**: 개발 전용 역할 테스트 (StaffAdmin / StaffMember / Client)
-- **스타일**: 황색 배경, 우측 상단 고정 (z-50)
-
-## 스타일 토큰
-
-| 속성 | 값 | 설명 |
-|------|-----|------|
-| Primary | #2563EB | 메인 컬러 (블루) |
-| Primary Hover | #1D4ED8 | 호버 상태 |
-| Background | #FFFFFF | 배경 (화이트) |
-| Foreground | #1F2937 | 텍스트 (다크그레이) |
-| Muted | #F3F4F6 | 비활성/배경 |
-| Border | #E5E7EB | 테두리 |
-
-## Mock 데이터
-
-- **Users**: 3명 (StaffAdmin, StaffMember, Client)
-- **Companies**: 2개
-- **Projects**: 3개
-- **Deliverables**: 4개 (keyword, ads, market, brand_identity)
-- **Versions**: 5개 (draft/review/approved/published 상태 혼합)
-- **KeywordData**: 5개 (샘플 키워드 분석 결과)
-- **AdResults**: 11개 (헤드라인/본문/후킹/CTA/소재)
-
-## 개발 가이드
-
-### 로컬 개발 실행
-
-```bash
-# 의존성 설치
-npm install
-
-# 개발 서버 실행
-npm run dev
-```
-
-브라우저에서 `http://localhost:3000` 접속
-
-### 역할 테스트
-
-1. 우측 상단 "🔧 개발 전용: 권한 테스트" 패널 사용
-2. StaffAdmin / StaffMember / Client 역할 전환
-3. 각 역할별 메뉴/기능 접근 제어 확인
-
-### 주요 테스트 시나리오
-
-#### Scenario 1: Client 역할 (고객)
-- ✅ 프로젝트 목록: 자기 회사 프로젝트만 표시
-- ✅ 키워드/광고: 접근 가능
-- ❌ 시장조사/브랜드 아이덴티티: "접근 권한 없음" 화면
-- ❌ 고객사 관리: 사이드바 메뉴 미노출
-- ✅ 다운로드: published 상태만 활성화
-
-#### Scenario 2: StaffMember 역할 (직원)
-- ✅ 모든 프로젝트 접근 가능
-- ✅ 키워드/광고/시장조사/브랜드 아이덴티티 접근 가능
-- ❌ 고객사 관리: 사이드바 메뉴 미노출
-- ❌ published 전환 UI: 미노출
-- ✅ 다운로드: 모든 상태에서 가능
-
-#### Scenario 3: StaffAdmin 역할 (관리자)
-- ✅ 모든 기능 접근 가능
-- ✅ published 전환 버튼 노출
-- ✅ 고객사 관리/사용자 발급 접근 가능
-- ✅ Seat 5 제한 UI 확인 가능
-
-## 다음 단계 (Step 3-B, 3-C)
-
-### Step 3-B: API/백엔드 연동
-- Supabase Auth + RLS 설정
-- PostgreSQL 테이블 생성
-- API Routes 구현 (/api/*)
-- 파일 업로드/다운로드 (Storage)
-- Job Runner (비동기 처리)
-
-### Step 3-C: 배포 및 최적화
-- Vercel/Cloudflare Pages 배포
-- 환경 변수 설정
-- 성능 최적화 (이미지/폰트/번들)
-- E2E 테스트 (Playwright)
-
-## 라이센스
-
-Private (브루션 내부용)
-
----
-
-**작성일**: 2024-03-04  
-**작성자**: Claude (STEP3-A UI 구현 담당)  
-**기준 문서**: `brution_ssot_v1_1.md`
+## 배포
+- **플랫폼**: Cloudflare Pages
+- **상태**: ❌ 미배포
+- **마지막 업데이트**: 2026-03-09

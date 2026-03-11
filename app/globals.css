@@ -3,8 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --primary: #2563EB;
-  --primary-hover: #1D4ED8;
+  --brution-blue: #1672FF;
+  --brution-mint: #1FCAD3;
+  --brution-lime: #CBF51A;
+  --primary: #1672FF;
+  --primary-hover: #0D5FE6;
   --background: #FFFFFF;
   --foreground: #1F2937;
   --muted: #F3F4F6;
@@ -17,4 +20,9 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
 }
