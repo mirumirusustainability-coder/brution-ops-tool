@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -34,7 +34,11 @@ export default function LoginPage() {
         return;
       }
 
-      const meResponse = await fetch('/api/auth/me', { cache: 'no-store' });
+      const accessToken = data?.session?.access_token;
+      const meResponse = await fetch('/api/auth/me', {
+        cache: 'no-store',
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
       if (meResponse.status === 401) {
         setError('이메일 또는 비밀번호가 올바르지 않습니다');
         setIsLoading(false);
