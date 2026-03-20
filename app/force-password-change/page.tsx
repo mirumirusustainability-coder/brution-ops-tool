@@ -28,7 +28,7 @@ export default function ForcePasswordChangePage() {
     const response = await fetch('/api/auth/password-change', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ newPassword: password })
     })
 
     setIsLoading(false)
