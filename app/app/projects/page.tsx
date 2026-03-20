@@ -1,34 +1,170 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Folder, Plus, Clock } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
-import { mockUsers, mockProjects } from '@/lib/mock-data';
-import { UserRole } from '@/types';
+import { ProjectSummary, User } from '@/types';
+
+type ApiProject = {
+  id: string;
+  company_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ApiCompany = {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+};
+
+const mapProject = (project: ApiProject): ProjectSummary => ({
+  id: project.id,
+  name: project.name,
+  companyId: project.company_id,
+  description: project.description,
+  createdAt: project.created_at,
+  updatedAt: project.updated_at,
+});
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState(mockUsers[0]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [companies, setCompanies] = useState<ApiCompany[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formCompanyId, setFormCompanyId] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const handleRoleChange = (role: UserRole) => {
-    const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
-    setCurrentUser(user);
+  const loadProjects = async () => {
+    const projectsResponse = await fetch('/api/projects', { cache: 'no-store' });
+    if (projectsResponse.status === 401) {
+      router.replace('/login');
+      return { ok: false };
+    }
+
+    if (projectsResponse.status === 403) {
+      setError('접근 권한이 없습니다');
+      return { ok: false };
+    }
+
+    if (!projectsResponse.ok) {
+      setError('프로젝트를 불러올 수 없습니다');
+      return { ok: false };
+    }
+
+    const data = await projectsResponse.json();
+    const items = Array.isArray(data?.projects) ? data.projects : [];
+    setProjects(items.map(mapProject));
+    return { ok: true };
   };
 
-  // 고객은 자기 회사 프로젝트만 표시
-  const filteredProjects = currentUser.role.startsWith('client')
-    ? mockProjects.filter((p) => p.companyId === currentUser.companyId)
-    : mockProjects;
+  const loadCompanies = async () => {
+    const response = await fetch('/api/admin/companies', { cache: 'no-store' });
+    if (response.status === 401) {
+      router.replace('/login');
+      return { ok: false };
+    }
+    if (response.status === 403) {
+      setError('접근 권한이 없습니다');
+      return { ok: false };
+    }
+    if (!response.ok) {
+      setError('고객사 목록을 불러올 수 없습니다');
+      return { ok: false };
+    }
+    const data = await response.json();
+    const items = Array.isArray(data?.companies) ? data.companies : [];
+    setCompanies(items);
+    if (!formCompanyId && items.length > 0) {
+      setFormCompanyId(items[0].id);
+    }
+    return { ok: true };
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+
+      const meResponse = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (meResponse.status === 401) {
+        router.replace('/login');
+        if (active) {
+          setError('로그인이 필요합니다');
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!meResponse.ok) {
+        if (active) {
+          setError('사용자 정보를 불러올 수 없습니다');
+          setLoading(false);
+        }
+        return;
+      }
+
+      const me = await meResponse.json();
+      const user: User = {
+        id: me.userId,
+        email: me.email,
+        name: me.email,
+        role: me.role,
+        companyId: me.companyId ?? '',
+        mustChangePassword: me.mustChangePassword,
+        status: me.status,
+      };
+
+      if (active) {
+        setCurrentUser(user);
+      }
+
+      await loadProjects();
+
+      if (user.role === 'staff_admin') {
+        await loadCompanies();
+      }
+
+      if (active) {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  if (loading && !currentUser) {
+    return <div className="p-6 text-sm text-gray-500">프로젝트를 불러오는 중입니다...</div>;
+  }
+
+  if (error && !currentUser) {
+    return <div className="p-6 text-sm text-red-600">{error}</div>;
+  }
+
+  if (!currentUser) {
+    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
+  }
 
   const canCreateProject = currentUser.role === 'staff_admin';
 
   return (
-    <AppLayout
-      user={currentUser}
-      showRoleToggle={true}
-      onRoleChange={handleRoleChange}
-    >
+    <AppLayout user={currentUser} showRoleToggle={false}>
       <div className="max-w-6xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -40,22 +176,140 @@ export default function ProjectsPage() {
           </div>
 
           {canCreateProject && (
-            <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors">
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors"
+            >
               <Plus className="w-4 h-4" />
               새 프로젝트
             </button>
           )}
         </div>
 
+        {showCreateForm && canCreateProject && (
+          <div className="mb-6 bg-white border border-border rounded-lg p-4">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setFormError(null);
+
+                if (!formName.trim()) {
+                  setFormError('프로젝트명을 입력하세요');
+                  return;
+                }
+
+                if (!formCompanyId) {
+                  setFormError('고객사를 선택하세요');
+                  return;
+                }
+
+                setCreating(true);
+                const response = await fetch('/api/projects', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: formName.trim(),
+                    description: formDescription.trim() || null,
+                    companyId: formCompanyId,
+                  }),
+                });
+
+                if (response.status === 401) {
+                  router.replace('/login');
+                  return;
+                }
+
+                if (response.status === 403) {
+                  setFormError('접근 권한이 없습니다');
+                  setCreating(false);
+                  return;
+                }
+
+                if (!response.ok) {
+                  setFormError('프로젝트 생성에 실패했습니다');
+                  setCreating(false);
+                  return;
+                }
+
+                setFormName('');
+                setFormDescription('');
+                setFormCompanyId(companies[0]?.id ?? '');
+                setShowCreateForm(false);
+                setCreating(false);
+                await loadProjects();
+              }}
+              className="space-y-3"
+            >
+              <div className="grid md:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="프로젝트명"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
+                <select
+                  value={formCompanyId}
+                  onChange={(e) => setFormCompanyId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                >
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                placeholder="설명 (선택)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                rows={3}
+              />
+              {formError && <p className="text-sm text-red-600">{formError}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
+                >
+                  {creating ? '생성 중...' : '생성'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setFormError(null);
+                    setFormName('');
+                    setFormDescription('');
+                    setFormCompanyId(companies[0]?.id ?? '');
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md"
+                >
+                  취소
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {loading && (
+          <div className="text-sm text-gray-500 mb-4">프로젝트 목록을 불러오는 중입니다...</div>
+        )}
+        {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
+
         {/* Projects Grid */}
-        {filteredProjects.length === 0 ? (
+        {projects.length === 0 ? (
           <div className="text-center py-12 bg-muted rounded-lg">
             <Folder className="w-12 h-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600">등록된 프로젝트가 없습니다</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredProjects.map((project) => (
+            {projects.map((project) => (
               <div
                 key={project.id}
                 onClick={() => router.push(`/app/projects/${project.id}`)}
