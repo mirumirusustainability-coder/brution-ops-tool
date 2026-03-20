@@ -19,13 +19,55 @@ type AssetRecord = {
   } | null
 }
 
-export const GET = async (
+type DownloadLogStatus = 'attempt' | 'success' | 'forbidden' | 'not_found' | 'error'
+
+const logDownloadEvent = async ({
+  admin,
+  companyId,
+  userId,
+  assetId,
+  status,
+  reason,
+}: {
+  admin: ReturnType<typeof createSupabaseAdmin>
+  companyId: string | null
+  userId: string
+  assetId: string
+  status: DownloadLogStatus
+  reason?: string
+}) => {
+  try {
+    await admin.from('audit_logs').insert({
+      company_id: companyId,
+      user_id: userId,
+      action: `asset_download_${status}`,
+      target_type: 'asset',
+      target_id: assetId,
+      metadata: {
+        reason: reason ?? null,
+      },
+    })
+  } catch {
+    return
+  }
+}
+
+export async function GET(
   request: Request,
-  { params }: { params: { assetId: string } }
-) => {
+  { params }: { params: Promise<{ assetId: string }> }
+) {
   try {
     const { profile } = await requireAuth(request)
     const admin = createSupabaseAdmin()
+    const { assetId } = await params
+
+    await logDownloadEvent({
+      admin,
+      companyId: profile.company_id,
+      userId: profile.user_id,
+      assetId,
+      status: 'attempt',
+    })
 
     const { data: asset, error } = await admin
       .from('assets')
@@ -38,26 +80,61 @@ export const GET = async (
         project:projects(id, company_id),
         deliverable_version:deliverable_versions(id, status)`
       )
-      .eq('id', params.assetId)
+      .eq('id', assetId)
       .single()
 
     if (error || !asset) {
+      await logDownloadEvent({
+        admin,
+        companyId: profile.company_id,
+        userId: profile.user_id,
+        assetId,
+        status: 'not_found',
+        reason: 'ASSET_NOT_FOUND',
+      })
       return NextResponse.json({ error: 'ASSET_NOT_FOUND' }, { status: 404 })
     }
 
-    const assetRecord = asset as AssetRecord
+    const assetRecord: AssetRecord = {
+      ...(asset as AssetRecord),
+      project: Array.isArray(asset.project) ? asset.project[0] ?? null : asset.project ?? null,
+    }
     const staff = isStaff(profile.role)
 
     if (!staff) {
       if (!assetRecord.deliverable_version_id) {
+        await logDownloadEvent({
+          admin,
+          companyId: profile.company_id,
+          userId: profile.user_id,
+          assetId,
+          status: 'forbidden',
+          reason: 'MISSING_DELIVERABLE_VERSION',
+        })
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
 
       if (assetRecord.deliverable_version?.status !== 'published') {
+        await logDownloadEvent({
+          admin,
+          companyId: profile.company_id,
+          userId: profile.user_id,
+          assetId,
+          status: 'forbidden',
+          reason: 'NOT_PUBLISHED',
+        })
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
 
       if (!assetRecord.project || assetRecord.project.company_id !== profile.company_id) {
+        await logDownloadEvent({
+          admin,
+          companyId: profile.company_id,
+          userId: profile.user_id,
+          assetId,
+          status: 'forbidden',
+          reason: 'TENANT_MISMATCH',
+        })
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }
@@ -71,8 +148,24 @@ export const GET = async (
       .createSignedUrl(assetRecord.path, expiresIn)
 
     if (signedError || !signedUrl) {
+      await logDownloadEvent({
+        admin,
+        companyId: profile.company_id,
+        userId: profile.user_id,
+        assetId,
+        status: 'error',
+        reason: 'SIGNED_URL_FAILED',
+      })
       return NextResponse.json({ error: 'SIGNED_URL_FAILED' }, { status: 500 })
     }
+
+    await logDownloadEvent({
+      admin,
+      companyId: profile.company_id,
+      userId: profile.user_id,
+      assetId: params.assetId,
+      status: 'success',
+    })
 
     return NextResponse.json({
       url: signedUrl.signedUrl,
