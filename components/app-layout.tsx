@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { RoleToggle } from './role-toggle';
+import { createClient } from '@/lib/supabase/client';
 import { User } from '@/types';
 
 interface AppLayoutProps {
@@ -22,10 +24,12 @@ export function AppLayout({
   onRoleChange,
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const router = useRouter();
 
-  const handleLogout = () => {
-    alert('로그아웃 (실제 환경에서는 세션 종료 처리)');
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
   };
 
   return (

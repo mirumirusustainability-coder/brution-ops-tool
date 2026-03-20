@@ -2,24 +2,28 @@
 
 import { useRouter } from 'next/navigation';
 import { Menu, ChevronDown, LogOut } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 import { User } from '@/types';
 
 interface TopbarProps {
   user: User;
   currentProject?: { id: string; name: string };
   onMenuClick: () => void;
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
-export function Topbar({ user, currentProject, onMenuClick }: TopbarProps) {
+export function Topbar({ user, currentProject, onMenuClick, onLogout }: TopbarProps) {
   const router = useRouter();
 
   const handleLogout = async () => {
-    const response = await fetch('/api/auth/logout', { method: 'POST' });
-    if (response.ok || response.status === 401 || response.status === 403) {
-      router.replace('/login');
+    if (onLogout) {
+      await onLogout();
       return;
     }
+
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.replace('/login');
   };
 
   return (
@@ -52,7 +56,7 @@ export function Topbar({ user, currentProject, onMenuClick }: TopbarProps) {
           </div>
 
           <button
-            onClick={onLogout}
+            onClick={handleLogout}
             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-muted rounded-md transition-colors"
           >
             <LogOut className="w-4 h-4" />

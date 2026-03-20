@@ -1,11 +1,54 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
 
-import { isStaff, requireAuth } from '@/lib/supabase/auth'
+import { isStaff } from '@/lib/supabase/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/server'
 
-export const GET = async (request: Request) => {
+const getProfile = async () => {
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => cookieStore.get(name)?.value,
+        set: (name, value, options) => {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove: (name, options) => {
+          cookieStore.set({ name, value: '', ...options, maxAge: 0 })
+        },
+      },
+    }
+  )
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
+    throw new Error('UNAUTHORIZED')
+  }
+
+  const admin = createSupabaseAdmin()
+  const { data: profile, error: profileError } = await admin
+    .from('profiles')
+    .select('user_id, email, name, role, company_id, status, must_change_password')
+    .eq('user_id', user.id)
+    .single()
+
+  if (profileError || !profile) {
+    throw new Error('UNAUTHORIZED')
+  }
+
+  if (profile.status !== 'active') {
+    throw new Error('INACTIVE')
+  }
+
+  return profile
+}
+
+export const GET = async (_request: Request) => {
   try {
-    const { profile } = await requireAuth(request)
+    const profile = await getProfile()
     const admin = createSupabaseAdmin()
 
     let query = admin
@@ -36,7 +79,7 @@ export const GET = async (request: Request) => {
 
 export const POST = async (request: Request) => {
   try {
-    const { profile } = await requireAuth(request)
+    const profile = await getProfile()
     const admin = createSupabaseAdmin()
     const body = await request.json().catch(() => null)
 
