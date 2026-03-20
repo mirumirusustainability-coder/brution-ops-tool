@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Menu, ChevronDown, LogOut } from 'lucide-react';
 import { User } from '@/types';
 
@@ -10,7 +11,17 @@ interface TopbarProps {
   onLogout: () => void;
 }
 
-export function Topbar({ user, currentProject, onMenuClick, onLogout }: TopbarProps) {
+export function Topbar({ user, currentProject, onMenuClick }: TopbarProps) {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    if (response.ok || response.status === 401 || response.status === 403) {
+      router.replace('/login');
+      return;
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-border">
       <div className="flex items-center justify-between px-4 py-3">
