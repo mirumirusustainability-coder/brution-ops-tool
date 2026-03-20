@@ -2,24 +2,68 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import { LogIn, AlertCircle } from 'lucide-react';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '');
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
-    // Mock login (실제로는 API 호출)
-    setTimeout(() => {
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다');
+        setIsLoading(false);
+        return;
+      }
+
+      const meResponse = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (meResponse.status === 401) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다');
+        setIsLoading(false);
+        return;
+      }
+
+      if (meResponse.status === 403) {
+        setError('비활성화된 계정입니다');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!meResponse.ok) {
+        setError('로그인 처리 중 오류가 발생했습니다');
+        setIsLoading(false);
+        return;
+      }
+
+      const me = await meResponse.json();
+      if (me?.mustChangePassword) {
+        router.replace('/force-password-change');
+      } else {
+        router.replace('/app/projects');
+      }
+    } catch (err) {
+      setError('로그인 처리 중 오류가 발생했습니다');
+    } finally {
       setIsLoading(false);
-      // Mock success
-      router.push('/app/projects');
-    }, 1000);
+    }
   };
 
   return (
