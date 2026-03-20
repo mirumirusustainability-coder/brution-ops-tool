@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserPlus, ShieldAlert, Mail, User, AlertCircle } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
+import { createClient } from '@/lib/supabase/client';
 import { UserRole, User as AppUser } from '@/types';
 
 type ApiUser = {
@@ -81,20 +82,45 @@ export default function CompanyUsersPage({
       setLoading(true);
       setError(null);
 
-      const meResponse = await fetch('/api/auth/me', { cache: 'no-store' });
-      if (meResponse.status === 401) {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
         router.replace('/login');
         return;
       }
-      if (!meResponse.ok) {
-        if (active) {
-          setError('사용자 정보를 불러올 수 없습니다');
-          setLoading(false);
+
+      const sessionRole = session.user.user_metadata?.role ?? null;
+      let me: any = null;
+
+      if (sessionRole) {
+        me = {
+          userId: session.user.id,
+          email: session.user.email ?? '',
+          role: sessionRole,
+          companyId: session.user.user_metadata?.company_id ?? null,
+          mustChangePassword: false,
+          status: 'active',
+        };
+      } else {
+        const meResponse = await fetch('/api/auth/me', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (meResponse.status === 401) {
+          router.replace('/login');
+          return;
         }
-        return;
+        if (!meResponse.ok) {
+          if (active) {
+            setError('사용자 정보를 불러올 수 없습니다');
+            setLoading(false);
+          }
+          return;
+        }
+        me = await meResponse.json();
       }
 
-      const me = await meResponse.json();
       const user = mapUser(me);
 
       if (active) {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Folder, Plus, Clock } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
+import { createClient } from '@/lib/supabase/client';
 import { ProjectSummary, User } from '@/types';
 
 type ApiProject = {
@@ -98,8 +99,10 @@ export default function ProjectsPage() {
       setLoading(true);
       setError(null);
 
-      const meResponse = await fetch('/api/auth/me', { cache: 'no-store' });
-      if (meResponse.status === 401) {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
         router.replace('/login');
         if (active) {
           setError('로그인이 필요합니다');
@@ -108,15 +111,51 @@ export default function ProjectsPage() {
         return;
       }
 
-      if (!meResponse.ok) {
-        if (active) {
-          setError('사용자 정보를 불러올 수 없습니다');
-          setLoading(false);
+      const sessionRole = session.user.user_metadata?.role ?? null;
+      let me: {
+        userId: string;
+        email: string;
+        role: string | null;
+        companyId: string | null;
+        mustChangePassword: boolean;
+        status: string;
+      } | null = null;
+
+      if (sessionRole) {
+        me = {
+          userId: session.user.id,
+          email: session.user.email ?? '',
+          role: sessionRole,
+          companyId: session.user.user_metadata?.company_id ?? null,
+          mustChangePassword: false,
+          status: 'active',
+        };
+      } else {
+        const meResponse = await fetch('/api/auth/me', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        if (meResponse.status === 401) {
+          router.replace('/login');
+          if (active) {
+            setError('로그인이 필요합니다');
+            setLoading(false);
+          }
+          return;
         }
-        return;
+
+        if (!meResponse.ok) {
+          if (active) {
+            setError('사용자 정보를 불러올 수 없습니다');
+            setLoading(false);
+          }
+          return;
+        }
+
+        me = await meResponse.json();
       }
 
-      const me = await meResponse.json();
       const user: User = {
         id: me.userId,
         email: me.email,
