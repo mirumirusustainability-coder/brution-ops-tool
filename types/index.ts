@@ -5,7 +5,7 @@ export type UserRole = 'staff_admin' | 'staff_member' | 'client_admin' | 'client
 export type VersionStatus = 'draft' | 'review' | 'approved' | 'published';
 
 // Deliverable Types
-export type DeliverableType = 'keyword' | 'ads' | 'market' | 'brand_identity';
+export type DeliverableType = 'keyword' | 'ads' | 'market' | 'brand_identity' | 'naming';
 
 // User
 export interface User {
@@ -36,6 +36,19 @@ export interface Project {
   updatedAt: string;
 }
 
+// Project Summary (API)
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  companyId: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Project Detail (API)
+export interface ProjectDetail extends ProjectSummary {}
+
 // Deliverable
 export interface Deliverable {
   id: string;
@@ -51,6 +64,7 @@ export interface DeliverableVersion {
   deliverableId: string;
   versionNo: number;
   status: VersionStatus;
+  assetId?: string;
   fileName?: string;
   fileSize?: number;
   fileUrl?: string;

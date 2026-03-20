@@ -60,6 +60,12 @@ const menuItems: MenuItem[] = [
     allowedRoles: ['staff_admin', 'staff_member'],
   },
   {
+    label: '상품명 생성',
+    href: '/app/tools/naming',
+    icon: FileText,
+    allowedRoles: ['staff_admin', 'staff_member'],
+  },
+  {
     label: '고객사 관리',
     href: '/app/admin/companies',
     icon: Building2,

@@ -6,7 +6,7 @@ create extension if not exists "pgcrypto";
 -- Enums
 create type public.role_enum as enum ('staff_admin', 'staff_member', 'client_admin', 'client_member');
 create type public.status_enum as enum ('active', 'inactive');
-create type public.deliverable_type_enum as enum ('keyword', 'ads', 'market', 'brand_identity');
+create type public.deliverable_type_enum as enum ('keyword', 'ads', 'market', 'brand_identity', 'naming');
 create type public.visibility_enum as enum ('client', 'internal');
 create type public.version_status_enum as enum ('draft', 'review', 'approved', 'published');
 create type public.job_status_enum as enum ('queued', 'running', 'succeeded', 'failed', 'canceled');
