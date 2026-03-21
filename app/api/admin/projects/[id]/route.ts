@@ -117,7 +117,11 @@ export const GET = async (
     return NextResponse.json({
       project: {
         ...project,
-        company: { name: project.companies?.name ?? null },
+        company: {
+          name: Array.isArray(project.companies)
+            ? project.companies[0]?.name ?? null
+            : project.companies?.name ?? null,
+        },
       },
       deliverables: responseDeliverables,
     })
