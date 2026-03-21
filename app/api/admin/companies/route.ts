@@ -6,7 +6,7 @@ import { isStaffAdmin } from '@/lib/supabase/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/server'
 
 const getProfile = async () => {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -14,10 +14,14 @@ const getProfile = async () => {
       cookies: {
         get: (name) => cookieStore.get(name)?.value,
         set: (name, value, options) => {
-          cookieStore.set({ name, value, ...options })
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch {}
         },
         remove: (name, options) => {
-          cookieStore.set({ name, value: '', ...options, maxAge: 0 })
+          try {
+            cookieStore.set({ name, value: '', ...options, maxAge: 0 })
+          } catch {}
         },
       },
     }

@@ -192,6 +192,14 @@ export default function ProjectDetailPage({
         me = await meResponse.json();
       }
 
+      if (!me) {
+        if (active) {
+          setError('사용자 정보를 불러올 수 없습니다');
+          setLoading(false);
+        }
+        return;
+      }
+
       const user: User = {
         id: me.userId,
         email: me.email,
