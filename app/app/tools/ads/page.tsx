@@ -188,6 +188,7 @@ export default function AdsPage() {
                   <DownloadButton
                     status="approved"
                     userRole={currentUser.role}
+                    assetId="asset-ads-tool-v1"
                     fileName="광고_문구_v1.xlsx"
                     className="w-full"
                   />

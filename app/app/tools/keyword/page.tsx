@@ -241,6 +241,7 @@ export default function KeywordAnalysisPage() {
                   <DownloadButton
                     status="approved"
                     userRole={currentUser.role}
+                    assetId="asset-keyword-tool-v1"
                     fileName="키워드_분석_v1.xlsx"
                     className="w-full"
                   />

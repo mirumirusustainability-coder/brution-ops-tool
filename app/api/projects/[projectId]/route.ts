@@ -3,18 +3,19 @@ import { NextResponse } from 'next/server'
 import { isStaff, requireAuth } from '@/lib/supabase/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/server'
 
-export const GET = async (
+export async function GET(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
-) => {
+) {
   try {
     const { profile } = await requireAuth(request)
     const admin = createSupabaseAdmin()
+    const { projectId } = await params
 
     const { data, error } = await admin
       .from('projects')
       .select('id, company_id, name, description, created_at, updated_at')
-      .eq('id', (await params).projectId)
+      .eq('id', projectId)
       .single()
 
     if (error || !data) {

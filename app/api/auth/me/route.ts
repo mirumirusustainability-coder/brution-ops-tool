@@ -15,6 +15,8 @@ export const GET = async (request: Request) => {
   )
 
   const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+  console.log('token received:', token?.substring(0, 20))
+  console.log('user from token:', user?.id)
   if (userError || !user) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
   }
@@ -24,6 +26,9 @@ export const GET = async (request: Request) => {
     .select('*')
     .eq('user_id', user.id)
     .single()
+
+  console.log('profile query result:', profile)
+  console.log('profile error:', profileError)
 
   if (profileError || !profile) {
     return NextResponse.json({ error: 'PROFILE_NOT_FOUND' }, { status: 404 })

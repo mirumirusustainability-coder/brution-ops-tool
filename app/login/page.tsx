@@ -2,16 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { LogIn, AlertCircle } from 'lucide-react';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '');
 
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +29,10 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
+
+      console.log('signIn data:', JSON.stringify(data));
+      console.log('session:', data?.session);
+      console.log('access_token:', data?.session?.access_token);
 
       const accessToken = data?.session?.access_token;
       const meResponse = await fetch('/api/auth/me', {
