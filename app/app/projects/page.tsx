@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Folder, Plus, Clock } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { createClient } from '@/lib/supabase/client';
-import { ProjectSummary, User } from '@/types';
+import { ProjectSummary, User, UserRole } from '@/types';
 
 type ApiProject = {
   id: string;
@@ -157,13 +157,13 @@ export default function ProjectsPage() {
       }
 
       const user: User = {
-        id: me.userId,
-        email: me.email,
-        name: me.email,
-        role: me.role,
-        companyId: me.companyId ?? '',
-        mustChangePassword: me.mustChangePassword,
-        status: me.status,
+        id: me?.userId ?? '',
+        email: me?.email ?? '',
+        name: me?.email ?? '',
+        role: (me?.role ?? 'staff') as UserRole,
+        companyId: me?.companyId ?? '',
+        mustChangePassword: me?.mustChangePassword ?? false,
+        status: (me?.status ?? 'active') as 'active' | 'inactive',
       };
 
       if (active) {

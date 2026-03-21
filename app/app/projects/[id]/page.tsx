@@ -201,13 +201,13 @@ export default function ProjectDetailPage({
       }
 
       const user: User = {
-        id: me.userId,
-        email: me.email,
-        name: me.email,
-        role: me.role,
-        companyId: me.companyId ?? '',
-        mustChangePassword: me.mustChangePassword,
-        status: me.status,
+        id: me?.userId ?? '',
+        email: me?.email ?? '',
+        name: me?.email ?? '',
+        role: (me?.role ?? 'staff') as User['role'],
+        companyId: me?.companyId ?? '',
+        mustChangePassword: me?.mustChangePassword ?? false,
+        status: (me?.status ?? 'active') as 'active' | 'inactive',
       };
 
       const projectResponse = await fetch(`/api/projects/${resolvedParams.id}`, {
