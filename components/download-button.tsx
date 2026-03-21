@@ -67,13 +67,26 @@ export function DownloadButton({
 
       const data = await response.json();
       const signedUrl = data?.signedUrl ?? data?.url;
+      const originalName = data?.originalName || fileName || 'download';
 
       if (!signedUrl) {
         setError('서버/네트워크 오류가 발생했습니다.');
         return;
       }
 
-      window.open(signedUrl, '_blank', 'noreferrer');
+      const fileResponse = await fetch(signedUrl);
+      if (!fileResponse.ok) {
+        setError('파일 다운로드에 실패했습니다.');
+        return;
+      }
+
+      const blob = await fileResponse.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = originalName;
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
     } catch (err) {
       setError('서버/네트워크 오류가 발생했습니다.');
     } finally {
