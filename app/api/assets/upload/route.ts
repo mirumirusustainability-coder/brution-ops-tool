@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
-
 import { createSupabaseAdmin } from '@/lib/supabase/server'
 
 export const POST = async (request: Request) => {
@@ -13,12 +12,8 @@ export const POST = async (request: Request) => {
       {
         cookies: {
           get: (name) => cookieStore.get(name)?.value,
-          set: (name, value, options) => {
-            cookieStore.set({ name, value, ...options })
-          },
-          remove: (name, options) => {
-            cookieStore.set({ name, value: '', ...options, maxAge: 0 })
-          },
+          set: (name, value, options) => { cookieStore.set({ name, value, ...options }) },
+          remove: (name, options) => { cookieStore.set({ name, value: '', ...options, maxAge: 0 }) },
         },
       }
     )
@@ -30,21 +25,21 @@ export const POST = async (request: Request) => {
 
     const formData = await request.formData()
     const file = formData.get('file')
-    const deliverableVersionId = formData.get('deliverableVersionId')
-    const projectId = formData.get('projectId')
-    const companyId = formData.get('companyId')
+    const deliverableVersionId = formData.get('deliverableVersionId') as string
+    const projectId = formData.get('projectId') as string
+    const companyId = formData.get('companyId') as string
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'INVALID_FILE' }, { status: 400 })
     }
-
     if (!deliverableVersionId || !projectId || !companyId) {
       return NextResponse.json({ error: 'INVALID_METADATA' }, { status: 400 })
     }
 
     const fileId = crypto.randomUUID()
-    const safeName = file.name || 'upload'
-    const path = `${companyId}/${projectId}/${deliverableVersionId}/${fileId}-${safeName}`
+    const ext = file.name.split('.').pop() ?? 'bin'
+    const safeName = `${fileId}.${ext}`
+    const path = `${companyId}/${projectId}/${deliverableVersionId}/${safeName}`
 
     const admin = createSupabaseAdmin()
     const { error: uploadError } = await admin.storage
@@ -52,7 +47,8 @@ export const POST = async (request: Request) => {
       .upload(path, file, { contentType: file.type, upsert: false })
 
     if (uploadError) {
-      return NextResponse.json({ error: 'UPLOAD_FAILED' }, { status: 500 })
+      console.error('Storage upload error:', uploadError)
+      return NextResponse.json({ error: 'UPLOAD_FAILED', detail: uploadError.message }, { status: 500 })
     }
 
     const assetId = crypto.randomUUID()
@@ -66,17 +62,18 @@ export const POST = async (request: Request) => {
         file_type: file.type,
         bucket: 'deliverables',
         path,
+        original_name: file.name,
         created_by: user.id,
       })
 
     if (insertError) {
-      return NextResponse.json({ error: 'ASSET_INSERT_FAILED' }, { status: 500 })
+      console.error('Asset insert error:', insertError)
+      return NextResponse.json({ error: 'ASSET_INSERT_FAILED', detail: insertError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ assetId, path })
+    return NextResponse.json({ assetId, path, originalName: file.name })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'UNKNOWN'
-    const status = message === 'UNAUTHORIZED' ? 401 : 500
-    return NextResponse.json({ error: message }, { status })
+    console.error('Caught error:', error)
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'UNKNOWN' }, { status: 500 })
   }
 }

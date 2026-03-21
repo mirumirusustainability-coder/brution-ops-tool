@@ -50,7 +50,7 @@ export const GET = async (
 
     const { data: asset, error: assetError } = await admin
       .from('assets')
-      .select('id, bucket, path, deliverable_version_id')
+      .select('id, bucket, path, deliverable_version_id, original_name')
       .eq('id', assetId)
       .single()
 
@@ -81,7 +81,7 @@ export const GET = async (
       return NextResponse.json({ error: 'SIGNED_URL_FAILED' }, { status: 500 })
     }
 
-    return NextResponse.json({ url: signedUrl.signedUrl, expiresIn: 60 })
+    return NextResponse.json({ url: signedUrl.signedUrl, originalName: asset.original_name ?? null })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
