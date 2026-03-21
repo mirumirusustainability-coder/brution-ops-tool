@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
-import { createClient } from '@/lib/supabase/client'
+import { createBrowserClient } from '@supabase/ssr'
 import { User, UserRole } from '@/types'
 
 type AdminProject = {
@@ -97,7 +97,10 @@ export default function AdminProjectDetailPage({
       setLoading(true)
       setError(null)
 
-      const supabase = createClient()
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session) {
