@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 
 export const middleware = async (request: NextRequest) => {
   const { pathname } = request.nextUrl
@@ -9,58 +9,60 @@ export const middleware = async (request: NextRequest) => {
     return NextResponse.next()
   }
 
-  const accessToken = request.cookies.get('sb-access-token')?.value
-    ?? request.cookies.get(`sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]}-auth-token`)?.value
+  const response = NextResponse.next()
 
-  if (!accessToken) {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => request.cookies.get(name)?.value,
+        set: (name, value, options) => {
+          response.cookies.set({ name, value, ...options })
+        },
+        remove: (name, options) => {
+          response.cookies.set({ name, value: '', ...options, maxAge: 0 })
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
     if (pathname.startsWith('/app') || pathname === '/force-password-change') {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       return NextResponse.redirect(url)
     }
-    return NextResponse.next()
+    return response
   }
 
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+  const { createClient } = await import('@supabase/supabase-js')
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('must_change_password, status')
+    .eq('user_id', user.id)
+    .single()
 
-    if (error || !user) {
-      if (pathname.startsWith('/app') || pathname === '/force-password-change') {
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        return NextResponse.redirect(url)
-      }
-      return NextResponse.next()
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('must_change_password, status')
-      .eq('user_id', user.id)
-      .single()
-
-    if (profile?.must_change_password && pathname !== '/force-password-change') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/force-password-change'
-      return NextResponse.redirect(url)
-    }
-
-    if (pathname === '/force-password-change' && !profile?.must_change_password) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/app/projects'
-      return NextResponse.redirect(url)
-    }
-
-  } catch {
-    return NextResponse.next()
+  if (profile?.must_change_password && pathname !== '/force-password-change') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/force-password-change'
+    return NextResponse.redirect(url)
   }
 
-  return NextResponse.next()
+  if (pathname === '/force-password-change' && !profile?.must_change_password) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/app/projects'
+    return NextResponse.redirect(url)
+  }
+
+  return response
 }
 
 export const config = {
