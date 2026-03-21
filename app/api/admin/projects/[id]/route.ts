@@ -114,13 +114,16 @@ export const GET = async (
       versions: versionsByDeliverable[deliverable.id] ?? [],
     }))
 
+    const companies = project.companies as { name?: string } | { name?: string }[] | null
+    const companyName = Array.isArray(companies)
+      ? companies[0]?.name ?? null
+      : companies?.name ?? null
+
     return NextResponse.json({
       project: {
         ...project,
         company: {
-          name: Array.isArray(project.companies)
-            ? project.companies[0]?.name ?? null
-            : project.companies?.name ?? null,
+          name: companyName,
         },
       },
       deliverables: responseDeliverables,
