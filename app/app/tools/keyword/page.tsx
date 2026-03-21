@@ -242,7 +242,6 @@ export default function KeywordAnalysisPage() {
                     status="approved"
                     userRole={currentUser.role}
                     fileName="키워드_분석_v1.xlsx"
-                    fileUrl="/mock/keyword.xlsx"
                     className="w-full"
                   />
                 </div>

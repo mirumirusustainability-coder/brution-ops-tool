@@ -5,7 +5,7 @@ import { createSupabaseAdmin } from '@/lib/supabase/server'
 
 export const GET = async (
   request: Request,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) => {
   try {
     const { profile } = await requireAuth(request)

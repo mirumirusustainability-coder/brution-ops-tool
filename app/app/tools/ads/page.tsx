@@ -189,7 +189,6 @@ export default function AdsPage() {
                     status="approved"
                     userRole={currentUser.role}
                     fileName="광고_문구_v1.xlsx"
-                    fileUrl="/mock/ads.xlsx"
                     className="w-full"
                   />
                 </div>
