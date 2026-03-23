@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Palette,
   Building2,
+  FolderOpen,
   X,
 } from 'lucide-react';
 import { UserRole } from '@/types';
@@ -64,6 +65,12 @@ const menuItems: MenuItem[] = [
     href: '/app/tools/naming',
     icon: FileText,
     allowedRoles: ['staff_admin', 'staff_member'],
+  },
+  {
+    label: '프로젝트 관리',
+    href: '/app/admin/projects',
+    icon: FolderOpen,
+    allowedRoles: ['staff_admin'],
   },
   {
     label: '고객사 관리',
