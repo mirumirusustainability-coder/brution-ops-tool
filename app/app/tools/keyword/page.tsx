@@ -6,18 +6,13 @@ import { AppLayout } from '@/components/app-layout';
 import { StatusBadge } from '@/components/status-badge';
 import { DownloadButton } from '@/components/download-button';
 import { mockUsers, mockKeywordData } from '@/lib/mock-data';
-import { UserRole, KeywordData } from '@/types';
+import { KeywordData } from '@/types';
 
 export default function KeywordAnalysisPage() {
   const [currentUser, setCurrentUser] = useState(mockUsers[0]);
   const [hasResult, setHasResult] = useState(false);
   const [results, setResults] = useState<KeywordData[]>([]);
   const [copied, setCopied] = useState(false);
-
-  const handleRoleChange = (role: UserRole) => {
-    const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
-    setCurrentUser(user);
-  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,11 +38,7 @@ export default function KeywordAnalysisPage() {
   };
 
   return (
-    <AppLayout
-      user={currentUser}
-      showRoleToggle={true}
-      onRoleChange={handleRoleChange}
-    >
+    <AppLayout user={currentUser}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">키워드 분석</h1>
 

@@ -4,26 +4,16 @@ import { useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { mockUsers } from '@/lib/mock-data';
-import { UserRole } from '@/types';
 
 export default function MarketResearchPage() {
   const [currentUser, setCurrentUser] = useState(mockUsers[0]);
-
-  const handleRoleChange = (role: UserRole) => {
-    const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
-    setCurrentUser(user);
-  };
 
   // SSOT 하드룰: 고객(Client)은 시장조사 접근 불가
   const isClient = currentUser.role.startsWith('client');
 
   if (isClient) {
     return (
-      <AppLayout
-        user={currentUser}
-        showRoleToggle={true}
-        onRoleChange={handleRoleChange}
-      >
+      <AppLayout user={currentUser}>
         <div className="max-w-2xl mx-auto">
           <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
             <ShieldAlert className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -42,11 +32,7 @@ export default function MarketResearchPage() {
   const isStaffAdmin = currentUser.role === 'staff_admin';
 
   return (
-    <AppLayout
-      user={currentUser}
-      showRoleToggle={true}
-      onRoleChange={handleRoleChange}
-    >
+    <AppLayout user={currentUser}>
       <div className="max-w-6xl">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">시장조사 리포트</h1>
 

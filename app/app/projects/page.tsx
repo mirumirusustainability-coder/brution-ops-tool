@@ -203,7 +203,7 @@ export default function ProjectsPage() {
   const canCreateProject = currentUser.role === 'staff_admin';
 
   return (
-    <AppLayout user={currentUser} showRoleToggle={false}>
+    <AppLayout user={currentUser}>
       <div className="max-w-6xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

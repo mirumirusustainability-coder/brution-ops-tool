@@ -196,14 +196,14 @@ export default function AdminProjectDetailPage({
 
   if (!project) {
     return (
-      <AppLayout user={currentUser} showRoleToggle={false}>
+      <AppLayout user={currentUser}>
         <div className="text-center py-12">프로젝트 정보를 찾을 수 없습니다.</div>
       </AppLayout>
     )
   }
 
   return (
-    <AppLayout user={currentUser} showRoleToggle={false}>
+    <AppLayout user={currentUser}>
       <div className="max-w-6xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>

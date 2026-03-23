@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Sparkles, AlertCircle, Copy, Check, PenTool } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { mockUsers } from '@/lib/mock-data';
-import { UserRole } from '@/types';
 
 const mockNamingResults = [
   '브루션 에어쿨 프라임',
@@ -29,11 +28,6 @@ export default function NamingPage() {
   const [forbiddenWords, setForbiddenWords] = useState('');
   const [requiredWords, setRequiredWords] = useState('');
 
-  const handleRoleChange = (role: UserRole) => {
-    const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
-    setCurrentUser(user);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setHasResult(false);
@@ -50,11 +44,7 @@ export default function NamingPage() {
   };
 
   return (
-    <AppLayout
-      user={currentUser}
-      showRoleToggle={true}
-      onRoleChange={handleRoleChange}
-    >
+    <AppLayout user={currentUser}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">상품명 생성</h1>
 

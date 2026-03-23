@@ -140,7 +140,6 @@ export default function CompaniesAdminPage() {
     return (
       <AppLayout
         user={currentUser}
-        showRoleToggle={false}
       >
         <div className="max-w-2xl mx-auto">
           <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
@@ -160,7 +159,6 @@ export default function CompaniesAdminPage() {
   return (
     <AppLayout
       user={currentUser}
-      showRoleToggle={false}
     >
       <div className="max-w-6xl">
         {/* Header */}

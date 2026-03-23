@@ -5,18 +5,13 @@ import { Sparkles, ThumbsUp, ThumbsDown, Copy } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { DownloadButton } from '@/components/download-button';
 import { mockUsers, mockAdResults } from '@/lib/mock-data';
-import { UserRole, AdResultItem } from '@/types';
+import { AdResultItem } from '@/types';
 
 export default function AdsPage() {
   const [currentUser, setCurrentUser] = useState(mockUsers[0]);
   const [generationCount, setGenerationCount] = useState<10 | 20>(20);
   const [hasResult, setHasResult] = useState(false);
   const [results, setResults] = useState<AdResultItem[]>([]);
-
-  const handleRoleChange = (role: UserRole) => {
-    const user = mockUsers.find((u) => u.role === role) || mockUsers[0];
-    setCurrentUser(user);
-  };
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +31,7 @@ export default function AdsPage() {
   };
 
   return (
-    <AppLayout
-      user={currentUser}
-      showRoleToggle={true}
-      onRoleChange={handleRoleChange}
-    >
+    <AppLayout user={currentUser}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">광고 보조</h1>
 

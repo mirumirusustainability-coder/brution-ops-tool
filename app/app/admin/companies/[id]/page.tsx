@@ -219,7 +219,6 @@ export default function CompanyUsersPage({
     return (
       <AppLayout
         user={currentUser}
-        showRoleToggle={false}
       >
         <div className="max-w-2xl mx-auto">
           <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
@@ -238,7 +237,7 @@ export default function CompanyUsersPage({
 
   if (!company) {
     return (
-      <AppLayout user={currentUser} showRoleToggle={false}>
+      <AppLayout user={currentUser}>
         <div className="text-center py-12">
           <p className="text-gray-600">고객사를 찾을 수 없습니다</p>
         </div>
@@ -254,7 +253,6 @@ export default function CompanyUsersPage({
   return (
     <AppLayout
       user={currentUser}
-      showRoleToggle={false}
     >
       <div className="max-w-4xl">
         {/* Header */}

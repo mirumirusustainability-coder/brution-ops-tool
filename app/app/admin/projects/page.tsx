@@ -149,7 +149,7 @@ export default function AdminProjectsPage() {
   }
 
   return (
-    <AppLayout user={currentUser} showRoleToggle={false}>
+    <AppLayout user={currentUser}>
       <div className="max-w-6xl">
         <div className="flex flex-col gap-4 mb-6">
           <h1 className="text-2xl font-bold text-gray-900">프로젝트 관리</h1>

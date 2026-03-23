@@ -367,7 +367,7 @@ export default function ProjectDetailPage({
 
   if (!project) {
     return (
-      <AppLayout user={currentUser} showRoleToggle={false}>
+      <AppLayout user={currentUser}>
         <div className="text-center py-12">
           <p className="text-gray-600">프로젝트를 찾을 수 없습니다</p>
         </div>
@@ -385,7 +385,6 @@ export default function ProjectDetailPage({
     <AppLayout
       user={currentUser}
       currentProject={{ id: project.id, name: project.name }}
-      showRoleToggle={false}
     >
       <div className="max-w-6xl">
         {/* Project Header */}
