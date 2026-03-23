@@ -1,15 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 import { Upload, FileSpreadsheet, FileJson, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { StatusBadge } from '@/components/status-badge';
 import { DownloadButton } from '@/components/download-button';
-import { mockUsers, mockKeywordData } from '@/lib/mock-data';
-import { KeywordData } from '@/types';
+import { mockKeywordData } from '@/lib/mock-data';
+import { KeywordData, User, UserRole } from '@/types';
 
 export default function KeywordAnalysisPage() {
-  const [currentUser, setCurrentUser] = useState(mockUsers[0]);
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [hasResult, setHasResult] = useState(false);
   const [results, setResults] = useState<KeywordData[]>([]);
   const [copied, setCopied] = useState(false);
@@ -30,12 +35,114 @@ export default function KeywordAnalysisPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  useEffect(() => {
+    let active = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.replace('/login');
+        if (active) {
+          setError('로그인이 필요합니다');
+          setLoading(false);
+        }
+        return;
+      }
+
+      const sessionRole = session.user.user_metadata?.role ?? null;
+      let me: {
+        userId: string;
+        email: string;
+        role: string | null;
+        companyId: string | null;
+        mustChangePassword: boolean;
+        status: string;
+      } | null = null;
+
+      if (sessionRole) {
+        me = {
+          userId: session.user.id,
+          email: session.user.email ?? '',
+          role: sessionRole,
+          companyId: session.user.user_metadata?.company_id ?? null,
+          mustChangePassword: false,
+          status: 'active',
+        };
+      } else {
+        const meResponse = await fetch('/api/auth/me', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        if (meResponse.status === 401) {
+          router.replace('/login');
+          if (active) {
+            setError('로그인이 필요합니다');
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (!meResponse.ok) {
+          if (active) {
+            setError('사용자 정보를 불러올 수 없습니다');
+            setLoading(false);
+          }
+          return;
+        }
+
+        me = await meResponse.json();
+      }
+
+      const user: User = {
+        id: me?.userId ?? '',
+        email: me?.email ?? '',
+        name: me?.email ?? '',
+        role: (me?.role ?? 'staff') as UserRole,
+        companyId: me?.companyId ?? '',
+        mustChangePassword: me?.mustChangePassword ?? false,
+        status: (me?.status ?? 'active') as 'active' | 'inactive',
+      };
+
+      if (active) {
+        setCurrentUser(user);
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
   const summary = {
     total: results.length,
     maintain: results.filter((r) => r.classification === '유지').length,
     exclude: results.filter((r) => r.classification === '제외').length,
     check: results.filter((r) => r.classification === '확인필요').length,
   };
+
+  if (loading && !currentUser) {
+    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>;
+  }
+
+  if (error && !currentUser) {
+    return <div className="p-6 text-sm text-red-600">{error}</div>;
+  }
+
+  if (!currentUser) {
+    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
+  }
 
   return (
     <AppLayout user={currentUser}>
