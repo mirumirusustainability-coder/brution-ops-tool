@@ -50,6 +50,8 @@ export default function CompanyUsersPage({
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [userTempPasswords, setUserTempPasswords] = useState<Record<string, string>>({});
+  const [resetLoading, setResetLoading] = useState<Record<string, boolean>>({});
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'client_admin' | 'client_member'>('client_member');
@@ -174,6 +176,33 @@ export default function CompanyUsersPage({
       active = false;
     };
   }, [resolvedParams.id, router]);
+
+  const handleResetPassword = async (userId: string) => {
+    setResetLoading((prev) => ({ ...prev, [userId]: true }));
+    try {
+      const response = await fetch(
+        `/api/admin/companies/${resolvedParams.id}/users/${userId}/reset-password`,
+        { method: 'POST' }
+      );
+
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json().catch(() => null);
+      const newPassword = data?.tempPassword;
+      if (newPassword) {
+        setUserTempPasswords((prev) => ({ ...prev, [userId]: newPassword }));
+      }
+    } finally {
+      setResetLoading((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
 
   // SSOT 하드룰: StaffAdmin만 접근 가능
   const isStaffAdmin = currentUser?.role === 'staff_admin';
@@ -410,25 +439,38 @@ export default function CompanyUsersPage({
               <div className="text-sm text-gray-500">등록된 사용자가 없습니다</div>
             ) : (
               users.map((item) => (
-                <div
-                  key={item.user_id}
-                  className="flex items-center justify-between p-3 bg-muted rounded-md"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-full">
-                      <User className="w-4 h-4 text-primary" />
+                <div key={item.user_id} className="bg-muted rounded-md p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-full">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {item.name ?? '이름 없음'}
+                        </p>
+                        <p className="text-xs text-gray-500">{item.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {item.name ?? '이름 없음'}
-                      </p>
-                      <p className="text-xs text-gray-500">{item.email}</p>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-500">{item.role}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleResetPassword(item.user_id)}
+                        disabled={resetLoading[item.user_id]}
+                        className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50"
+                      >
+                        {resetLoading[item.user_id] ? '재발급 중...' : '재발급'}
+                      </button>
                     </div>
                   </div>
 
-                  <span className="text-xs text-gray-500">
-                    {item.role}
-                  </span>
+                  {userTempPasswords[item.user_id] && (
+                    <div className="mt-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
+                      임시 비밀번호: {userTempPasswords[item.user_id]} — 복사 후 고객에게 전달하세요
+                    </div>
+                  )}
                 </div>
               ))
             )}
