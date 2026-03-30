@@ -14,6 +14,7 @@ type AdminProject = {
   description: string | null
   company_id: string
   step: number
+  status?: 'active' | 'completed' | 'paused'
   company?: { name?: string | null } | null
 }
 
@@ -43,6 +44,14 @@ type AdminDeliverableVersion = {
   created_at: string
 }
 
+type AdminAsset = {
+  id: string
+  deliverable_version_id: string
+  path: string
+  original_name: string | null
+  created_at: string
+}
+
 const deliverableTypeOptions = [
   { value: 'keyword', label: '키워드분석' },
   { value: 'ads', label: '광고세팅' },
@@ -51,6 +60,12 @@ const deliverableTypeOptions = [
   { value: 'creative', label: '광고크리에이티브' },
   { value: 'seo', label: 'SEO' },
 ]
+
+const getFileNameFromPath = (path?: string | null) => {
+  if (!path) return null
+  const parts = path.split('/')
+  return parts[parts.length - 1] || null
+}
 
 
 export default function AdminProjectDetailPage({
@@ -63,6 +78,7 @@ export default function AdminProjectDetailPage({
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [project, setProject] = useState<AdminProject | null>(null)
   const [deliverables, setDeliverables] = useState<AdminDeliverable[]>([])
+  const [assetsByVersion, setAssetsByVersion] = useState<Record<string, AdminAsset[]>>({})
   const [companies, setCompanies] = useState<AdminCompany[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -81,12 +97,27 @@ export default function AdminProjectDetailPage({
   const [selectedDeliverable, setSelectedDeliverable] = useState<AdminDeliverable | null>(null)
   const [stepUpdating, setStepUpdating] = useState(false)
   const [stepError, setStepError] = useState<string | null>(null)
+  const [statusUpdating, setStatusUpdating] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null)
+  const [assetDeleteError, setAssetDeleteError] = useState<string | null>(null)
+  const [deletingProject, setDeletingProject] = useState(false)
+  const [deleteProjectError, setDeleteProjectError] = useState<string | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editCompanyId, setEditCompanyId] = useState('')
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+
+  const buildAssetsByVersion = (assets: AdminAsset[]) =>
+    assets.reduce<Record<string, AdminAsset[]>>((acc, asset) => {
+      if (!acc[asset.deliverable_version_id]) {
+        acc[asset.deliverable_version_id] = []
+      }
+      acc[asset.deliverable_version_id].push(asset)
+      return acc
+    }, {})
 
   const fetchProject = async () => {
     const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, { cache: 'no-store' })
@@ -105,6 +136,8 @@ export default function AdminProjectDetailPage({
     const data = await response.json()
     setProject(data?.project ?? null)
     setDeliverables(Array.isArray(data?.deliverables) ? data.deliverables : [])
+    const assets = Array.isArray(data?.assets) ? data.assets : []
+    setAssetsByVersion(buildAssetsByVersion(assets))
   }
 
   const handleStepChange = async (nextStep: number) => {
@@ -127,6 +160,80 @@ export default function AdminProjectDetailPage({
     const data = await response.json().catch(() => null)
     setProject((prev) => (prev ? { ...prev, step: data?.project?.step ?? nextStep } : prev))
     setStepUpdating(false)
+  }
+
+  const handleStatusChange = async (nextStatus: 'active' | 'completed' | 'paused') => {
+    if (!project) return
+    setStatusUpdating(true)
+    setStatusError(null)
+
+    const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: nextStatus }),
+    })
+
+    if (!response.ok) {
+      setStatusError('상태 변경에 실패했습니다')
+      setStatusUpdating(false)
+      return
+    }
+
+    const data = await response.json().catch(() => null)
+    setProject((prev) => (prev ? { ...prev, status: data?.project?.status ?? nextStatus } : prev))
+    setStatusUpdating(false)
+  }
+
+  const handleDeleteAsset = async (assetId: string, versionId: string) => {
+    const confirmed = window.confirm('정말 이 파일을 삭제하시겠습니까?')
+    if (!confirmed) return
+
+    setDeletingAssetId(assetId)
+    setAssetDeleteError(null)
+
+    const response = await fetch(`/api/admin/assets/${assetId}`, { method: 'DELETE' })
+
+    if (!response.ok) {
+      setAssetDeleteError('파일 삭제에 실패했습니다')
+      setDeletingAssetId(null)
+      return
+    }
+
+    setAssetsByVersion((prev) => {
+      const updated = { ...prev }
+      const nextAssets = (updated[versionId] ?? []).filter((asset) => asset.id !== assetId)
+      if (nextAssets.length > 0) {
+        updated[versionId] = nextAssets
+      } else {
+        delete updated[versionId]
+      }
+      return updated
+    })
+
+    setDeletingAssetId(null)
+  }
+
+  const handleDeleteProject = async () => {
+    if (!project) return
+    const confirmed = window.confirm(
+      `정말 ${project.name}을 삭제하시겠습니까? 모든 산출물과 파일이 삭제됩니다.`
+    )
+    if (!confirmed) return
+
+    setDeletingProject(true)
+    setDeleteProjectError(null)
+
+    const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      setDeleteProjectError('프로젝트 삭제에 실패했습니다')
+      setDeletingProject(false)
+      return
+    }
+
+    router.replace('/app/admin/projects')
   }
 
   const openEditModal = () => {
@@ -259,6 +366,8 @@ export default function AdminProjectDetailPage({
     )
   }
 
+  const currentStatus = project.status ?? 'active'
+
   return (
     <AppLayout user={currentUser}>
       <div className="max-w-6xl space-y-6">
@@ -268,10 +377,50 @@ export default function AdminProjectDetailPage({
               <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
               <button
                 onClick={openEditModal}
-                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
               >
-                수정
+                프로젝트 수정
               </button>
+              {currentStatus === 'active' && (
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange('completed')}
+                  disabled={statusUpdating}
+                  className="px-3 py-1.5 rounded-md text-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                >
+                  완료 처리
+                </button>
+              )}
+              {currentStatus === 'completed' && (
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange('active')}
+                  disabled={statusUpdating}
+                  className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                >
+                  재개
+                </button>
+              )}
+              {currentStatus === 'paused' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange('active')}
+                    disabled={statusUpdating}
+                    className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    재개
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange('completed')}
+                    disabled={statusUpdating}
+                    className="px-3 py-1.5 rounded-md text-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  >
+                    완료 처리
+                  </button>
+                </>
+              )}
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
@@ -289,6 +438,7 @@ export default function AdminProjectDetailPage({
               readonly={false}
             />
             {stepError && <div className="mt-2 text-xs text-red-600">{stepError}</div>}
+            {statusError && <div className="mt-2 text-xs text-red-600">{statusError}</div>}
           </div>
         </div>
 
@@ -304,6 +454,7 @@ export default function AdminProjectDetailPage({
         </div>
 
         {error && <div className="text-sm text-red-600">{error}</div>}
+        {assetDeleteError && <div className="text-sm text-red-600">{assetDeleteError}</div>}
 
         <div className="space-y-4">
           {deliverables.length === 0 ? (
@@ -332,15 +483,44 @@ export default function AdminProjectDetailPage({
 
                 <div className="mt-4 space-y-2">
                   {deliverable.versions?.length ? (
-                    deliverable.versions.map((version) => (
-                      <div key={version.id} className="flex items-center justify-between bg-muted rounded-md p-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">v{version.version_no}</p>
-                          <p className="text-xs text-gray-500">{version.title || '제목 없음'}</p>
+                    deliverable.versions.map((version) => {
+                      const assets = assetsByVersion[version.id] ?? []
+
+                      return (
+                        <div key={version.id} className="flex flex-col gap-2 bg-muted rounded-md p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">v{version.version_no}</p>
+                              <p className="text-xs text-gray-500">{version.title || '제목 없음'}</p>
+                            </div>
+                            <span className="text-xs text-gray-500">{version.status}</span>
+                          </div>
+                          <div className="space-y-1">
+                            {assets.length ? (
+                              assets.map((asset) => {
+                                const fileName = asset.original_name ?? getFileNameFromPath(asset.path) ?? '파일'
+
+                                return (
+                                  <div key={asset.id} className="flex items-center justify-between text-xs text-gray-600">
+                                    <span className="truncate">{fileName}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteAsset(asset.id, version.id)}
+                                      disabled={deletingAssetId === asset.id}
+                                      className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                                    >
+                                      {deletingAssetId === asset.id ? '삭제 중...' : '삭제'}
+                                    </button>
+                                  </div>
+                                )
+                              })
+                            ) : (
+                              <p className="text-xs text-gray-400">업로드된 파일 없음</p>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-xs text-gray-500">{version.status}</span>
-                      </div>
-                    ))
+                      )
+                    })
                   ) : (
                     <div className="text-sm text-gray-500">버전이 없습니다</div>
                   )}
@@ -348,6 +528,17 @@ export default function AdminProjectDetailPage({
               </div>
             ))
           )}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          {deleteProjectError && <div className="text-sm text-red-600">{deleteProjectError}</div>}
+          <button
+            type="button"
+            onClick={handleDeleteProject}
+            disabled={deletingProject}
+            className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {deletingProject ? '삭제 중...' : '프로젝트 삭제'}
+          </button>
         </div>
       </div>
 

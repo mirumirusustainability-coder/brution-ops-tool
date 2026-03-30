@@ -65,7 +65,7 @@ export const GET = async (
 
     const { data: project, error: projectError } = await admin
       .from('projects')
-      .select('id, name, description, created_at, company_id, step, companies(name)')
+      .select('id, name, description, created_at, company_id, step, status, companies(name)')
       .eq('id', id)
       .single()
 
@@ -101,6 +101,22 @@ export const GET = async (
       versions = versionsData ?? []
     }
 
+    const versionIds = versions.map((version) => version.id)
+    let assets: any[] = []
+    if (versionIds.length > 0) {
+      const { data: assetsData, error: assetsError } = await admin
+        .from('assets')
+        .select('id, deliverable_version_id, path, original_name, created_at')
+        .in('deliverable_version_id', versionIds)
+        .order('created_at', { ascending: false })
+
+      if (assetsError) {
+        return NextResponse.json({ error: 'ASSETS_FETCH_FAILED' }, { status: 500 })
+      }
+
+      assets = assetsData ?? []
+    }
+
     const versionsByDeliverable: Record<string, any[]> = {}
     versions.forEach((version) => {
       if (!versionsByDeliverable[version.deliverable_id]) {
@@ -127,6 +143,7 @@ export const GET = async (
         },
       },
       deliverables: responseDeliverables,
+      assets,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
@@ -167,6 +184,14 @@ export const PATCH = async (
       updates.step = body.step
     }
 
+    if (typeof body?.status === 'string') {
+      const allowedStatuses = ['active', 'completed', 'paused']
+      if (!allowedStatuses.includes(body.status)) {
+        return NextResponse.json({ error: 'INVALID_STATUS' }, { status: 400 })
+      }
+      updates.status = body.status
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'NO_UPDATES' }, { status: 400 })
     }
@@ -177,7 +202,7 @@ export const PATCH = async (
       .from('projects')
       .update(updates)
       .eq('id', id)
-      .select('id, name, description, created_at, company_id, step')
+      .select('id, name, description, created_at, company_id, step, status')
       .single()
 
     if (error || !data) {
@@ -185,6 +210,101 @@ export const PATCH = async (
     }
 
     return NextResponse.json({ project: data })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'UNKNOWN'
+    const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
+    return NextResponse.json({ error: message }, { status })
+  }
+}
+
+export const DELETE = async (
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const profile = await getProfile()
+    if (!isStaffAdmin(profile.role)) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    }
+
+    const { id } = await params
+    const admin = createSupabaseAdmin()
+
+    const { data: assets, error: assetsError } = await admin
+      .from('assets')
+      .select('id, path, bucket')
+      .eq('project_id', id)
+
+    if (assetsError) {
+      return NextResponse.json({ error: 'ASSETS_FETCH_FAILED' }, { status: 500 })
+    }
+
+    const pathsByBucket = (assets ?? []).reduce<Record<string, string[]>>((acc, asset) => {
+      if (!acc[asset.bucket]) {
+        acc[asset.bucket] = []
+      }
+      acc[asset.bucket].push(asset.path)
+      return acc
+    }, {})
+
+    for (const [bucket, paths] of Object.entries(pathsByBucket)) {
+      if (paths.length === 0) continue
+      const { error: storageError } = await admin.storage.from(bucket).remove(paths)
+      if (storageError) {
+        return NextResponse.json({ error: 'ASSET_STORAGE_DELETE_FAILED' }, { status: 500 })
+      }
+    }
+
+    const { error: assetsDeleteError } = await admin
+      .from('assets')
+      .delete()
+      .eq('project_id', id)
+
+    if (assetsDeleteError) {
+      return NextResponse.json({ error: 'ASSETS_DELETE_FAILED' }, { status: 500 })
+    }
+
+    const { data: deliverables, error: deliverablesError } = await admin
+      .from('deliverables')
+      .select('id')
+      .eq('project_id', id)
+
+    if (deliverablesError) {
+      return NextResponse.json({ error: 'DELIVERABLES_FETCH_FAILED' }, { status: 500 })
+    }
+
+    const deliverableIds = (deliverables ?? []).map((deliverable) => deliverable.id)
+
+    if (deliverableIds.length > 0) {
+      const { error: versionsDeleteError } = await admin
+        .from('deliverable_versions')
+        .delete()
+        .in('deliverable_id', deliverableIds)
+
+      if (versionsDeleteError) {
+        return NextResponse.json({ error: 'DELIVERABLE_VERSIONS_DELETE_FAILED' }, { status: 500 })
+      }
+    }
+
+    const { error: deliverablesDeleteError } = await admin
+      .from('deliverables')
+      .delete()
+      .eq('project_id', id)
+
+    if (deliverablesDeleteError) {
+      return NextResponse.json({ error: 'DELIVERABLES_DELETE_FAILED' }, { status: 500 })
+    }
+
+    const { error: projectDeleteError } = await admin
+      .from('projects')
+      .delete()
+      .eq('id', id)
+
+    if (projectDeleteError) {
+      return NextResponse.json({ error: 'PROJECT_DELETE_FAILED' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500

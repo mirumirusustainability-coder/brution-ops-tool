@@ -17,6 +17,7 @@
 
 ### ✅ UI (STEP3-A)
 - 프로젝트/산출물/다운로드/관리자 화면 등 UI 프로토타입 유지
+- STEP 진행률 표시 및 프로젝트 상태/삭제 관리 UI 추가
 
 ## URL
 - **Production**: (배포 전)
@@ -53,9 +54,16 @@
 ### Admin (StaffAdmin)
 - `GET /api/admin/companies`
 - `POST /api/admin/companies`
+- `DELETE /api/admin/companies/{companyId}`
+- `DELETE /api/admin/companies/{companyId}/users/{userId}`
 - `POST /api/admin/companies/{companyId}/users` (Seat5 체크)
 - `POST /api/admin/users/{userId}/reset-password`
 - `PATCH /api/admin/users/{userId}` (inactive)
+- `GET /api/admin/projects`
+- `POST /api/admin/projects`
+- `PATCH /api/admin/projects/{projectId}` (STEP/상태/고객사 업데이트)
+- `DELETE /api/admin/projects/{projectId}`
+- `DELETE /api/admin/assets/{assetId}`
 
 ### Projects / Versions
 - `GET /api/projects`
@@ -142,4 +150,4 @@ webapp/
 ## 배포
 - **플랫폼**: Cloudflare Pages
 - **상태**: ❌ 미배포
-- **마지막 업데이트**: 2026-03-09
+- **마지막 업데이트**: 2026-03-30

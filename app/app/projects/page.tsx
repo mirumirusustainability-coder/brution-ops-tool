@@ -34,6 +34,16 @@ const mapProject = (project: ApiProject): ProjectSummary => ({
   updatedAt: project.updated_at,
 });
 
+const stepLabels: Record<number, string> = {
+  0: '스타터 패키지',
+  1: '브랜드 기획',
+  2: '디자인·인증',
+  3: '생산·납품',
+  4: '출시',
+};
+
+const getStepLabel = (step: number) => stepLabels[step] ?? stepLabels[0];
+
 export default function ProjectsPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -216,7 +226,7 @@ export default function ProjectsPage() {
                         </h3>
                       </div>
                       <span className="shrink-0 rounded-full bg-blue-600 px-2 py-1 text-xs font-semibold text-white">
-                        STEP {project.step}
+                        STEP {project.step} · {getStepLabel(project.step)}
                       </span>
                     </div>
                     {project.description && (

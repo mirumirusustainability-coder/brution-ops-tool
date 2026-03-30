@@ -13,6 +13,7 @@ type ApiProject = {
   description: string | null
   created_at: string
   company_id: string
+  status?: 'active' | 'completed' | 'paused'
   companies?: { name?: string } | { name?: string }[] | null
 }
 
@@ -29,6 +30,13 @@ const stepOptions = [
   { value: 4, label: 'STEP 4 · 출시' },
 ]
 
+const statusTabs = [
+  { value: 'all', label: '전체' },
+  { value: 'active', label: '진행중' },
+  { value: 'completed', label: '완료' },
+  { value: 'paused', label: '보류' },
+]
+
 const getCompanyName = (company: ApiProject['companies']) => {
   if (!company) return ''
   if (Array.isArray(company)) return company[0]?.name ?? ''
@@ -43,6 +51,7 @@ export default function AdminProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'paused'>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
@@ -179,9 +188,13 @@ export default function AdminProjectsPage() {
 
   const filteredProjects = useMemo(() => {
     const keyword = query.trim().toLowerCase()
-    if (!keyword) return projects
-    return projects.filter((project) => project.name.toLowerCase().includes(keyword))
-  }, [projects, query])
+    let result = projects
+    if (statusFilter !== 'all') {
+      result = result.filter((project) => (project.status ?? 'active') === statusFilter)
+    }
+    if (!keyword) return result
+    return result.filter((project) => project.name.toLowerCase().includes(keyword))
+  }, [projects, query, statusFilter])
 
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
@@ -218,6 +231,25 @@ export default function AdminProjectsPage() {
               placeholder="프로젝트명 검색"
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md"
             />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {statusTabs.map((tab) => {
+              const isActive = statusFilter === tab.value
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.value as 'all' | 'active' | 'completed' | 'paused')}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    isActive
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -345,28 +377,36 @@ export default function AdminProjectsPage() {
               등록된 프로젝트가 없습니다
             </div>
           ) : (
-            filteredProjects.map((project) => (
-              <button
-                key={project.id}
-                onClick={() => router.push(`/app/admin/projects/${project.id}`)}
-                className="w-full text-left bg-white border border-border rounded-lg p-5 hover:shadow-sm transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{project.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {project.description || '설명 없음'}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      고객사: {getCompanyName(project.companies) || '미지정'}
-                    </p>
+            filteredProjects.map((project) => {
+              const isCompleted = (project.status ?? 'active') === 'completed'
+
+              return (
+                <button
+                  key={project.id}
+                  onClick={() => router.push(`/app/admin/projects/${project.id}`)}
+                  className={`w-full text-left border border-border rounded-lg p-5 hover:shadow-sm transition-shadow ${
+                    isCompleted ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className={`font-semibold ${isCompleted ? 'text-gray-600' : 'text-gray-900'}`}>
+                        {project.name}
+                      </h3>
+                      <p className={`text-sm mt-1 ${isCompleted ? 'text-gray-500' : 'text-gray-500'}`}>
+                        {project.description || '설명 없음'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        고객사: {getCompanyName(project.companies) || '미지정'}
+                      </p>
+                    </div>
+                    <div className="text-right text-xs text-gray-500">
+                      <p className="mt-1">{new Date(project.created_at).toLocaleDateString('ko-KR')}</p>
+                    </div>
                   </div>
-                  <div className="text-right text-xs text-gray-500">
-                    <p className="mt-1">{new Date(project.created_at).toLocaleDateString('ko-KR')}</p>
-                  </div>
-                </div>
-              </button>
-            ))
+                </button>
+              )
+            })
           )}
         </div>
       </div>

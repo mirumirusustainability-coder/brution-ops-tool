@@ -401,8 +401,8 @@ export default function ProjectDetailPage({
           )}
           <div className="mt-4 rounded-lg border border-border bg-white p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-sm text-gray-600">프로젝트 STEP</span>
-              <span className="text-sm font-semibold text-primary">STEP {project.step}</span>
+              <span className="text-base text-gray-600">프로젝트 STEP</span>
+              <span className="text-base font-semibold text-primary">STEP {project.step}</span>
             </div>
             <StepProgress currentStep={project.step ?? 0} readonly={true} />
           </div>

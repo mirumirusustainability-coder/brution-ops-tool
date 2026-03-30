@@ -49,13 +49,13 @@ export function StepProgress({ currentStep, onStepChange, readonly = true }: Ste
               disabled={readonly}
               className="flex flex-col items-center gap-1 text-center disabled:cursor-default"
             >
-              <span className={`flex h-10 w-10 items-center justify-center rounded-full ${circleClass}`}>
-                <Icon className="h-5 w-5" />
+              <span className={`flex h-12 w-12 items-center justify-center rounded-full ${circleClass}`}>
+                <Icon className="h-6 w-6" />
               </span>
               <div className="text-center">
-                <span className="block text-[10px] font-semibold text-gray-700">STEP {index}</span>
+                <span className="block text-[13px] font-semibold text-gray-700">STEP {index}</span>
                 <span
-                  className={`hidden sm:block text-[11px] ${
+                  className={`hidden sm:block text-[14px] ${
                     isCurrent ? 'text-blue-600 font-semibold' : 'text-gray-600'
                   }`}
                 >
@@ -63,7 +63,7 @@ export function StepProgress({ currentStep, onStepChange, readonly = true }: Ste
                 </span>
               </div>
               {isCurrent && (
-                <span className="mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">
+                <span className="mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[12px] font-semibold text-yellow-800">
                   진행중
                 </span>
               )}

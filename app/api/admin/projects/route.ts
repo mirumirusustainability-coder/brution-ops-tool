@@ -60,7 +60,7 @@ export const GET = async () => {
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('projects')
-      .select('id, name, description, created_at, company_id, step, companies(name)')
+      .select('id, name, description, created_at, company_id, step, status, companies(name)')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -108,7 +108,7 @@ export const POST = async (request: Request) => {
         step,
         created_by: profile.user_id,
       })
-      .select('id, name, description, created_at, company_id, step')
+      .select('id, name, description, created_at, company_id, step, status')
       .single()
 
     if (error || !data) {
