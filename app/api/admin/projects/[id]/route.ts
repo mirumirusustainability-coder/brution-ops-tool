@@ -65,7 +65,7 @@ export const GET = async (
 
     const { data: project, error: projectError } = await admin
       .from('projects')
-      .select('id, name, description, created_at, company_id, companies(name)')
+      .select('id, name, description, created_at, company_id, step, companies(name)')
       .eq('id', id)
       .single()
 
@@ -128,6 +128,43 @@ export const GET = async (
       },
       deliverables: responseDeliverables,
     })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'UNKNOWN'
+    const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
+    return NextResponse.json({ error: message }, { status })
+  }
+}
+
+export const PATCH = async (
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const profile = await getProfile()
+    if (!isStaffAdmin(profile.role)) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    }
+
+    const body = await request.json().catch(() => null)
+    const stepInput = body?.step
+    if (typeof stepInput !== 'number' || stepInput < 0 || stepInput > 4) {
+      return NextResponse.json({ error: 'INVALID_STEP' }, { status: 400 })
+    }
+
+    const { id } = await params
+    const admin = createSupabaseAdmin()
+    const { data, error } = await admin
+      .from('projects')
+      .update({ step: stepInput })
+      .eq('id', id)
+      .select('id, name, description, created_at, company_id, step')
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'PROJECT_UPDATE_FAILED' }, { status: 500 })
+    }
+
+    return NextResponse.json({ project: data })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500

@@ -60,7 +60,7 @@ export const GET = async () => {
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('projects')
-      .select('id, name, description, created_at, company_id, companies(name)')
+      .select('id, name, description, created_at, company_id, step, companies(name)')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -86,6 +86,7 @@ export const POST = async (request: Request) => {
     const name = body?.name
     const description = body?.description ?? null
     const companyId = body?.companyId
+    const stepInput = body?.step
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'INVALID_NAME' }, { status: 400 })
@@ -95,6 +96,8 @@ export const POST = async (request: Request) => {
       return NextResponse.json({ error: 'INVALID_COMPANY' }, { status: 400 })
     }
 
+    const step = typeof stepInput === 'number' && stepInput >= 0 && stepInput <= 4 ? stepInput : 0
+
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('projects')
@@ -102,9 +105,10 @@ export const POST = async (request: Request) => {
         name,
         description,
         company_id: companyId,
+        step,
         created_by: profile.user_id,
       })
-      .select('id, name, description, created_at, company_id')
+      .select('id, name, description, created_at, company_id, step')
       .single()
 
     if (error || !data) {

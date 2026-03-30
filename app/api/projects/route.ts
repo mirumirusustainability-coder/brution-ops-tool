@@ -57,7 +57,7 @@ export const GET = async (_request: Request) => {
 
     let query = admin
       .from('projects')
-      .select('id, company_id, name, description, created_at, updated_at')
+      .select('id, company_id, name, description, step, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (!isStaff(profile.role)) {
@@ -91,6 +91,7 @@ export const POST = async (request: Request) => {
     const description = body?.description ?? null
     const staff = isStaff(profile.role)
     const companyId = staff ? body?.companyId : profile.company_id
+    const stepInput = body?.step
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'INVALID_NAME' }, { status: 400 })
@@ -100,15 +101,18 @@ export const POST = async (request: Request) => {
       return NextResponse.json({ error: 'INVALID_COMPANY' }, { status: 400 })
     }
 
+    const step = typeof stepInput === 'number' && stepInput >= 0 && stepInput <= 4 ? stepInput : 0
+
     const { data, error } = await admin
       .from('projects')
       .insert({
         name,
         description,
         company_id: companyId,
+        step,
         created_by: profile.user_id
       })
-      .select('id, company_id, name, description, created_at, updated_at')
+      .select('id, company_id, name, description, step, created_at, updated_at')
       .single()
 
     if (error || !data) {

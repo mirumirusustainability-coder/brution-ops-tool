@@ -12,6 +12,7 @@ type ApiProject = {
   company_id: string;
   name: string;
   description: string | null;
+  step: number;
   created_at: string;
   updated_at: string;
 };
@@ -28,6 +29,7 @@ const mapProject = (project: ApiProject): ProjectSummary => ({
   name: project.name,
   companyId: project.company_id,
   description: project.description,
+  step: project.step ?? 0,
   createdAt: project.created_at,
   updatedAt: project.updated_at,
 });
@@ -359,9 +361,14 @@ export default function ProjectsPage() {
                     <Folder className="w-5 h-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">
-                      {project.name}
-                    </h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-gray-900 mb-1">
+                        {project.name}
+                      </h3>
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                        STEP {project.step}
+                      </span>
+                    </div>
                     {project.description && (
                       <p className="text-sm text-gray-600 line-clamp-2">
                         {project.description}

@@ -14,6 +14,7 @@ type ApiProject = {
   company_id: string;
   name: string;
   description: string | null;
+  step: number;
   created_at: string;
   updated_at: string;
 };
@@ -52,6 +53,7 @@ const mapProject = (project: ApiProject): ProjectDetail => ({
   name: project.name,
   companyId: project.company_id,
   description: project.description,
+  step: project.step ?? 0,
   createdAt: project.created_at,
   updatedAt: project.updated_at,
 });
@@ -69,6 +71,8 @@ const getFileNameFromPath = (path?: string | null) => {
   const parts = path.split('/');
   return parts[parts.length - 1] || null;
 };
+
+const stepLabels = ['준비', '착수', '진행', '검수', '완료'];
 
 export default function ProjectDetailPage({
   params,
@@ -395,6 +399,26 @@ export default function ProjectDetailPage({
           {project.description && (
             <p className="text-gray-600">{project.description}</p>
           )}
+          <div className="mt-4 rounded-lg border border-border bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-gray-600">현재 STEP</span>
+              <span className="text-sm font-semibold text-primary">
+                STEP {project.step} · {stepLabels[project.step] ?? '진행'}
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-5 gap-2">
+              {stepLabels.map((label, index) => (
+                <div key={label} className="space-y-1">
+                  <div
+                    className={`h-2 w-full rounded-full ${
+                      index <= project.step ? 'bg-primary' : 'bg-gray-200'
+                    }`}
+                  />
+                  <div className="text-[10px] text-gray-500">STEP {index}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {loading && (

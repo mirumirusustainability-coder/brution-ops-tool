@@ -32,6 +32,7 @@ export interface Project {
   name: string;
   companyId: string;
   description?: string;
+  step: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +43,7 @@ export interface ProjectSummary {
   name: string;
   companyId: string;
   description?: string | null;
+  step: number;
   createdAt: string;
   updatedAt: string;
 }

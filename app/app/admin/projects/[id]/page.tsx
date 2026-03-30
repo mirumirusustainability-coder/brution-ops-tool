@@ -12,6 +12,7 @@ type AdminProject = {
   name: string
   description: string | null
   company_id: string
+  step: number
   company?: { name?: string | null } | null
 }
 
@@ -45,6 +46,14 @@ const deliverableTypeOptions = [
   { value: 'seo', label: 'SEO' },
 ]
 
+const stepOptions = [
+  { value: 0, label: 'STEP 0 · 준비' },
+  { value: 1, label: 'STEP 1 · 착수' },
+  { value: 2, label: 'STEP 2 · 진행' },
+  { value: 3, label: 'STEP 3 · 검수' },
+  { value: 4, label: 'STEP 4 · 완료' },
+]
+
 export default function AdminProjectDetailPage({
   params,
 }: {
@@ -70,6 +79,8 @@ export default function AdminProjectDetailPage({
   const [versionError, setVersionError] = useState<string | null>(null)
   const [creatingVersion, setCreatingVersion] = useState(false)
   const [selectedDeliverable, setSelectedDeliverable] = useState<AdminDeliverable | null>(null)
+  const [stepUpdating, setStepUpdating] = useState(false)
+  const [stepError, setStepError] = useState<string | null>(null)
 
   const fetchProject = async () => {
     const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, { cache: 'no-store' })
@@ -88,6 +99,28 @@ export default function AdminProjectDetailPage({
     const data = await response.json()
     setProject(data?.project ?? null)
     setDeliverables(Array.isArray(data?.deliverables) ? data.deliverables : [])
+  }
+
+  const updateStep = async (nextStep: number) => {
+    if (!project) return
+    setStepUpdating(true)
+    setStepError(null)
+
+    const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step: nextStep }),
+    })
+
+    if (!response.ok) {
+      setStepError('STEP 변경에 실패했습니다')
+      setStepUpdating(false)
+      return
+    }
+
+    const data = await response.json().catch(() => null)
+    setProject((prev) => (prev ? { ...prev, step: data?.project?.step ?? nextStep } : prev))
+    setStepUpdating(false)
   }
 
   useEffect(() => {
@@ -209,6 +242,23 @@ export default function AdminProjectDetailPage({
           <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
           <p className="text-sm text-gray-600 mt-1">{project.description || '설명 없음'}</p>
           <p className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">현재 STEP</span>
+            <select
+              value={project.step ?? 0}
+              onChange={(event) => updateStep(Number(event.target.value))}
+              disabled={stepUpdating}
+              className="min-w-[200px] px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              {stepOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {stepUpdating && <span className="text-xs text-gray-500">저장 중...</span>}
+            {stepError && <span className="text-xs text-red-600">{stepError}</span>}
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
