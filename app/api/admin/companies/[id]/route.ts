@@ -104,3 +104,62 @@ export const GET = async (
     return NextResponse.json({ error: message }, { status })
   }
 }
+
+export const DELETE = async (
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const profile = await getProfile()
+    if (!isStaffAdmin(profile.role)) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    }
+
+    const { id } = await params
+    const admin = createSupabaseAdmin()
+
+    const { data: members, error: membersError } = await admin
+      .from('profiles')
+      .select('user_id')
+      .eq('company_id', id)
+
+    if (membersError) {
+      return NextResponse.json({ error: 'MEMBERS_FETCH_FAILED' }, { status: 500 })
+    }
+
+    const userIds = (members ?? []).map((member) => member.user_id)
+
+    const { error: profileDeleteError } = await admin
+      .from('profiles')
+      .delete()
+      .eq('company_id', id)
+
+    if (profileDeleteError) {
+      return NextResponse.json({ error: 'PROFILES_DELETE_FAILED' }, { status: 500 })
+    }
+
+    const authDeleteResults = await Promise.all(
+      userIds.map((userId) => admin.auth.admin.deleteUser(userId))
+    )
+
+    const authDeleteFailed = authDeleteResults.some((result) => result.error)
+    if (authDeleteFailed) {
+      return NextResponse.json({ error: 'AUTH_DELETE_FAILED' }, { status: 500 })
+    }
+
+    const { error: companyDeleteError } = await admin
+      .from('companies')
+      .delete()
+      .eq('id', id)
+
+    if (companyDeleteError) {
+      return NextResponse.json({ error: 'COMPANY_DELETE_FAILED' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'UNKNOWN'
+    const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
+    return NextResponse.json({ error: message }, { status })
+  }
+}

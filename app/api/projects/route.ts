@@ -57,7 +57,7 @@ export const GET = async (_request: Request) => {
 
     let query = admin
       .from('projects')
-      .select('id, company_id, name, description, step, created_at, updated_at')
+      .select('id, company_id, name, description, step, created_at, updated_at, companies(name)')
       .order('created_at', { ascending: false })
 
     if (!isStaff(profile.role)) {

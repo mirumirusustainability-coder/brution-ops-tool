@@ -52,6 +52,8 @@ export default function CompanyUsersPage({
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [userTempPasswords, setUserTempPasswords] = useState<Record<string, string>>({});
   const [resetLoading, setResetLoading] = useState<Record<string, boolean>>({});
+  const [removeLoading, setRemoveLoading] = useState<Record<string, boolean>>({});
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'client_admin' | 'client_member'>('client_member');
@@ -204,6 +206,60 @@ export default function CompanyUsersPage({
     }
   };
 
+  const handleRemoveUser = async (userId: string, nameLabel: string) => {
+    const confirmed = window.confirm(`정말 ${nameLabel}을 제거하시겠습니까?`);
+    if (!confirmed) return;
+
+    setRemoveLoading((prev) => ({ ...prev, [userId]: true }));
+    try {
+      const response = await fetch(`/api/admin/companies/${resolvedParams.id}/users/${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        return;
+      }
+
+      await loadUsers();
+    } finally {
+      setRemoveLoading((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!company) return;
+    const confirmed = window.confirm(
+      `정말 ${company.name}을 삭제하시겠습니까? 모든 데이터가 삭제됩니다.`
+    );
+    if (!confirmed) return;
+
+    setDeleteLoading(true);
+    try {
+      const response = await fetch(`/api/admin/companies/${resolvedParams.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        setError('고객사 삭제에 실패했습니다');
+        return;
+      }
+
+      router.replace('/app/admin/companies');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   // SSOT 하드룰: StaffAdmin만 접근 가능
   const isStaffAdmin = currentUser?.role === 'staff_admin';
 
@@ -256,13 +312,23 @@ export default function CompanyUsersPage({
     >
       <div className="max-w-4xl">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
-            {company.name} - 사용자 관리
-          </h1>
-          <p className="text-sm text-gray-600">
-            사용자를 발급하고 관리합니다 ({activeUserCount}/5명)
-          </p>
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+              {company.name} - 사용자 관리
+            </h1>
+            <p className="text-sm text-gray-600">
+              사용자를 발급하고 관리합니다 ({activeUserCount}/5명)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleDeleteCompany}
+            disabled={deleteLoading}
+            className="px-4 py-2 rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+          >
+            {deleteLoading ? '삭제 중...' : '고객사 삭제'}
+          </button>
         </div>
 
         {/* Seat 제한 경고 */}
@@ -460,6 +526,14 @@ export default function CompanyUsersPage({
                         className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50"
                       >
                         {resetLoading[item.user_id] ? '재발급 중...' : '재발급'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveUser(item.user_id, item.name ?? item.email)}
+                        disabled={removeLoading[item.user_id]}
+                        className="text-xs px-3 py-1.5 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {removeLoading[item.user_id] ? '제거 중...' : '제거'}
                       </button>
                     </div>
                   </div>

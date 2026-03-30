@@ -7,7 +7,7 @@ const steps = [
   { label: '브랜드 기획', icon: Lightbulb },
   { label: '디자인·인증', icon: Palette },
   { label: '생산·납품', icon: Package },
-  { label: '운영 지원', icon: BarChart2 },
+  { label: '출시', icon: BarChart2 },
 ]
 
 type StepProgressProps = {
@@ -52,10 +52,16 @@ export function StepProgress({ currentStep, onStepChange, readonly = true }: Ste
               <span className={`flex h-10 w-10 items-center justify-center rounded-full ${circleClass}`}>
                 <Icon className="h-5 w-5" />
               </span>
-              <span className="text-[10px] font-semibold text-gray-700">STEP {index}</span>
-              <span className="hidden sm:block text-[11px] text-gray-600">
-                {step.label}
-              </span>
+              <div className="text-center">
+                <span className="block text-[10px] font-semibold text-gray-700">STEP {index}</span>
+                <span
+                  className={`hidden sm:block text-[11px] ${
+                    isCurrent ? 'text-blue-600 font-semibold' : 'text-gray-600'
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
               {isCurrent && (
                 <span className="mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">
                   진행중

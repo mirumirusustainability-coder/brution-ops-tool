@@ -26,7 +26,7 @@ const stepOptions = [
   { value: 1, label: 'STEP 1 · 브랜드 기획' },
   { value: 2, label: 'STEP 2 · 디자인·인증' },
   { value: 3, label: 'STEP 3 · 생산·납품' },
-  { value: 4, label: 'STEP 4 · 운영 지원' },
+  { value: 4, label: 'STEP 4 · 출시' },
 ]
 
 const getCompanyName = (company: ApiProject['companies']) => {

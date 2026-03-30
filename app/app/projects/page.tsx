@@ -15,6 +15,13 @@ type ApiProject = {
   step: number;
   created_at: string;
   updated_at: string;
+  companies?: { name?: string } | { name?: string }[] | null;
+};
+
+const getCompanyName = (company: ApiProject['companies']) => {
+  if (!company) return '';
+  if (Array.isArray(company)) return company[0]?.name ?? '';
+  return company.name ?? '';
 };
 
 const mapProject = (project: ApiProject): ProjectSummary => ({
@@ -202,9 +209,12 @@ export default function ProjectsPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-gray-900 mb-1">
-                        {project.name}
-                      </h3>
+                      <div>
+                        <p className="text-xs text-gray-500">{getCompanyName(project.companies) || '고객사'}</p>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {project.name}
+                        </h3>
+                      </div>
                       <span className="shrink-0 rounded-full bg-blue-600 px-2 py-1 text-xs font-semibold text-white">
                         STEP {project.step}
                       </span>
