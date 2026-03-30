@@ -69,7 +69,7 @@ export const GET = async (
     }
 
     const isStaffAdmin = profile.role === 'staff_admin'
-    if (!isStaffAdmin && version.status !== 'published') {
+    if (!isStaffAdmin && !['approved', 'published'].includes(version.status)) {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     }
 

@@ -11,12 +11,12 @@ const statusConfig = {
     label: '초안',
     className: 'bg-gray-100 text-gray-700 border-gray-300',
   },
-  review: {
+  in_review: {
     label: '검수중',
     className: 'bg-yellow-100 text-yellow-700 border-yellow-300',
   },
   approved: {
-    label: '승인완료',
+    label: '공개',
     className: 'bg-green-100 text-green-700 border-green-300',
   },
   published: {
@@ -26,7 +26,10 @@ const statusConfig = {
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] ?? {
+    label: status,
+    className: 'bg-gray-100 text-gray-700 border-gray-300',
+  };
 
   return (
     <span

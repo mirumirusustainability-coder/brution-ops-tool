@@ -61,6 +61,12 @@ const deliverableTypeOptions = [
   { value: 'seo', label: 'SEO' },
 ]
 
+const versionStatusOptions = [
+  { value: 'draft', label: '초안' },
+  { value: 'in_review', label: '검수중' },
+  { value: 'approved', label: '공개' },
+]
+
 const getFileNameFromPath = (path?: string | null) => {
   if (!path) return null
   const parts = path.split('/')
@@ -89,12 +95,27 @@ export default function AdminProjectDetailPage({
   const [deliverableVisibility, setDeliverableVisibility] = useState<'internal' | 'client'>('internal')
   const [deliverableError, setDeliverableError] = useState<string | null>(null)
   const [creatingDeliverable, setCreatingDeliverable] = useState(false)
+  const [showDeliverableEditModal, setShowDeliverableEditModal] = useState(false)
+  const [editingDeliverable, setEditingDeliverable] = useState<AdminDeliverable | null>(null)
+  const [editDeliverableTitle, setEditDeliverableTitle] = useState('')
+  const [editDeliverableType, setEditDeliverableType] = useState('keyword')
+  const [editDeliverableVisibility, setEditDeliverableVisibility] = useState<'internal' | 'client'>('internal')
+  const [editDeliverableError, setEditDeliverableError] = useState<string | null>(null)
+  const [savingDeliverable, setSavingDeliverable] = useState(false)
+  const [deletingDeliverableId, setDeletingDeliverableId] = useState<string | null>(null)
+  const [deliverableDeleteError, setDeliverableDeleteError] = useState<string | null>(null)
 
   const [showVersionModal, setShowVersionModal] = useState(false)
   const [versionTitle, setVersionTitle] = useState('')
   const [versionError, setVersionError] = useState<string | null>(null)
   const [creatingVersion, setCreatingVersion] = useState(false)
   const [selectedDeliverable, setSelectedDeliverable] = useState<AdminDeliverable | null>(null)
+  const [uploadingVersionId, setUploadingVersionId] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [versionUpdatingId, setVersionUpdatingId] = useState<string | null>(null)
+  const [versionUpdateError, setVersionUpdateError] = useState<string | null>(null)
+  const [deletingVersionId, setDeletingVersionId] = useState<string | null>(null)
+  const [versionDeleteError, setVersionDeleteError] = useState<string | null>(null)
   const [stepUpdating, setStepUpdating] = useState(false)
   const [stepError, setStepError] = useState<string | null>(null)
   const [statusUpdating, setStatusUpdating] = useState(false)
@@ -234,6 +255,137 @@ export default function AdminProjectDetailPage({
     }
 
     router.replace('/app/admin/projects')
+  }
+
+  const openDeliverableEditModal = (deliverable: AdminDeliverable) => {
+    setEditingDeliverable(deliverable)
+    setEditDeliverableTitle(deliverable.title || '')
+    setEditDeliverableType(deliverable.type)
+    setEditDeliverableVisibility(deliverable.visibility)
+    setEditDeliverableError(null)
+    setShowDeliverableEditModal(true)
+  }
+
+  const handleDeliverableUpdate = async () => {
+    if (!editingDeliverable) return
+    if (!editDeliverableTitle.trim()) {
+      setEditDeliverableError('제목을 입력하세요')
+      return
+    }
+
+    setSavingDeliverable(true)
+    setEditDeliverableError(null)
+
+    const response = await fetch(`/api/admin/deliverables/${editingDeliverable.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: editDeliverableTitle.trim(),
+        type: editDeliverableType,
+        visibility: editDeliverableVisibility,
+      }),
+    })
+
+    if (!response.ok) {
+      setEditDeliverableError('Deliverable 수정에 실패했습니다')
+      setSavingDeliverable(false)
+      return
+    }
+
+    setShowDeliverableEditModal(false)
+    setSavingDeliverable(false)
+    await fetchProject()
+  }
+
+  const handleDeliverableDelete = async (deliverable: AdminDeliverable) => {
+    const confirmed = window.confirm(
+      `정말 ${deliverable.title || 'Deliverable'}을 삭제하시겠습니까? 모든 버전과 파일이 삭제됩니다.`
+    )
+    if (!confirmed) return
+
+    setDeletingDeliverableId(deliverable.id)
+    setDeliverableDeleteError(null)
+
+    const response = await fetch(`/api/admin/deliverables/${deliverable.id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      setDeliverableDeleteError('Deliverable 삭제에 실패했습니다')
+      setDeletingDeliverableId(null)
+      return
+    }
+
+    setDeletingDeliverableId(null)
+    await fetchProject()
+  }
+
+  const handleVersionStatusChange = async (versionId: string, nextStatus: string) => {
+    setVersionUpdatingId(versionId)
+    setVersionUpdateError(null)
+
+    const response = await fetch(`/api/admin/deliverable-versions/${versionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: nextStatus }),
+    })
+
+    if (!response.ok) {
+      setVersionUpdateError('버전 상태 변경에 실패했습니다')
+      setVersionUpdatingId(null)
+      return
+    }
+
+    await fetchProject()
+    setVersionUpdatingId(null)
+  }
+
+  const handleVersionDelete = async (versionId: string) => {
+    const confirmed = window.confirm('정말 이 버전을 삭제하시겠습니까? 모든 파일이 삭제됩니다.')
+    if (!confirmed) return
+
+    setDeletingVersionId(versionId)
+    setVersionDeleteError(null)
+
+    const response = await fetch(`/api/admin/deliverable-versions/${versionId}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      setVersionDeleteError('버전 삭제에 실패했습니다')
+      setDeletingVersionId(null)
+      return
+    }
+
+    await fetchProject()
+    setDeletingVersionId(null)
+  }
+
+  const handleAdminUpload = async (versionId: string, file: File) => {
+    if (!project) return
+
+    setUploadingVersionId(versionId)
+    setUploadError(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('deliverableVersionId', versionId)
+    formData.append('projectId', project.id)
+    formData.append('companyId', project.company_id)
+
+    const response = await fetch('/api/admin/assets', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      setUploadError('파일 업로드에 실패했습니다')
+      setUploadingVersionId(null)
+      return
+    }
+
+    await fetchProject()
+    setUploadingVersionId(null)
   }
 
   const openEditModal = () => {
@@ -382,14 +534,24 @@ export default function AdminProjectDetailPage({
                 프로젝트 수정
               </button>
               {currentStatus === 'active' && (
-                <button
-                  type="button"
-                  onClick={() => handleStatusChange('completed')}
-                  disabled={statusUpdating}
-                  className="px-3 py-1.5 rounded-md text-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                >
-                  완료 처리
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange('completed')}
+                    disabled={statusUpdating}
+                    className="px-3 py-1.5 rounded-md text-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  >
+                    완료 처리
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange('paused')}
+                    disabled={statusUpdating}
+                    className="px-3 py-1.5 rounded-md text-sm text-white bg-gray-500 hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    보류
+                  </button>
+                </>
               )}
               {currentStatus === 'completed' && (
                 <button
@@ -455,6 +617,10 @@ export default function AdminProjectDetailPage({
 
         {error && <div className="text-sm text-red-600">{error}</div>}
         {assetDeleteError && <div className="text-sm text-red-600">{assetDeleteError}</div>}
+        {uploadError && <div className="text-sm text-red-600">{uploadError}</div>}
+        {versionUpdateError && <div className="text-sm text-red-600">{versionUpdateError}</div>}
+        {versionDeleteError && <div className="text-sm text-red-600">{versionDeleteError}</div>}
+        {deliverableDeleteError && <div className="text-sm text-red-600">{deliverableDeleteError}</div>}
 
         <div className="space-y-4">
           {deliverables.length === 0 ? (
@@ -469,31 +635,101 @@ export default function AdminProjectDetailPage({
                       타입: {deliverable.type} · 공개범위: {deliverable.visibility}
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedDeliverable(deliverable)
-                      setShowVersionModal(true)
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    새 버전 추가
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openDeliverableEditModal(deliverable)}
+                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md"
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeliverableDelete(deliverable)}
+                      disabled={deletingDeliverableId === deliverable.id}
+                      className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-md disabled:opacity-50"
+                    >
+                      {deletingDeliverableId === deliverable.id ? '삭제 중...' : '삭제'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedDeliverable(deliverable)
+                        setShowVersionModal(true)
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md"
+                    >
+                      <Plus className="w-4 h-4" />
+                      새 버전 추가
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 space-y-2">
                   {deliverable.versions?.length ? (
                     deliverable.versions.map((version) => {
                       const assets = assetsByVersion[version.id] ?? []
+                      const inputId = `admin-upload-${version.id}`
+                      const normalizedStatus = version.status === 'review' ? 'in_review' : version.status
+                      const statusValue = versionStatusOptions.some(
+                        (option) => option.value === normalizedStatus
+                      )
+                        ? normalizedStatus
+                        : 'draft'
 
                       return (
-                        <div key={version.id} className="flex flex-col gap-2 bg-muted rounded-md p-3">
-                          <div className="flex items-center justify-between">
+                        <div key={version.id} className="flex flex-col gap-3 bg-muted rounded-md p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-medium text-gray-900">v{version.version_no}</p>
                               <p className="text-xs text-gray-500">{version.title || '제목 없음'}</p>
                             </div>
-                            <span className="text-xs text-gray-500">{version.status}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                value={statusValue}
+                                onChange={(event) =>
+                                  handleVersionStatusChange(version.id, event.target.value)
+                                }
+                                disabled={versionUpdatingId === version.id}
+                                className="px-2 py-1 text-xs border border-gray-300 rounded-md"
+                              >
+                                {versionStatusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                id={inputId}
+                                type="file"
+                                className="hidden"
+                                onChange={(event) => {
+                                  const selectedFile = event.target.files?.[0]
+                                  if (selectedFile) {
+                                    handleAdminUpload(version.id, selectedFile)
+                                    event.target.value = ''
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const input = document.getElementById(inputId) as HTMLInputElement | null
+                                  input?.click()
+                                }}
+                                disabled={uploadingVersionId === version.id}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
+                              >
+                                {uploadingVersionId === version.id ? '업로드 중...' : '파일 업로드'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleVersionDelete(version.id)}
+                                disabled={deletingVersionId === version.id}
+                                className="px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-md disabled:opacity-50"
+                              >
+                                {deletingVersionId === version.id ? '삭제 중...' : '버전 삭제'}
+                              </button>
+                            </div>
                           </div>
                           <div className="space-y-1">
                             {assets.length ? (
@@ -626,6 +862,66 @@ export default function AdminProjectDetailPage({
                 className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
               >
                 {creatingDeliverable ? '생성 중...' : '생성'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeliverableEditModal && editingDeliverable && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-md rounded-lg p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Deliverable 수정</h3>
+              <button onClick={() => setShowDeliverableEditModal(false)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                value={editDeliverableTitle}
+                onChange={(event) => setEditDeliverableTitle(event.target.value)}
+                placeholder="제목"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+              <select
+                value={editDeliverableType}
+                onChange={(event) => setEditDeliverableType(event.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                {deliverableTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={editDeliverableVisibility}
+                onChange={(event) =>
+                  setEditDeliverableVisibility(event.target.value as 'internal' | 'client')
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="internal">내부용</option>
+                <option value="client">고객사 공개</option>
+              </select>
+              {editDeliverableError && <p className="text-sm text-red-600">{editDeliverableError}</p>}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowDeliverableEditModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                disabled={savingDeliverable}
+                onClick={handleDeliverableUpdate}
+                className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
+              >
+                {savingDeliverable ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>

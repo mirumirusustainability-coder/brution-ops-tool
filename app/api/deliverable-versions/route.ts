@@ -98,7 +98,37 @@ export const GET = async (request: Request) => {
       return NextResponse.json({ error: 'DELIVERABLE_VERSIONS_FETCH_FAILED' }, { status: 500 })
     }
 
-    return NextResponse.json({ versions: data ?? [] })
+    const versionIds = (data ?? []).map((version) => version.id)
+    let assets: any[] = []
+    if (versionIds.length > 0) {
+      const { data: assetsData, error: assetsError } = await admin
+        .from('assets')
+        .select('id, deliverable_version_id, path, original_name')
+        .in('deliverable_version_id', versionIds)
+        .order('created_at', { ascending: false })
+
+      if (assetsError) {
+        return NextResponse.json({ error: 'ASSETS_FETCH_FAILED' }, { status: 500 })
+      }
+
+      assets = assetsData ?? []
+    }
+
+    const assetByVersion = assets.reduce<Record<string, any>>((acc, asset) => {
+      if (!acc[asset.deliverable_version_id]) {
+        acc[asset.deliverable_version_id] = asset
+      }
+      return acc
+    }, {})
+
+    const versions = (data ?? []).map((version) => ({
+      ...version,
+      asset_id: assetByVersion[version.id]?.id ?? null,
+      asset_path: assetByVersion[version.id]?.path ?? null,
+      asset_name: assetByVersion[version.id]?.original_name ?? null,
+    }))
+
+    return NextResponse.json({ versions })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500

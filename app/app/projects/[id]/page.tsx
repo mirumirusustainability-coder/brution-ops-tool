@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Upload } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { StepProgress } from '@/components/step-progress';
 import { StatusBadge } from '@/components/status-badge';
@@ -37,11 +37,14 @@ type ApiDeliverableVersion = {
   deliverable_id: string;
   company_id: string;
   version_no: number;
-  status: 'draft' | 'review' | 'approved' | 'published';
+  status: 'draft' | 'in_review' | 'approved' | 'published';
   title: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  asset_id?: string | null;
+  asset_path?: string | null;
+  asset_name?: string | null;
 };
 
 type AssetInfo = {
@@ -90,47 +93,6 @@ export default function ProjectDetailPage({
   const [assetsByVersion, setAssetsByVersion] = useState<Record<string, AssetInfo>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploadingVersionId, setUploadingVersionId] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const handleUpload = async (versionId: string, file: File) => {
-    if (!project) return;
-    setUploadingVersionId(versionId);
-    setUploadError(null);
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('deliverableVersionId', versionId);
-    formData.append('projectId', project.id);
-    formData.append('companyId', project.companyId);
-
-    const response = await fetch('/api/assets/upload', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (response.status === 401) {
-      router.push('/login');
-      setUploadingVersionId(null);
-      return;
-    }
-
-    if (!response.ok) {
-      setUploadError('업로드에 실패했습니다.');
-      setUploadingVersionId(null);
-      return;
-    }
-
-    const data = await response.json().catch(() => null);
-    if (data?.assetId && data?.path) {
-      setAssetsByVersion((prev) => ({
-        ...prev,
-        [versionId]: { assetId: data.assetId, path: data.path },
-      }));
-    }
-
-    setUploadingVersionId(null);
-  };
 
   useEffect(() => {
     let active = true;
@@ -337,8 +299,17 @@ export default function ProjectDetailPage({
       }
 
       const nextVersions: Record<string, ApiDeliverableVersion[]> = {};
+      const nextAssets: Record<string, AssetInfo> = {};
       versionsEntries.forEach((entry) => {
         nextVersions[entry.id] = entry.versions;
+        entry.versions.forEach((version) => {
+          if (version.asset_id) {
+            nextAssets[version.id] = {
+              assetId: version.asset_id,
+              path: version.asset_path ?? version.asset_name ?? '',
+            };
+          }
+        });
       });
 
       if (active) {
@@ -346,6 +317,7 @@ export default function ProjectDetailPage({
         setProject(detail);
         setDeliverables(deliverableList);
         setVersionsByDeliverable(nextVersions);
+        setAssetsByVersion(nextAssets);
         setLoading(false);
       }
     };
@@ -383,7 +355,6 @@ export default function ProjectDetailPage({
     ? deliverables.filter((d) => d.visibility === 'client')
     : deliverables;
 
-  const isStaffAdmin = currentUser.role === 'staff_admin';
 
   return (
     <AppLayout
@@ -412,7 +383,6 @@ export default function ProjectDetailPage({
           <div className="text-sm text-gray-500 mb-4">프로젝트 정보를 불러오는 중입니다...</div>
         )}
         {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
-        {uploadError && <div className="text-sm text-red-600 mb-4">{uploadError}</div>}
 
         {/* Deliverables Section */}
         <div className="space-y-6">
@@ -452,11 +422,14 @@ export default function ProjectDetailPage({
                     {/* Versions */}
                     <div className="space-y-2">
                       {versions
+                        .filter((version) =>
+                          currentUser.role.startsWith('client') ? version.status === 'approved' : true
+                        )
                         .sort((a, b) => b.version_no - a.version_no)
                         .map((version) => {
                           const assetInfo = assetsByVersion[version.id];
                           const fileName = getFileNameFromPath(assetInfo?.path) ?? version.title ?? undefined;
-                          const inputId = `upload-${version.id}`;
+                          const normalizedStatus = version.status === 'review' ? 'in_review' : version.status;
 
                           return (
                             <div
@@ -464,7 +437,7 @@ export default function ProjectDetailPage({
                               className="flex items-center justify-between p-3 bg-muted rounded-md"
                             >
                               <div className="flex items-center gap-3 flex-1">
-                                <StatusBadge status={version.status} />
+                                <StatusBadge status={normalizedStatus} />
                                 <div className="flex-1">
                                   <p className="text-sm font-medium text-gray-900">
                                     v{version.version_no}
@@ -481,37 +454,8 @@ export default function ProjectDetailPage({
                               </div>
 
                               <div className="flex items-center gap-2 ml-4">
-                                {isStaffAdmin && (
-                                  <>
-                                    <input
-                                      id={inputId}
-                                      type="file"
-                                      className="hidden"
-                                      onChange={(event) => {
-                                        const selectedFile = event.target.files?.[0];
-                                        if (selectedFile) {
-                                          handleUpload(version.id, selectedFile);
-                                          event.target.value = '';
-                                        }
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const input = document.getElementById(inputId) as HTMLInputElement | null;
-                                        input?.click();
-                                      }}
-                                      disabled={uploadingVersionId === version.id}
-                                      className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-                                    >
-                                      <Upload className="w-4 h-4" />
-                                      {uploadingVersionId === version.id ? '업로드 중...' : '파일 업로드'}
-                                    </button>
-                                  </>
-                                )}
-
                                 <DownloadButton
-                                  status={version.status}
+                                  status={normalizedStatus}
                                   userRole={currentUser.role}
                                   assetId={assetInfo?.assetId}
                                   fileName={fileName}

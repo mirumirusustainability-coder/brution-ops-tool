@@ -2,7 +2,7 @@
 export type UserRole = 'staff_admin' | 'staff_member' | 'client_admin' | 'client_member';
 
 // Version Status
-export type VersionStatus = 'draft' | 'review' | 'approved' | 'published';
+export type VersionStatus = 'draft' | 'in_review' | 'approved' | 'published';
 
 // Deliverable Types
 export type DeliverableType = 'keyword' | 'ads' | 'market' | 'brand_identity' | 'naming';

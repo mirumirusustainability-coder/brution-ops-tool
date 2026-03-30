@@ -39,6 +39,16 @@
   - usage_monthly
 - **스토리지**: Supabase Storage (signed URL로 다운로드)
 
+## DB 변경 사항 (SQL)
+```sql
+ALTER TABLE projects 
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'
+CHECK (status IN ('active', 'completed', 'paused'));
+
+ALTER TYPE version_status_enum ADD VALUE IF NOT EXISTS 'in_review';
+ALTER TYPE version_status_enum ADD VALUE IF NOT EXISTS 'approved';
+```
+
 ## 핵심 보안/하드룰
 - Client 다운로드는 **published 상태만 허용**
 - **StaffAdmin만 published 전환 가능**
@@ -63,7 +73,12 @@
 - `POST /api/admin/projects`
 - `PATCH /api/admin/projects/{projectId}` (STEP/상태/고객사 업데이트)
 - `DELETE /api/admin/projects/{projectId}`
+- `POST /api/admin/assets` (파일 업로드)
 - `DELETE /api/admin/assets/{assetId}`
+- `PATCH /api/admin/deliverables/{deliverableId}`
+- `DELETE /api/admin/deliverables/{deliverableId}`
+- `PATCH /api/admin/deliverable-versions/{versionId}`
+- `DELETE /api/admin/deliverable-versions/{versionId}`
 
 ### Projects / Versions
 - `GET /api/projects`

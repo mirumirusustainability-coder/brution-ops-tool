@@ -24,9 +24,9 @@ export function DownloadButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 고객은 published만 다운로드 가능
+  // 고객은 approved 상태만 다운로드 가능
   const isClient = userRole.startsWith('client');
-  const canDownload = isClient ? status === 'published' : true;
+  const canDownload = isClient ? ['approved', 'published'].includes(status) : true;
   const disabled = !canDownload || !assetId || loading;
 
   const handleDownload = async () => {

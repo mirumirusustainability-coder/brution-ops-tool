@@ -53,9 +53,15 @@ export function StepProgress({ currentStep, onStepChange, readonly = true }: Ste
                 <Icon className="h-6 w-6" />
               </span>
               <div className="text-center">
-                <span className="block text-[13px] font-semibold text-gray-700">STEP {index}</span>
                 <span
-                  className={`hidden sm:block text-[14px] ${
+                  className={`block text-[13px] font-semibold ${
+                    isCurrent ? 'text-blue-600' : 'text-gray-700'
+                  }`}
+                >
+                  STEP {index}
+                </span>
+                <span
+                  className={`block text-[14px] ${
                     isCurrent ? 'text-blue-600 font-semibold' : 'text-gray-600'
                   }`}
                 >

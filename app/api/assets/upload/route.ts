@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createSupabaseAdmin } from '@/lib/supabase/server'
+import { isStaffAdmin } from '@/lib/supabase/auth'
 
 export const POST = async (request: Request) => {
   try {
@@ -23,6 +24,25 @@ export const POST = async (request: Request) => {
       return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
     }
 
+    const admin = createSupabaseAdmin()
+    const { data: profile, error: profileError } = await admin
+      .from('profiles')
+      .select('user_id, role, status')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
+    if (profile.status !== 'active') {
+      return NextResponse.json({ error: 'INACTIVE' }, { status: 403 })
+    }
+
+    if (!isStaffAdmin(profile.role)) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    }
+
     const formData = await request.formData()
     const file = formData.get('file')
     const deliverableVersionId = formData.get('deliverableVersionId') as string
@@ -41,7 +61,6 @@ export const POST = async (request: Request) => {
     const safeName = `${fileId}.${ext}`
     const path = `${companyId}/${projectId}/${deliverableVersionId}/${safeName}`
 
-    const admin = createSupabaseAdmin()
     const { error: uploadError } = await admin.storage
       .from('deliverables')
       .upload(path, file, { contentType: file.type, upsert: false })
