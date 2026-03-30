@@ -146,16 +146,36 @@ export const PATCH = async (
     }
 
     const body = await request.json().catch(() => null)
-    const stepInput = body?.step
-    if (typeof stepInput !== 'number' || stepInput < 0 || stepInput > 4) {
-      return NextResponse.json({ error: 'INVALID_STEP' }, { status: 400 })
+    const updates: Record<string, any> = {}
+
+    if (typeof body?.name === 'string' && body.name.trim()) {
+      updates.name = body.name.trim()
+    }
+
+    if (body?.description === null || typeof body?.description === 'string') {
+      updates.description = body.description === null ? null : body.description
+    }
+
+    if (typeof body?.companyId === 'string' && body.companyId.trim()) {
+      updates.company_id = body.companyId
+    }
+
+    if (typeof body?.step === 'number') {
+      if (body.step < 0 || body.step > 4) {
+        return NextResponse.json({ error: 'INVALID_STEP' }, { status: 400 })
+      }
+      updates.step = body.step
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'NO_UPDATES' }, { status: 400 })
     }
 
     const { id } = await params
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('projects')
-      .update({ step: stepInput })
+      .update(updates)
       .eq('id', id)
       .select('id, name, description, created_at, company_id, step')
       .single()

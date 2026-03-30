@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Folder, Plus, Clock } from 'lucide-react';
+import { Folder, Clock } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { createClient } from '@/lib/supabase/client';
 import { ProjectSummary, User, UserRole } from '@/types';
@@ -13,13 +13,6 @@ type ApiProject = {
   name: string;
   description: string | null;
   step: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type ApiCompany = {
-  id: string;
-  name: string;
   created_at: string;
   updated_at: string;
 };
@@ -38,15 +31,8 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [companies, setCompanies] = useState<ApiCompany[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [formName, setFormName] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formCompanyId, setFormCompanyId] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const loadProjects = async () => {
     const projectsResponse = await fetch('/api/projects', { cache: 'no-store' });
@@ -71,28 +57,6 @@ export default function ProjectsPage() {
     return { ok: true };
   };
 
-  const loadCompanies = async () => {
-    const response = await fetch('/api/admin/companies', { cache: 'no-store' });
-    if (response.status === 401) {
-      router.replace('/login');
-      return { ok: false };
-    }
-    if (response.status === 403) {
-      setError('접근 권한이 없습니다');
-      return { ok: false };
-    }
-    if (!response.ok) {
-      setError('고객사 목록을 불러올 수 없습니다');
-      return { ok: false };
-    }
-    const data = await response.json();
-    const items = Array.isArray(data?.companies) ? data.companies : [];
-    setCompanies(items);
-    if (!formCompanyId && items.length > 0) {
-      setFormCompanyId(items[0].id);
-    }
-    return { ok: true };
-  };
 
   useEffect(() => {
     let active = true;
@@ -174,9 +138,6 @@ export default function ProjectsPage() {
 
       await loadProjects();
 
-      if (user.role === 'staff_admin') {
-        await loadCompanies();
-      }
 
       if (active) {
         setLoading(false);
@@ -202,7 +163,6 @@ export default function ProjectsPage() {
     return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
   }
 
-  const canCreateProject = currentUser.role === 'staff_admin';
 
   return (
     <AppLayout user={currentUser}>
@@ -215,127 +175,7 @@ export default function ProjectsPage() {
               진행 중인 프로젝트를 관리하고 산출물을 확인하세요
             </p>
           </div>
-
-          {canCreateProject && (
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              새 프로젝트
-            </button>
-          )}
         </div>
-
-        {showCreateForm && canCreateProject && (
-          <div className="mb-6 bg-white border border-border rounded-lg p-4">
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setFormError(null);
-
-                if (!formName.trim()) {
-                  setFormError('프로젝트명을 입력하세요');
-                  return;
-                }
-
-                if (!formCompanyId) {
-                  setFormError('고객사를 선택하세요');
-                  return;
-                }
-
-                setCreating(true);
-                const response = await fetch('/api/projects', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    name: formName.trim(),
-                    description: formDescription.trim() || null,
-                    companyId: formCompanyId,
-                  }),
-                });
-
-                if (response.status === 401) {
-                  router.replace('/login');
-                  return;
-                }
-
-                if (response.status === 403) {
-                  setFormError('접근 권한이 없습니다');
-                  setCreating(false);
-                  return;
-                }
-
-                if (!response.ok) {
-                  setFormError('프로젝트 생성에 실패했습니다');
-                  setCreating(false);
-                  return;
-                }
-
-                setFormName('');
-                setFormDescription('');
-                setFormCompanyId(companies[0]?.id ?? '');
-                setShowCreateForm(false);
-                setCreating(false);
-                await loadProjects();
-              }}
-              className="space-y-3"
-            >
-              <div className="grid md:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="프로젝트명"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  required
-                />
-                <select
-                  value={formCompanyId}
-                  onChange={(e) => setFormCompanyId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  required
-                >
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <textarea
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="설명 (선택)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                rows={3}
-              />
-              {formError && <p className="text-sm text-red-600">{formError}</p>}
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
-                >
-                  {creating ? '생성 중...' : '생성'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setFormError(null);
-                    setFormName('');
-                    setFormDescription('');
-                    setFormCompanyId(companies[0]?.id ?? '');
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md"
-                >
-                  취소
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         {loading && (
           <div className="text-sm text-gray-500 mb-4">프로젝트 목록을 불러오는 중입니다...</div>
@@ -365,7 +205,7 @@ export default function ProjectsPage() {
                       <h3 className="font-semibold text-gray-900 mb-1">
                         {project.name}
                       </h3>
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                      <span className="shrink-0 rounded-full bg-blue-600 px-2 py-1 text-xs font-semibold text-white">
                         STEP {project.step}
                       </span>
                     </div>

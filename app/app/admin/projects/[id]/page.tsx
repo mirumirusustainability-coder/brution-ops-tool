@@ -17,6 +17,11 @@ type AdminProject = {
   company?: { name?: string | null } | null
 }
 
+type AdminCompany = {
+  id: string
+  name: string
+}
+
 type AdminDeliverable = {
   id: string
   project_id: string
@@ -58,6 +63,7 @@ export default function AdminProjectDetailPage({
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [project, setProject] = useState<AdminProject | null>(null)
   const [deliverables, setDeliverables] = useState<AdminDeliverable[]>([])
+  const [companies, setCompanies] = useState<AdminCompany[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,6 +81,12 @@ export default function AdminProjectDetailPage({
   const [selectedDeliverable, setSelectedDeliverable] = useState<AdminDeliverable | null>(null)
   const [stepUpdating, setStepUpdating] = useState(false)
   const [stepError, setStepError] = useState<string | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editCompanyId, setEditCompanyId] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const fetchProject = async () => {
     const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, { cache: 'no-store' })
@@ -115,6 +127,15 @@ export default function AdminProjectDetailPage({
     const data = await response.json().catch(() => null)
     setProject((prev) => (prev ? { ...prev, step: data?.project?.step ?? nextStep } : prev))
     setStepUpdating(false)
+  }
+
+  const openEditModal = () => {
+    if (!project) return
+    setEditName(project.name)
+    setEditDescription(project.description ?? '')
+    setEditCompanyId(project.company_id)
+    setEditError(null)
+    setShowEditModal(true)
   }
 
   useEffect(() => {
@@ -197,6 +218,15 @@ export default function AdminProjectDetailPage({
 
       await fetchProject()
 
+      const companiesResponse = await fetch('/api/admin/companies', { cache: 'no-store' })
+      if (companiesResponse.ok) {
+        const companyData = await companiesResponse.json()
+        const items = Array.isArray(companyData?.companies) ? companyData.companies : []
+        if (active) {
+          setCompanies(items)
+        }
+      }
+
       if (active) {
         setLoading(false)
       }
@@ -233,9 +263,19 @@ export default function AdminProjectDetailPage({
     <AppLayout user={currentUser}>
       <div className="max-w-6xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
-          <p className="text-sm text-gray-600 mt-1">{project.description || '설명 없음'}</p>
-          <p className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
+              <p className="text-sm text-gray-600 mt-1">{project.description || '설명 없음'}</p>
+              <p className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</p>
+            </div>
+            <button
+              onClick={openEditModal}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              프로젝트 수정
+            </button>
+          </div>
           <div className="mt-4 rounded-lg border border-border bg-white p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
               <span className="text-sm font-medium text-gray-700">프로젝트 STEP</span>
@@ -393,6 +433,91 @@ export default function AdminProjectDetailPage({
                 className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
               >
                 {creatingDeliverable ? '생성 중...' : '생성'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-md rounded-lg p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">프로젝트 수정</h3>
+              <button onClick={() => setShowEditModal(false)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                placeholder="프로젝트명"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+              <textarea
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+                placeholder="설명 (선택)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                rows={3}
+              />
+              <select
+                value={editCompanyId}
+                onChange={(event) => setEditCompanyId(event.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                disabled={editing}
+                onClick={async () => {
+                  if (!editName.trim()) {
+                    setEditError('프로젝트명을 입력하세요')
+                    return
+                  }
+
+                  setEditing(true)
+                  setEditError(null)
+
+                  const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: editName.trim(),
+                      description: editDescription.trim() || null,
+                      companyId: editCompanyId,
+                    }),
+                  })
+
+                  if (!response.ok) {
+                    setEditError('프로젝트 수정에 실패했습니다')
+                    setEditing(false)
+                    return
+                  }
+
+                  setShowEditModal(false)
+                  setEditing(false)
+                  await fetchProject()
+                }}
+                className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
+              >
+                {editing ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>
