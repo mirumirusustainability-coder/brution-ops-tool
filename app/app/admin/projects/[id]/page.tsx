@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
+import { StepProgress } from '@/components/step-progress'
 import { createBrowserClient } from '@supabase/ssr'
 import { User, UserRole } from '@/types'
 
@@ -46,13 +47,6 @@ const deliverableTypeOptions = [
   { value: 'seo', label: 'SEO' },
 ]
 
-const stepOptions = [
-  { value: 0, label: 'STEP 0 · 준비' },
-  { value: 1, label: 'STEP 1 · 착수' },
-  { value: 2, label: 'STEP 2 · 진행' },
-  { value: 3, label: 'STEP 3 · 검수' },
-  { value: 4, label: 'STEP 4 · 완료' },
-]
 
 export default function AdminProjectDetailPage({
   params,
@@ -101,7 +95,7 @@ export default function AdminProjectDetailPage({
     setDeliverables(Array.isArray(data?.deliverables) ? data.deliverables : [])
   }
 
-  const updateStep = async (nextStep: number) => {
+  const handleStepChange = async (nextStep: number) => {
     if (!project) return
     setStepUpdating(true)
     setStepError(null)
@@ -242,22 +236,17 @@ export default function AdminProjectDetailPage({
           <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
           <p className="text-sm text-gray-600 mt-1">{project.description || '설명 없음'}</p>
           <p className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-gray-700">현재 STEP</span>
-            <select
-              value={project.step ?? 0}
-              onChange={(event) => updateStep(Number(event.target.value))}
-              disabled={stepUpdating}
-              className="min-w-[200px] px-3 py-2 border border-gray-300 rounded-md text-sm"
-            >
-              {stepOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {stepUpdating && <span className="text-xs text-gray-500">저장 중...</span>}
-            {stepError && <span className="text-xs text-red-600">{stepError}</span>}
+          <div className="mt-4 rounded-lg border border-border bg-white p-4">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="text-sm font-medium text-gray-700">프로젝트 STEP</span>
+              {stepUpdating && <span className="text-xs text-gray-500">저장 중...</span>}
+            </div>
+            <StepProgress
+              currentStep={project.step ?? 0}
+              onStepChange={handleStepChange}
+              readonly={false}
+            />
+            {stepError && <div className="mt-2 text-xs text-red-600">{stepError}</div>}
           </div>
         </div>
 

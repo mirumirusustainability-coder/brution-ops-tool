@@ -1,0 +1,73 @@
+'use client'
+
+import { BarChart2, Lightbulb, Package, Palette, Search } from 'lucide-react'
+
+const steps = [
+  { label: '스타터 패키지', icon: Search },
+  { label: '브랜드 기획', icon: Lightbulb },
+  { label: '디자인·인증', icon: Palette },
+  { label: '생산·납품', icon: Package },
+  { label: '운영 지원', icon: BarChart2 },
+]
+
+type StepProgressProps = {
+  currentStep: number
+  onStepChange?: (step: number) => void
+  readonly?: boolean
+}
+
+export function StepProgress({ currentStep, onStepChange, readonly = true }: StepProgressProps) {
+  const safeStep = Number.isFinite(currentStep)
+    ? Math.min(4, Math.max(0, currentStep))
+    : 0
+
+  return (
+    <div className="flex items-center w-full">
+      {steps.map((step, index) => {
+        const Icon = step.icon
+        const isCompleted = index < safeStep
+        const isCurrent = index === safeStep
+        const isFuture = index > safeStep
+
+        const circleClass = isCurrent
+          ? 'bg-blue-600 text-white'
+          : isCompleted
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-200 text-gray-400'
+
+        const lineClass = index < safeStep ? 'bg-blue-500' : 'bg-gray-200'
+
+        return (
+          <div key={step.label} className="flex items-center flex-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (!readonly) {
+                  onStepChange?.(index)
+                }
+              }}
+              disabled={readonly}
+              className="flex flex-col items-center gap-1 text-center disabled:cursor-default"
+            >
+              <span className={`flex h-10 w-10 items-center justify-center rounded-full ${circleClass}`}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="text-[10px] font-semibold text-gray-700">STEP {index}</span>
+              <span className="hidden sm:block text-[11px] text-gray-600">
+                {step.label}
+              </span>
+              {isCurrent && (
+                <span className="mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">
+                  진행중
+                </span>
+              )}
+            </button>
+            {index < steps.length - 1 && (
+              <div className={`mx-2 h-0.5 flex-1 ${lineClass}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
