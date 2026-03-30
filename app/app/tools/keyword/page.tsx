@@ -145,7 +145,7 @@ export default function KeywordAnalysisPage() {
   }
 
   return (
-    <AppLayout user={currentUser}>
+    <AppLayout user={currentUser!}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">키워드 분석</h1>
 

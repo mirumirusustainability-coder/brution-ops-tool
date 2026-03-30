@@ -138,7 +138,7 @@ export default function AdsPage() {
   }
 
   return (
-    <AppLayout user={currentUser}>
+    <AppLayout user={currentUser!}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">광고 보조</h1>
 
