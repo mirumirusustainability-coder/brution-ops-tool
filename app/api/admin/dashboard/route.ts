@@ -63,21 +63,42 @@ export const GET = async () => {
 
     const admin = createSupabaseAdmin()
 
-    const [{ count: projectsCount }, { count: activeProjectsCount }, { count: companiesCount }, { count: usersCount }] =
-      await Promise.all([
-        admin.from('projects').select('id', { count: 'exact', head: true }),
-        admin.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        admin.from('companies').select('id', { count: 'exact', head: true }),
-        admin
-          .from('profiles')
-          .select('user_id', { count: 'exact', head: true })
-          .in('role', ['staff_admin', 'staff_member']),
-      ])
+    const [
+      { count: projectsCount },
+      { count: activeProjectsCount },
+      { count: companiesCount },
+      { count: usersCount },
+      { count: pausedProjectsCount },
+      { count: pendingVersionsCount },
+      { count: step0Count },
+      { count: step1Count },
+      { count: step2Count },
+      { count: step3Count },
+      { count: step4Count },
+    ] = await Promise.all([
+      admin.from('projects').select('id', { count: 'exact', head: true }),
+      admin.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      admin.from('companies').select('id', { count: 'exact', head: true }),
+      admin
+        .from('profiles')
+        .select('user_id', { count: 'exact', head: true })
+        .in('role', ['staff_admin', 'staff_member']),
+      admin.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'paused'),
+      admin
+        .from('deliverable_versions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'in_review'),
+      admin.from('projects').select('id', { count: 'exact', head: true }).eq('step', 0),
+      admin.from('projects').select('id', { count: 'exact', head: true }).eq('step', 1),
+      admin.from('projects').select('id', { count: 'exact', head: true }).eq('step', 2),
+      admin.from('projects').select('id', { count: 'exact', head: true }).eq('step', 3),
+      admin.from('projects').select('id', { count: 'exact', head: true }).eq('step', 4),
+    ])
 
     const { data: recentProjects, error: recentError } = await admin
       .from('projects')
-      .select('id, name, step, status, created_at, companies(name)')
-      .order('created_at', { ascending: false })
+      .select('id, name, step, status, created_at, updated_at, companies(name)')
+      .order('updated_at', { ascending: false })
       .limit(5)
 
     if (recentError) {
@@ -92,6 +113,15 @@ export const GET = async () => {
         users: usersCount ?? 0,
       },
       recentProjects: recentProjects ?? [],
+      stepCounts: {
+        0: step0Count ?? 0,
+        1: step1Count ?? 0,
+        2: step2Count ?? 0,
+        3: step3Count ?? 0,
+        4: step4Count ?? 0,
+      },
+      pendingVersions: pendingVersionsCount ?? 0,
+      pausedProjects: pausedProjectsCount ?? 0,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
