@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
+import { Breadcrumb } from '@/components/breadcrumb'
 import { StepProgress } from '@/components/step-progress'
 import { ToastContainer } from '@/components/toast'
 import { createBrowserClient } from '@supabase/ssr'
@@ -550,6 +551,13 @@ export default function AdminProjectDetailPage({
   return (
     <AppLayout user={currentUser}>
       <div className="max-w-6xl space-y-6">
+        <Breadcrumb
+          items={[
+            { label: '브루션 관리자', href: '/app/admin' },
+            { label: '프로젝트 관리', href: '/app/admin/projects' },
+            { label: project.name },
+          ]}
+        />
         <div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">

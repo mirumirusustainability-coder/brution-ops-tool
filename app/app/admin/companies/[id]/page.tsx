@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserPlus, ShieldAlert, Mail, User, AlertCircle } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { ToastContainer } from '@/components/toast';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -320,6 +321,13 @@ export default function CompanyUsersPage({
       user={currentUser}
     >
       <div className="max-w-4xl">
+        <Breadcrumb
+          items={[
+            { label: '브루션 관리자', href: '/app/admin' },
+            { label: '고객사 관리', href: '/app/admin/companies' },
+            { label: company.name },
+          ]}
+        />
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
