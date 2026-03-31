@@ -66,6 +66,15 @@ const menuItems: MenuItem[] = [
     icon: FileText,
     allowedRoles: ['staff_admin', 'staff_member'],
   },
+]
+
+const adminMenuItems: MenuItem[] = [
+  {
+    label: '대시보드',
+    href: '/app/admin',
+    icon: LayoutDashboard,
+    allowedRoles: ['staff_admin'],
+  },
   {
     label: '프로젝트 관리',
     href: '/app/admin/projects',
@@ -78,12 +87,15 @@ const menuItems: MenuItem[] = [
     icon: Building2,
     allowedRoles: ['staff_admin'],
   },
-];
+]
 
 export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const filteredItems = menuItems.filter((item) =>
+    item.allowedRoles.includes(userRole)
+  );
+  const filteredAdminItems = adminMenuItems.filter((item) =>
     item.allowedRoles.includes(userRole)
   );
 
@@ -142,6 +154,37 @@ export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
               );
             })}
           </ul>
+
+          {filteredAdminItems.length > 0 && (
+            <div className="mt-6">
+              <p className="px-3 text-xs font-semibold text-gray-400">관리자</p>
+              <div className="my-2 h-px bg-gray-200" />
+              <ul className="space-y-1">
+                {filteredAdminItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onClose}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-gray-700 hover:bg-muted'
+                        )}
+                      >
+                        <Icon className="w-5 h-5" />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </nav>
 
         {/* Footer */}
