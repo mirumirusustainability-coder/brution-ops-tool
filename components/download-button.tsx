@@ -24,10 +24,7 @@ export function DownloadButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 고객은 approved 상태만 다운로드 가능
-  const isClient = userRole.startsWith('client');
-  const canDownload = isClient ? ['approved', 'published'].includes(status) : true;
-  const disabled = !canDownload || !assetId || loading;
+  const disabled = !assetId || loading;
 
   const handleDownload = async () => {
     if (disabled || !assetId) return;
@@ -46,7 +43,7 @@ export function DownloadButton({
       }
 
       if (response.status === 403) {
-        setError('승인/공개 완료 시 다운로드 가능');
+        setError('다운로드 권한이 없습니다.');
         return;
       }
 
@@ -110,9 +107,6 @@ export function DownloadButton({
         <Download className="w-4 h-4" />
         {loading ? '다운로드 준비 중...' : '다운로드'}
       </button>
-      {!canDownload && isClient && (
-        <p className="text-xs text-gray-500 mt-1">승인 완료 후 다운로드 가능합니다</p>
-      )}
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   );

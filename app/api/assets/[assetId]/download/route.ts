@@ -50,27 +50,12 @@ export const GET = async (
 
     const { data: asset, error: assetError } = await admin
       .from('assets')
-      .select('id, bucket, path, deliverable_version_id, original_name')
+      .select('id, bucket, path, original_name')
       .eq('id', assetId)
       .single()
 
     if (assetError || !asset) {
       return NextResponse.json({ error: 'ASSET_NOT_FOUND' }, { status: 404 })
-    }
-
-    const { data: version, error: versionError } = await admin
-      .from('deliverable_versions')
-      .select('id, status')
-      .eq('id', asset.deliverable_version_id)
-      .single()
-
-    if (versionError || !version) {
-      return NextResponse.json({ error: 'VERSION_NOT_FOUND' }, { status: 404 })
-    }
-
-    const isStaffAdmin = profile.role === 'staff_admin'
-    if (!isStaffAdmin && !['approved', 'published'].includes(version.status)) {
-      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     }
 
     const { data: signedUrl, error: signedError } = await admin.storage

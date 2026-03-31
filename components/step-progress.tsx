@@ -27,13 +27,18 @@ export function StepProgress({ currentStep, onStepChange, readonly = true }: Ste
         const Icon = step.icon
         const isCompleted = index < safeStep
         const isCurrent = index === safeStep
-        const isFuture = index > safeStep
 
         const circleClass = isCurrent
           ? 'bg-blue-600 text-white'
           : isCompleted
             ? 'bg-blue-500 text-white'
             : 'bg-gray-200 text-gray-400'
+
+        const labelClass = isCurrent
+          ? 'text-blue-700 font-bold'
+          : isCompleted
+            ? 'text-blue-600'
+            : 'text-gray-400'
 
         const lineClass = index < safeStep ? 'bg-blue-500' : 'bg-gray-200'
 
@@ -52,24 +57,10 @@ export function StepProgress({ currentStep, onStepChange, readonly = true }: Ste
               <span className={`flex h-12 w-12 items-center justify-center rounded-full ${circleClass}`}>
                 <Icon className="h-6 w-6" />
               </span>
-              <div className="text-center">
-                <span
-                  className={`block text-[13px] font-semibold ${
-                    isCurrent ? 'text-blue-600' : 'text-gray-700'
-                  }`}
-                >
-                  STEP {index}
-                </span>
-                <span
-                  className={`block text-[14px] ${
-                    isCurrent ? 'text-blue-600 font-semibold' : 'text-gray-600'
-                  }`}
-                >
-                  {step.label}
-                </span>
-              </div>
+              <span className={`text-sm font-semibold ${labelClass}`}>STEP {index}</span>
+              <span className={`text-xs ${labelClass}`}>{step.label}</span>
               {isCurrent && (
-                <span className="mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[12px] font-semibold text-yellow-800">
+                <span className="mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-semibold text-yellow-800">
                   진행중
                 </span>
               )}

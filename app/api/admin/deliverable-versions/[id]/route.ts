@@ -68,7 +68,7 @@ export const PATCH = async (
     }
 
     if (typeof body?.status === 'string') {
-      const allowedStatuses = ['draft', 'in_review', 'approved', 'published']
+      const allowedStatuses = ['draft', 'in_review']
       if (!allowedStatuses.includes(body.status)) {
         return NextResponse.json({ error: 'INVALID_STATUS' }, { status: 400 })
       }

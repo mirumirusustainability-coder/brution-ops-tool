@@ -7,8 +7,9 @@ import { AppLayout } from '@/components/app-layout';
 import { StepProgress } from '@/components/step-progress';
 import { StatusBadge } from '@/components/status-badge';
 import { DownloadButton } from '@/components/download-button';
+import { DELIVERABLE_TYPE_LABELS } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
-import { DeliverableType, ProjectDetail, User } from '@/types';
+import { DeliverableType, ProjectDetail, User, VersionStatus } from '@/types';
 
 type ApiProject = {
   id: string;
@@ -37,7 +38,7 @@ type ApiDeliverableVersion = {
   deliverable_id: string;
   company_id: string;
   version_no: number;
-  status: 'draft' | 'in_review' | 'approved' | 'published';
+  status: 'draft' | 'in_review';
   title: string | null;
   created_by: string | null;
   created_at: string;
@@ -61,14 +62,6 @@ const mapProject = (project: ApiProject): ProjectDetail => ({
   createdAt: project.created_at,
   updatedAt: project.updated_at,
 });
-
-const deliverableLabels: Record<DeliverableType, string> = {
-  keyword: '키워드 분석',
-  ads: '광고 보조',
-  market: '시장조사',
-  brand_identity: '브랜드 아이덴티티',
-  naming: '상품명 생성',
-};
 
 const getFileNameFromPath = (path?: string | null) => {
   if (!path) return null;
@@ -410,7 +403,7 @@ export default function ProjectDetailPage({
                         </div>
                         <div>
                           <h3 className="font-semibold text-gray-900">
-                            {deliverable.title || deliverableLabels[deliverable.type]}
+                            {deliverable.title || DELIVERABLE_TYPE_LABELS[deliverable.type]}
                           </h3>
                           <p className="text-sm text-gray-500">
                             총 {versions.length}개 버전
@@ -422,14 +415,11 @@ export default function ProjectDetailPage({
                     {/* Versions */}
                     <div className="space-y-2">
                       {versions
-                        .filter((version) =>
-                          currentUser.role.startsWith('client') ? version.status === 'approved' : true
-                        )
                         .sort((a, b) => b.version_no - a.version_no)
                         .map((version) => {
                           const assetInfo = assetsByVersion[version.id];
                           const fileName = getFileNameFromPath(assetInfo?.path) ?? version.title ?? undefined;
-                          const normalizedStatus = version.status === 'review' ? 'in_review' : version.status;
+                          const normalizedStatus = version.status as VersionStatus;
 
                           return (
                             <div

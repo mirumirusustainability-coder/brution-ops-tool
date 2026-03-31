@@ -6,7 +6,13 @@ import { Plus, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
 import { StepProgress } from '@/components/step-progress'
 import { createBrowserClient } from '@supabase/ssr'
-import { User, UserRole } from '@/types'
+import {
+  DELIVERABLE_TYPE_LABELS,
+  DELIVERABLE_STEP_ORDER,
+  STEP_DELIVERABLE_GROUPS,
+  STEP_LABELS,
+} from '@/lib/constants'
+import { DeliverableType, User, UserRole, VersionStatus } from '@/types'
 
 type AdminProject = {
   id: string
@@ -27,7 +33,7 @@ type AdminDeliverable = {
   id: string
   project_id: string
   company_id: string
-  type: string
+  type: DeliverableType
   visibility: 'internal' | 'client'
   title: string | null
   created_at: string
@@ -39,7 +45,7 @@ type AdminDeliverableVersion = {
   deliverable_id: string
   company_id: string
   version_no: number
-  status: string
+  status: VersionStatus
   title: string | null
   created_at: string
 }
@@ -52,20 +58,15 @@ type AdminAsset = {
   created_at: string
 }
 
-const deliverableTypeOptions = [
-  { value: 'keyword', label: '키워드분석' },
-  { value: 'ads', label: '광고세팅' },
-  { value: 'management', label: '위탁관리' },
-  { value: 'influencer', label: '인플루언서마케팅' },
-  { value: 'creative', label: '광고크리에이티브' },
-  { value: 'seo', label: 'SEO' },
+const versionStatusOptions = [
+  { value: 'draft', label: '검토중' },
+  { value: 'in_review', label: '완료' },
 ]
 
-const versionStatusOptions = [
-  { value: 'draft', label: '초안' },
-  { value: 'in_review', label: '검수중' },
-  { value: 'approved', label: '공개' },
-]
+const getDefaultDeliverableType = (step?: number) => {
+  const group = STEP_DELIVERABLE_GROUPS[typeof step === 'number' ? step : 0]
+  return group?.[0] ?? STEP_DELIVERABLE_GROUPS[0][0]
+}
 
 const getFileNameFromPath = (path?: string | null) => {
   if (!path) return null
@@ -91,14 +92,14 @@ export default function AdminProjectDetailPage({
 
   const [showDeliverableModal, setShowDeliverableModal] = useState(false)
   const [deliverableTitle, setDeliverableTitle] = useState('')
-  const [deliverableType, setDeliverableType] = useState('keyword')
+  const [deliverableType, setDeliverableType] = useState<DeliverableType>('keyword_report')
   const [deliverableVisibility, setDeliverableVisibility] = useState<'internal' | 'client'>('internal')
   const [deliverableError, setDeliverableError] = useState<string | null>(null)
   const [creatingDeliverable, setCreatingDeliverable] = useState(false)
   const [showDeliverableEditModal, setShowDeliverableEditModal] = useState(false)
   const [editingDeliverable, setEditingDeliverable] = useState<AdminDeliverable | null>(null)
   const [editDeliverableTitle, setEditDeliverableTitle] = useState('')
-  const [editDeliverableType, setEditDeliverableType] = useState('keyword')
+  const [editDeliverableType, setEditDeliverableType] = useState<DeliverableType>('keyword_report')
   const [editDeliverableVisibility, setEditDeliverableVisibility] = useState<'internal' | 'client'>('internal')
   const [editDeliverableError, setEditDeliverableError] = useState<string | null>(null)
   const [savingDeliverable, setSavingDeliverable] = useState(false)
@@ -287,7 +288,7 @@ export default function AdminProjectDetailPage({
     })
 
     if (!response.ok) {
-      setEditDeliverableError('Deliverable 수정에 실패했습니다')
+      setEditDeliverableError('드롭 수정에 실패했습니다')
       setSavingDeliverable(false)
       return
     }
@@ -299,7 +300,7 @@ export default function AdminProjectDetailPage({
 
   const handleDeliverableDelete = async (deliverable: AdminDeliverable) => {
     const confirmed = window.confirm(
-      `정말 ${deliverable.title || 'Deliverable'}을 삭제하시겠습니까? 모든 버전과 파일이 삭제됩니다.`
+      `정말 ${deliverable.title || '드롭'}을 삭제하시겠습니까? 모든 버전과 파일이 삭제됩니다.`
     )
     if (!confirmed) return
 
@@ -311,7 +312,7 @@ export default function AdminProjectDetailPage({
     })
 
     if (!response.ok) {
-      setDeliverableDeleteError('Deliverable 삭제에 실패했습니다')
+      setDeliverableDeleteError('드롭 삭제에 실패했습니다')
       setDeletingDeliverableId(null)
       return
     }
@@ -519,6 +520,11 @@ export default function AdminProjectDetailPage({
   }
 
   const currentStatus = project.status ?? 'active'
+  const currentStep = typeof project.step === 'number' ? project.step : 0
+  const orderedStepGroups = [
+    currentStep,
+    ...DELIVERABLE_STEP_ORDER.filter((step) => step !== currentStep),
+  ]
 
   return (
     <AppLayout user={currentUser}>
@@ -605,13 +611,16 @@ export default function AdminProjectDetailPage({
         </div>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Deliverable</h2>
+          <h2 className="text-xl font-semibold text-gray-900">드롭</h2>
           <button
-            onClick={() => setShowDeliverableModal(true)}
+            onClick={() => {
+              setDeliverableType(getDefaultDeliverableType(project?.step))
+              setShowDeliverableModal(true)
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md"
           >
             <Plus className="w-4 h-4" />
-            새 Deliverable 추가
+            새 드롭 추가
           </button>
         </div>
 
@@ -624,7 +633,7 @@ export default function AdminProjectDetailPage({
 
         <div className="space-y-4">
           {deliverables.length === 0 ? (
-            <div className="bg-muted rounded-lg p-8 text-center text-gray-600">등록된 Deliverable이 없습니다</div>
+            <div className="bg-muted rounded-lg p-8 text-center text-gray-600">등록된 드롭이 없습니다</div>
           ) : (
             deliverables.map((deliverable) => (
               <div key={deliverable.id} className="bg-white border border-border rounded-lg p-5">
@@ -632,7 +641,7 @@ export default function AdminProjectDetailPage({
                   <div>
                     <h3 className="font-semibold text-gray-900">{deliverable.title || '제목 없음'}</h3>
                     <p className="text-xs text-gray-500 mt-1">
-                      타입: {deliverable.type} · 공개범위: {deliverable.visibility}
+                      타입: {DELIVERABLE_TYPE_LABELS[deliverable.type]} · 공개범위: {deliverable.visibility}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -669,7 +678,7 @@ export default function AdminProjectDetailPage({
                     deliverable.versions.map((version) => {
                       const assets = assetsByVersion[version.id] ?? []
                       const inputId = `admin-upload-${version.id}`
-                      const normalizedStatus = version.status === 'review' ? 'in_review' : version.status
+                      const normalizedStatus = version.status
                       const statusValue = versionStatusOptions.some(
                         (option) => option.value === normalizedStatus
                       )
@@ -782,7 +791,7 @@ export default function AdminProjectDetailPage({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-md rounded-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">새 Deliverable 추가</h3>
+              <h3 className="text-lg font-semibold">새 드롭 추가</h3>
               <button onClick={() => setShowDeliverableModal(false)}>
                 <X className="w-4 h-4" />
               </button>
@@ -797,13 +806,21 @@ export default function AdminProjectDetailPage({
               />
               <select
                 value={deliverableType}
-                onChange={(e) => setDeliverableType(e.target.value)}
+                onChange={(e) => setDeliverableType(e.target.value as DeliverableType)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
-                {deliverableTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+                {orderedStepGroups.map((step) => (
+                  <optgroup
+                    key={step}
+                    label={`STEP ${step} · ${STEP_LABELS[step]}`}
+                    className={step === currentStep ? 'font-semibold text-blue-600' : ''}
+                  >
+                    {STEP_DELIVERABLE_GROUPS[step].map((type) => (
+                      <option key={type} value={type}>
+                        {DELIVERABLE_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <select
@@ -847,13 +864,13 @@ export default function AdminProjectDetailPage({
                   })
 
                   if (!response.ok) {
-                    setDeliverableError('Deliverable 생성에 실패했습니다')
+                    setDeliverableError('드롭 생성에 실패했습니다')
                     setCreatingDeliverable(false)
                     return
                   }
 
                   setDeliverableTitle('')
-                  setDeliverableType('keyword')
+                  setDeliverableType(getDefaultDeliverableType(currentStep))
                   setDeliverableVisibility('internal')
                   setCreatingDeliverable(false)
                   setShowDeliverableModal(false)
@@ -872,7 +889,7 @@ export default function AdminProjectDetailPage({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-md rounded-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Deliverable 수정</h3>
+              <h3 className="text-lg font-semibold">드롭 수정</h3>
               <button onClick={() => setShowDeliverableEditModal(false)}>
                 <X className="w-4 h-4" />
               </button>
@@ -887,13 +904,21 @@ export default function AdminProjectDetailPage({
               />
               <select
                 value={editDeliverableType}
-                onChange={(event) => setEditDeliverableType(event.target.value)}
+                onChange={(event) => setEditDeliverableType(event.target.value as DeliverableType)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
-                {deliverableTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+                {orderedStepGroups.map((step) => (
+                  <optgroup
+                    key={step}
+                    label={`STEP ${step} · ${STEP_LABELS[step]}`}
+                    className={step === currentStep ? 'font-semibold text-blue-600' : ''}
+                  >
+                    {STEP_DELIVERABLE_GROUPS[step].map((type) => (
+                      <option key={type} value={type}>
+                        {DELIVERABLE_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <select

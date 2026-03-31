@@ -2,10 +2,26 @@
 export type UserRole = 'staff_admin' | 'staff_member' | 'client_admin' | 'client_member';
 
 // Version Status
-export type VersionStatus = 'draft' | 'in_review' | 'approved' | 'published';
+export type VersionStatus = 'draft' | 'in_review';
 
 // Deliverable Types
-export type DeliverableType = 'keyword' | 'ads' | 'market' | 'brand_identity' | 'naming';
+export type DeliverableType =
+  | 'keyword_report'
+  | 'competitor_report'
+  | 'sample_analysis'
+  | 'brand_identity'
+  | 'market_research'
+  | 'product_candidate'
+  | 'product_design'
+  | 'packaging_design'
+  | 'certification'
+  | 'quotation'
+  | 'qc_report'
+  | 'delivery_confirm'
+  | 'content_request'
+  | 'photo_video'
+  | 'performance_report'
+  | 'sales_strategy';
 
 // User
 export interface User {
