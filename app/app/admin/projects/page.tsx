@@ -229,7 +229,10 @@ export default function AdminProjectsPage() {
       result = result.filter((project) => (project.status ?? 'active') === statusFilter)
     }
     if (!keyword) return result
-    return result.filter((project) => project.name.toLowerCase().includes(keyword))
+    return result.filter((project) =>
+      project.name.toLowerCase().includes(keyword) ||
+      getCompanyName(project.companies).toLowerCase().includes(keyword)
+    )
   }, [projects, query, statusFilter])
 
   if (loading && !currentUser) {
@@ -264,7 +267,7 @@ export default function AdminProjectsPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="프로젝트명 검색"
+              placeholder="프로젝트명 또는 고객사명으로 검색"
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md"
             />
           </div>
