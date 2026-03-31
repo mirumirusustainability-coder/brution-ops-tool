@@ -154,18 +154,6 @@ export default function AdminDashboardPage() {
     }
   }, [router])
 
-  if (loading && !currentUser) {
-    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
-  }
-
-  if (error && !currentUser) {
-    return <div className="p-6 text-sm text-red-600">{error}</div>
-  }
-
-  if (!currentUser) {
-    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>
-  }
-
   const totalProjects = counts?.projects ?? 0
   const stepTotal = useMemo(
     () => ({
@@ -182,6 +170,18 @@ export default function AdminDashboardPage() {
     active: 'bg-blue-100 text-blue-700',
     completed: 'bg-green-100 text-green-700',
     paused: 'bg-gray-100 text-gray-600',
+  }
+
+  if (loading && !currentUser) {
+    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
+  }
+
+  if (error && !currentUser) {
+    return <div className="p-6 text-sm text-red-600">{error}</div>
+  }
+
+  if (!currentUser) {
+    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>
   }
 
   return (
