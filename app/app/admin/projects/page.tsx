@@ -39,6 +39,18 @@ const statusTabs = [
   { value: 'paused', label: '보류' },
 ]
 
+const statusBadgeStyles: Record<string, string> = {
+  active: 'bg-blue-100 text-blue-700',
+  completed: 'bg-green-100 text-green-700',
+  paused: 'bg-gray-100 text-gray-600',
+}
+
+const statusLabelMap: Record<string, string> = {
+  active: '진행중',
+  completed: '완료',
+  paused: '보류',
+}
+
 const getCompanyName = (company: ApiProject['companies']) => {
   if (!company) return ''
   if (Array.isArray(company)) return company[0]?.name ?? ''
@@ -62,6 +74,7 @@ export default function AdminProjectsPage() {
   const [formStep, setFormStep] = useState(0)
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -188,6 +201,26 @@ export default function AdminProjectsPage() {
       active = false
     }
   }, [router])
+
+  const handleDeleteProject = async (project: ApiProject) => {
+    const confirmed = window.confirm(`정말 ${project.name}을 삭제하시겠습니까?`)
+    if (!confirmed) return
+
+    setDeletingId(project.id)
+    const response = await fetch(`/api/admin/projects/${project.id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      showToast('프로젝트 삭제에 실패했습니다', 'error')
+      setDeletingId(null)
+      return
+    }
+
+    setProjects((prev) => prev.filter((item) => item.id !== project.id))
+    showToast('프로젝트가 삭제되었습니다', 'success')
+    setDeletingId(null)
+  }
 
   const filteredProjects = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -376,42 +409,73 @@ export default function AdminProjectsPage() {
           </div>
         )}
 
-        <div className="space-y-3">
+        <div className="overflow-hidden rounded-lg border border-border bg-white">
           {filteredProjects.length === 0 ? (
             <div className="bg-muted rounded-lg p-8 text-center text-gray-600">
               등록된 프로젝트가 없습니다
             </div>
           ) : (
-            filteredProjects.map((project) => {
-              const isCompleted = (project.status ?? 'active') === 'completed'
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">고객사</th>
+                  <th className="px-4 py-3 text-left font-semibold">프로젝트명</th>
+                  <th className="px-4 py-3 text-left font-semibold">STEP</th>
+                  <th className="px-4 py-3 text-left font-semibold">상태</th>
+                  <th className="px-4 py-3 text-left font-semibold">생성일</th>
+                  <th className="px-4 py-3 text-right font-semibold">액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProjects.map((project) => {
+                  const statusValue = project.status ?? 'active'
+                  const statusLabel = statusLabelMap[statusValue] ?? '진행중'
+                  const statusStyle = statusBadgeStyles[statusValue] ?? statusBadgeStyles.active
 
-              return (
-                <button
-                  key={project.id}
-                  onClick={() => router.push(`/app/admin/projects/${project.id}`)}
-                  className={`w-full text-left border border-border rounded-lg p-5 hover:shadow-sm transition-shadow ${
-                    isCompleted ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className={`font-semibold ${isCompleted ? 'text-gray-600' : 'text-gray-900'}`}>
-                        {project.name}
-                      </h3>
-                      <p className={`text-sm mt-1 ${isCompleted ? 'text-gray-500' : 'text-gray-500'}`}>
-                        {project.description || '설명 없음'}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        고객사: {getCompanyName(project.companies) || '미지정'}
-                      </p>
-                    </div>
-                    <div className="text-right text-xs text-gray-500">
-                      <p className="mt-1">{new Date(project.created_at).toLocaleDateString('ko-KR')}</p>
-                    </div>
-                  </div>
-                </button>
-              )
-            })
+                  return (
+                    <tr key={project.id} className="group border-t border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <span className="text-base font-semibold text-gray-900">
+                          {getCompanyName(project.companies) || '미지정'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{project.name}</div>
+                        <div className="text-xs text-gray-500 mt-1">{project.description || '설명 없음'}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">STEP {project.step ?? 0}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyle}`}>
+                          {statusLabel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {new Date(project.created_at).toLocaleDateString('ko-KR')}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/app/admin/projects/${project.id}`)}
+                            className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-white"
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProject(project)}
+                            disabled={deletingId === project.id}
+                            className="rounded-md border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {deletingId === project.id ? '삭제 중...' : '삭제'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
