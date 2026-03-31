@@ -4,7 +4,9 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserPlus, ShieldAlert, Mail, User, AlertCircle } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
+import { ToastContainer } from '@/components/toast';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { UserRole, User as AppUser } from '@/types';
 
 type ApiUser = {
@@ -43,6 +45,7 @@ export default function CompanyUsersPage({
 }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const { showToast } = useToast();
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [company, setCompany] = useState<ApiCompany | null>(null);
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -193,6 +196,7 @@ export default function CompanyUsersPage({
       }
 
       if (!response.ok) {
+        showToast('임시 비밀번호 발급에 실패했습니다', 'error');
         return;
       }
 
@@ -200,6 +204,7 @@ export default function CompanyUsersPage({
       const newPassword = data?.tempPassword;
       if (newPassword) {
         setUserTempPasswords((prev) => ({ ...prev, [userId]: newPassword }));
+        showToast('임시 비밀번호가 발급되었습니다', 'success');
       }
     } finally {
       setResetLoading((prev) => ({ ...prev, [userId]: false }));
@@ -222,10 +227,12 @@ export default function CompanyUsersPage({
       }
 
       if (!response.ok) {
+        showToast('사용자 제거에 실패했습니다', 'error');
         return;
       }
 
       await loadUsers();
+      showToast('사용자가 제거되었습니다', 'success');
     } finally {
       setRemoveLoading((prev) => ({ ...prev, [userId]: false }));
     }
@@ -251,9 +258,11 @@ export default function CompanyUsersPage({
 
       if (!response.ok) {
         setError('고객사 삭제에 실패했습니다');
+        showToast('고객사 삭제에 실패했습니다', 'error');
         return;
       }
 
+      showToast('고객사가 삭제되었습니다', 'success');
       router.replace('/app/admin/companies');
     } finally {
       setDeleteLoading(false);
@@ -382,8 +391,10 @@ export default function CompanyUsersPage({
               if (response.status === 400) {
                 if (data?.error === 'SEAT_LIMIT_REACHED') {
                   setFormError('최대 5명 제한에 도달했습니다.');
+                  showToast('최대 5명 제한에 도달했습니다.', 'error');
                 } else {
                   setFormError('입력값을 확인해주세요.');
+                  showToast('입력값을 확인해주세요.', 'error');
                 }
                 setSubmitting(false);
                 return;
@@ -391,12 +402,14 @@ export default function CompanyUsersPage({
 
               if (response.status === 403) {
                 setFormError('접근 권한이 없습니다.');
+                showToast('접근 권한이 없습니다.', 'error');
                 setSubmitting(false);
                 return;
               }
 
               if (!response.ok) {
                 setFormError('사용자 발급에 실패했습니다.');
+                showToast('사용자 발급에 실패했습니다.', 'error');
                 setSubmitting(false);
                 return;
               }
@@ -406,6 +419,7 @@ export default function CompanyUsersPage({
               setEmail('');
               setRole('client_member');
               setSubmitting(false);
+              showToast('사용자가 발급되었습니다.', 'success');
               await loadUsers();
             }}
           >
@@ -549,6 +563,7 @@ export default function CompanyUsersPage({
           </div>
         </div>
       </div>
+      <ToastContainer />
     </AppLayout>
   );
 }

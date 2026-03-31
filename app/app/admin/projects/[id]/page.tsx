@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
 import { StepProgress } from '@/components/step-progress'
+import { ToastContainer } from '@/components/toast'
 import { createBrowserClient } from '@supabase/ssr'
 import {
   DELIVERABLE_TYPE_LABELS,
@@ -12,6 +13,7 @@ import {
   STEP_DELIVERABLE_GROUPS,
   STEP_LABELS,
 } from '@/lib/constants'
+import { useToast } from '@/hooks/use-toast'
 import { DeliverableType, User, UserRole, VersionStatus } from '@/types'
 
 type AdminProject = {
@@ -82,6 +84,7 @@ export default function AdminProjectDetailPage({
 }) {
   const resolvedParams = use(params)
   const router = useRouter()
+  const { showToast } = useToast()
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [project, setProject] = useState<AdminProject | null>(null)
   const [deliverables, setDeliverables] = useState<AdminDeliverable[]>([])
@@ -175,12 +178,14 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setStepError('STEP 변경에 실패했습니다')
+      showToast('STEP 변경에 실패했습니다', 'error')
       setStepUpdating(false)
       return
     }
 
     const data = await response.json().catch(() => null)
     setProject((prev) => (prev ? { ...prev, step: data?.project?.step ?? nextStep } : prev))
+    showToast('STEP이 변경되었습니다', 'success')
     setStepUpdating(false)
   }
 
@@ -197,12 +202,14 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setStatusError('상태 변경에 실패했습니다')
+      showToast('상태 변경에 실패했습니다', 'error')
       setStatusUpdating(false)
       return
     }
 
     const data = await response.json().catch(() => null)
     setProject((prev) => (prev ? { ...prev, status: data?.project?.status ?? nextStatus } : prev))
+    showToast('상태가 변경되었습니다', 'success')
     setStatusUpdating(false)
   }
 
@@ -217,6 +224,7 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setAssetDeleteError('파일 삭제에 실패했습니다')
+      showToast('파일 삭제에 실패했습니다', 'error')
       setDeletingAssetId(null)
       return
     }
@@ -232,6 +240,7 @@ export default function AdminProjectDetailPage({
       return updated
     })
 
+    showToast('삭제되었습니다', 'success')
     setDeletingAssetId(null)
   }
 
@@ -251,10 +260,12 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setDeleteProjectError('프로젝트 삭제에 실패했습니다')
+      showToast('프로젝트 삭제에 실패했습니다', 'error')
       setDeletingProject(false)
       return
     }
 
+    showToast('프로젝트가 삭제되었습니다', 'success')
     router.replace('/app/admin/projects')
   }
 
@@ -289,12 +300,14 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setEditDeliverableError('드롭 수정에 실패했습니다')
+      showToast('드롭 수정에 실패했습니다', 'error')
       setSavingDeliverable(false)
       return
     }
 
     setShowDeliverableEditModal(false)
     setSavingDeliverable(false)
+    showToast('드롭이 수정되었습니다', 'success')
     await fetchProject()
   }
 
@@ -313,11 +326,13 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setDeliverableDeleteError('드롭 삭제에 실패했습니다')
+      showToast('드롭 삭제에 실패했습니다', 'error')
       setDeletingDeliverableId(null)
       return
     }
 
     setDeletingDeliverableId(null)
+    showToast('삭제되었습니다', 'success')
     await fetchProject()
   }
 
@@ -333,11 +348,13 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setVersionUpdateError('버전 상태 변경에 실패했습니다')
+      showToast('버전 상태 변경에 실패했습니다', 'error')
       setVersionUpdatingId(null)
       return
     }
 
     await fetchProject()
+    showToast('버전 상태가 변경되었습니다', 'success')
     setVersionUpdatingId(null)
   }
 
@@ -354,11 +371,13 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setVersionDeleteError('버전 삭제에 실패했습니다')
+      showToast('버전 삭제에 실패했습니다', 'error')
       setDeletingVersionId(null)
       return
     }
 
     await fetchProject()
+    showToast('삭제되었습니다', 'success')
     setDeletingVersionId(null)
   }
 
@@ -381,11 +400,13 @@ export default function AdminProjectDetailPage({
 
     if (!response.ok) {
       setUploadError('파일 업로드에 실패했습니다')
+      showToast('파일 업로드에 실패했습니다', 'error')
       setUploadingVersionId(null)
       return
     }
 
     await fetchProject()
+    showToast('파일이 업로드되었습니다', 'success')
     setUploadingVersionId(null)
   }
 
@@ -865,6 +886,7 @@ export default function AdminProjectDetailPage({
 
                   if (!response.ok) {
                     setDeliverableError('드롭 생성에 실패했습니다')
+                    showToast('드롭 생성에 실패했습니다', 'error')
                     setCreatingDeliverable(false)
                     return
                   }
@@ -874,6 +896,7 @@ export default function AdminProjectDetailPage({
                   setDeliverableVisibility('internal')
                   setCreatingDeliverable(false)
                   setShowDeliverableModal(false)
+                  showToast('드롭이 생성되었습니다', 'success')
                   await fetchProject()
                 }}
                 className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
@@ -1021,12 +1044,14 @@ export default function AdminProjectDetailPage({
 
                   if (!response.ok) {
                     setEditError('프로젝트 수정에 실패했습니다')
+                    showToast('프로젝트 수정에 실패했습니다', 'error')
                     setEditing(false)
                     return
                   }
 
                   setShowEditModal(false)
                   setEditing(false)
+                  showToast('프로젝트가 수정되었습니다', 'success')
                   await fetchProject()
                 }}
                 className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
@@ -1093,6 +1118,7 @@ export default function AdminProjectDetailPage({
 
                   if (!response.ok) {
                     setVersionError('버전 생성에 실패했습니다')
+                    showToast('버전 생성에 실패했습니다', 'error')
                     setCreatingVersion(false)
                     return
                   }
@@ -1101,6 +1127,7 @@ export default function AdminProjectDetailPage({
                   setCreatingVersion(false)
                   setShowVersionModal(false)
                   setSelectedDeliverable(null)
+                  showToast('버전이 생성되었습니다', 'success')
                   await fetchProject()
                 }}
                 className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
@@ -1111,6 +1138,7 @@ export default function AdminProjectDetailPage({
           </div>
         </div>
       )}
+      <ToastContainer />
     </AppLayout>
   )
 }

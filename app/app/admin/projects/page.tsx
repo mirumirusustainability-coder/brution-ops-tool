@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
+import { ToastContainer } from '@/components/toast'
 import { createBrowserClient } from '@supabase/ssr'
+import { useToast } from '@/hooks/use-toast'
 import { User, UserRole } from '@/types'
 
 type ApiProject = {
@@ -45,6 +47,7 @@ const getCompanyName = (company: ApiProject['companies']) => {
 
 export default function AdminProjectsPage() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [projects, setProjects] = useState<ApiProject[]>([])
   const [companies, setCompanies] = useState<ApiCompany[]>([])
@@ -345,6 +348,7 @@ export default function AdminProjectsPage() {
 
                     if (!response.ok) {
                       setFormError('프로젝트 생성에 실패했습니다')
+                      showToast('프로젝트 생성에 실패했습니다', 'error')
                       setCreating(false)
                       return
                     }
@@ -354,6 +358,7 @@ export default function AdminProjectsPage() {
                     setFormStep(0)
                     setShowCreateModal(false)
                     setCreating(false)
+                    showToast('프로젝트가 생성되었습니다', 'success')
 
                     const projectsResponse = await fetch('/api/admin/projects', { cache: 'no-store' })
                     if (projectsResponse.ok) {
@@ -410,6 +415,7 @@ export default function AdminProjectsPage() {
           )}
         </div>
       </div>
+      <ToastContainer />
     </AppLayout>
   )
 }
