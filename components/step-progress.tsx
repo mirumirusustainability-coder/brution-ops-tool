@@ -58,7 +58,7 @@ export function StepProgress({ currentStep, onStepChange, readonly = true }: Ste
                 <Icon className="h-6 w-6" />
               </span>
               <span className={`text-sm font-semibold ${labelClass}`}>STEP {index}</span>
-              <span className={`text-xs ${labelClass}`}>{step.label}</span>
+              <span className={`text-xs ${labelClass} hidden sm:block`}>{step.label}</span>
               {isCurrent && (
                 <span className="mt-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-semibold text-yellow-800">
                   진행중

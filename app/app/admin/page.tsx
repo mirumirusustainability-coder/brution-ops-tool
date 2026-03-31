@@ -193,14 +193,22 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm">
+          <button
+            type="button"
+            onClick={() => router.push('/app/admin/projects')}
+            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">전체 프로젝트</p>
               <FolderOpen className="h-5 w-5 text-blue-500" />
             </div>
             <p className="mt-3 text-4xl font-semibold text-gray-900">{counts?.projects ?? 0}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm">
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/app/admin/projects?filter=active')}
+            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">진행중 프로젝트</p>
               <TrendingUp className="h-5 w-5 text-emerald-500" />
@@ -208,21 +216,29 @@ export default function AdminDashboardPage() {
             <p className="mt-3 text-4xl font-semibold text-gray-900">
               {counts?.activeProjects ?? 0}
             </p>
-          </div>
-          <div className="rounded-lg border border-border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm">
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/app/admin/companies')}
+            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">전체 고객사</p>
               <Building2 className="h-5 w-5 text-indigo-500" />
             </div>
             <p className="mt-3 text-4xl font-semibold text-gray-900">{counts?.companies ?? 0}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm">
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/app/admin/companies')}
+            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">전체 담당자</p>
               <Users className="h-5 w-5 text-purple-500" />
             </div>
             <p className="mt-3 text-4xl font-semibold text-gray-900">{counts?.users ?? 0}</p>
-          </div>
+          </button>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -257,16 +273,16 @@ export default function AdminDashboardPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => router.push('/app/admin/projects')}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left hover:bg-gray-100"
+                onClick={() => router.push('/app/admin/projects?filter=in_review')}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left transition hover:bg-gray-100 hover:shadow-md cursor-pointer"
               >
                 <p className="text-xs text-gray-500">검토중 버전</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">{pendingVersions}</p>
               </button>
               <button
                 type="button"
-                onClick={() => router.push('/app/admin/projects')}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left hover:bg-gray-100"
+                onClick={() => router.push('/app/admin/projects?filter=paused')}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left transition hover:bg-gray-100 hover:shadow-md cursor-pointer"
               >
                 <p className="text-xs text-gray-500">보류 프로젝트</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">{pausedProjects}</p>

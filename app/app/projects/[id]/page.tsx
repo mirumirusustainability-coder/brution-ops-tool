@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import { FileText } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { StepProgress } from '@/components/step-progress';
-import { StatusBadge } from '@/components/status-badge';
 import { DownloadButton } from '@/components/download-button';
 import { DELIVERABLE_TYPE_LABELS } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
-import { DeliverableType, ProjectDetail, User, VersionStatus } from '@/types';
+import { DeliverableType, ProjectDetail, User } from '@/types';
 
 type ApiProject = {
   id: string;
@@ -19,6 +18,7 @@ type ApiProject = {
   step: number;
   created_at: string;
   updated_at: string;
+  companies?: { name?: string } | { name?: string }[] | null;
 };
 
 type ApiDeliverable = {
@@ -63,6 +63,12 @@ const mapProject = (project: ApiProject): ProjectDetail => ({
   updatedAt: project.updated_at,
 });
 
+const getCompanyName = (company: ApiProject['companies']) => {
+  if (!company) return '';
+  if (Array.isArray(company)) return company[0]?.name ?? '';
+  return company.name ?? '';
+};
+
 const getFileNameFromPath = (path?: string | null) => {
   if (!path) return null;
   const parts = path.split('/');
@@ -80,6 +86,7 @@ export default function ProjectDetailPage({
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [deliverables, setDeliverables] = useState<ApiDeliverable[]>([]);
+  const [companyName, setCompanyName] = useState('');
   const [versionsByDeliverable, setVersionsByDeliverable] = useState<
     Record<string, ApiDeliverableVersion[]>
   >({});
@@ -209,6 +216,7 @@ export default function ProjectDetailPage({
 
       const projectData = await projectResponse.json();
       const detail = projectData?.project ? mapProject(projectData.project) : null;
+      const nextCompanyName = getCompanyName(projectData?.project?.companies ?? null);
 
       if (!detail) {
         if (active) {
@@ -311,6 +319,7 @@ export default function ProjectDetailPage({
         setDeliverables(deliverableList);
         setVersionsByDeliverable(nextVersions);
         setAssetsByVersion(nextAssets);
+        setCompanyName(nextCompanyName);
         setLoading(false);
       }
     };
@@ -354,14 +363,17 @@ export default function ProjectDetailPage({
       user={currentUser}
       currentProject={{ id: project.id, name: project.name }}
     >
-      <div className="max-w-6xl">
+      <div className="max-w-6xl pb-32 lg:pb-0">
         {/* Project Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {project.name}
-          </h1>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-gray-500">{companyName || '고객사'}</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {project.name}
+            </h1>
+          </div>
           {project.description && (
-            <p className="text-gray-600">{project.description}</p>
+            <p className="text-gray-600 mt-2">{project.description}</p>
           )}
           <div className="mt-4 rounded-lg border border-border bg-white p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -379,87 +391,67 @@ export default function ProjectDetailPage({
 
         {/* Deliverables Section */}
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-gray-900">산출물</h2>
+          <h2 className="text-xl font-semibold text-gray-900">드롭</h2>
 
           {filteredDeliverables.length === 0 ? (
             <div className="bg-muted rounded-lg p-8 text-center">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600">등록된 산출물이 없습니다</p>
+              <p className="text-gray-600">등록된 드롭이 없습니다</p>
             </div>
           ) : (
             <div className="space-y-4">
               {filteredDeliverables.map((deliverable) => {
                 const versions = versionsByDeliverable[deliverable.id] ?? [];
+                const latestVersion = versions.length
+                  ? [...versions].sort((a, b) => b.version_no - a.version_no)[0]
+                  : null;
+                const assetInfo = latestVersion ? assetsByVersion[latestVersion.id] : undefined;
+                const fileName =
+                  getFileNameFromPath(assetInfo?.path) ?? latestVersion?.title ?? undefined;
+                const uploadedAt = latestVersion?.created_at
+                  ? new Date(latestVersion.created_at).toLocaleDateString('ko-KR')
+                  : null;
 
                 return (
                   <div
                     key={deliverable.id}
                     className="bg-white border border-border rounded-lg p-5"
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-md">
-                          <FileText className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {deliverable.title || DELIVERABLE_TYPE_LABELS[deliverable.type]}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            총 {versions.length}개 버전
-                          </p>
-                        </div>
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500">{DELIVERABLE_TYPE_LABELS[deliverable.type]}</p>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {deliverable.title || DELIVERABLE_TYPE_LABELS[deliverable.type]}
+                        </h3>
+                        {uploadedAt ? (
+                          <p className="text-sm text-gray-500">업로드일 · {uploadedAt}</p>
+                        ) : (
+                          <p className="text-sm text-gray-400">파일 준비 중입니다</p>
+                        )}
                       </div>
-                    </div>
-
-                    {/* Versions */}
-                    <div className="space-y-2">
-                      {versions
-                        .sort((a, b) => b.version_no - a.version_no)
-                        .map((version) => {
-                          const assetInfo = assetsByVersion[version.id];
-                          const fileName = getFileNameFromPath(assetInfo?.path) ?? version.title ?? undefined;
-                          const normalizedStatus = version.status as VersionStatus;
-
-                          return (
-                            <div
-                              key={version.id}
-                              className="flex items-center justify-between p-3 bg-muted rounded-md"
-                            >
-                              <div className="flex items-center gap-3 flex-1">
-                                <StatusBadge status={normalizedStatus} />
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900">
-                                    v{version.version_no}
-                                  </p>
-                                  {fileName && (
-                                    <p className="text-xs text-gray-500">
-                                      {fileName}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {new Date(version.created_at).toLocaleDateString('ko-KR')}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 ml-4">
-                                <DownloadButton
-                                  status={normalizedStatus}
-                                  userRole={currentUser.role}
-                                  assetId={assetInfo?.assetId}
-                                  fileName={fileName}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="flex flex-col items-start gap-2 md:items-end">
+                        <DownloadButton
+                          status={latestVersion?.status ?? 'draft'}
+                          userRole={currentUser.role}
+                          assetId={assetInfo?.assetId}
+                          fileName={fileName}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="fixed bottom-4 left-4 right-4 z-40 rounded-lg border border-border bg-white p-4 shadow-lg lg:left-auto lg:right-6 lg:bottom-6 lg:w-64">
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">브루션 문의</h3>
+        <div className="space-y-1 text-xs text-gray-600">
+          <p>이메일: support@brution.co</p>
+          <p>전화: 02-0000-0000</p>
+          <p>운영시간: 평일 10:00 - 18:00</p>
         </div>
       </div>
     </AppLayout>

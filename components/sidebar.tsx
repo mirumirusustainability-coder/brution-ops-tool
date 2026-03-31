@@ -52,19 +52,19 @@ const menuItems: MenuItem[] = [
     label: '시장조사',
     href: '/app/tools/market',
     icon: TrendingUp,
-    allowedRoles: ['staff_admin', 'staff_member'],
+    allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
   },
   {
     label: '브랜드 아이덴티티',
     href: '/app/tools/brand-identity',
     icon: Palette,
-    allowedRoles: ['staff_admin', 'staff_member'],
+    allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
   },
   {
     label: '상품명 생성',
     href: '/app/tools/naming',
     icon: FileText,
-    allowedRoles: ['staff_admin', 'staff_member'],
+    allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
   },
 ]
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
 import { ToastContainer } from '@/components/toast'
@@ -17,6 +17,7 @@ type ApiProject = {
   company_id: string
   status?: 'active' | 'completed' | 'paused'
   companies?: { name?: string } | { name?: string }[] | null
+  deliverables?: { deliverable_versions?: { status?: string }[] }[] | null
 }
 
 type ApiCompany = {
@@ -59,6 +60,7 @@ const getCompanyName = (company: ApiProject['companies']) => {
 
 export default function AdminProjectsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { showToast } = useToast()
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [projects, setProjects] = useState<ApiProject[]>([])
@@ -67,6 +69,7 @@ export default function AdminProjectsPage() {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'paused'>('all')
+  const [inReviewOnly, setInReviewOnly] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
@@ -75,6 +78,20 @@ export default function AdminProjectsPage() {
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const filterParam = searchParams.get('filter')
+    if (filterParam === 'active' || filterParam === 'paused') {
+      setStatusFilter(filterParam)
+      setInReviewOnly(false)
+    } else if (filterParam === 'in_review') {
+      setStatusFilter('all')
+      setInReviewOnly(true)
+    } else {
+      setStatusFilter('all')
+      setInReviewOnly(false)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     let active = true
@@ -228,12 +245,19 @@ export default function AdminProjectsPage() {
     if (statusFilter !== 'all') {
       result = result.filter((project) => (project.status ?? 'active') === statusFilter)
     }
+    if (inReviewOnly) {
+      result = result.filter((project) =>
+        project.deliverables?.some((deliverable) =>
+          deliverable.deliverable_versions?.some((version) => version.status === 'in_review')
+        )
+      )
+    }
     if (!keyword) return result
     return result.filter((project) =>
       project.name.toLowerCase().includes(keyword) ||
       getCompanyName(project.companies).toLowerCase().includes(keyword)
     )
-  }, [projects, query, statusFilter])
+  }, [projects, query, statusFilter, inReviewOnly])
 
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
@@ -278,7 +302,10 @@ export default function AdminProjectsPage() {
                 <button
                   key={tab.value}
                   type="button"
-                  onClick={() => setStatusFilter(tab.value as 'all' | 'active' | 'completed' | 'paused')}
+                  onClick={() => {
+                    setStatusFilter(tab.value as 'all' | 'active' | 'completed' | 'paused')
+                    setInReviewOnly(false)
+                  }}
                   className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                     isActive
                       ? 'bg-primary text-white border-primary'
