@@ -33,7 +33,7 @@ export default function ProjectsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [companyName, setCompanyName] = useState('');
-  const activeProjectCount = projects.filter((project) => (project.status ?? 'active') === 'active').length;
+  const activeCount = projects.filter((project) => project.status === 'active' || !project.status).length;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -200,7 +200,7 @@ export default function ProjectsPage() {
                 <span className="text-2xl text-gray-600">님, 안녕하세요</span>
               </div>
               <p className="text-base text-gray-500 mt-1">
-                현재 {activeProjectCount}개 프로젝트가 진행 중입니다.
+                현재 {activeCount}개 프로젝트가 진행 중입니다.
               </p>
             </>
           )}

@@ -411,15 +411,15 @@ export default function ProjectDetailPage({
                   >
                     <div className="flex flex-col gap-4">
                       <div className="space-y-2">
-                        <p className="text-sm text-gray-500">
-                          {DELIVERABLE_TYPE_LABELS[deliverable.type]}
-                        </p>
                         <h3 className="text-lg font-semibold text-gray-900">
                           {deliverable.title || DELIVERABLE_TYPE_LABELS[deliverable.type]}
                         </h3>
                         <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-600">
                           STEP {project.step} · {STEP_LABELS[project.step]}
                         </span>
+                        <p className="text-sm text-gray-500">
+                          {DELIVERABLE_TYPE_LABELS[deliverable.type]}
+                        </p>
                       </div>
 
                       {sortedVersions.length === 0 ? (
