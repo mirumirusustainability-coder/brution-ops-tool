@@ -22,9 +22,36 @@ type ApiUser = {
   updated_at: string;
 };
 
+type CompanyMetadata = {
+  biz_no?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contract_status?: '계약전' | '진행중' | '완료' | string | null;
+  starter_package?: boolean | null;
+  total_amount?: number | string | null;
+  deposit_paid?: boolean | null;
+  balance_paid?: boolean | null;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  lead_source?: '지인소개' | 'SNS' | '광고' | '콜드아웃리치' | '기타' | string | null;
+  first_contact?: string | null;
+  target_launch?: string | null;
+  interest_category?: string[] | null;
+  current_channel?: string[] | null;
+  target_channel?: string[] | null;
+  est_order_qty?: string | null;
+  pain_point?: string | null;
+  client_tier?: '일반' | 'VIP' | '파트너' | string | null;
+  internal_notes?: string | null;
+  last_contact?: string | null;
+};
+
 type ApiCompany = {
   id: string;
   name: string;
+  metadata?: CompanyMetadata | null;
   created_at: string;
   updated_at: string;
 };
@@ -38,6 +65,23 @@ const mapUser = (me: any): AppUser => ({
   mustChangePassword: me.mustChangePassword,
   status: me.status,
 });
+
+const contractStatusOptions = ['계약전', '진행중', '완료'];
+const leadSourceOptions = ['지인소개', 'SNS', '광고', '콜드아웃리치', '기타'];
+const interestCategoryOptions = ['뷰티', '식품', '전자', '생활용품', '패션', '스포츠', '기타'];
+const channelOptions = ['스마트스토어', '쿠팡', '자사몰', '해외', '오프라인', '없음'];
+const clientTierOptions = ['일반', 'VIP', '파트너'];
+
+const formatTextValue = (value?: string | null) => (value ? value : '-');
+const formatBooleanValue = (value?: boolean | null) => (value ? '예' : '아니오');
+const formatAmountValue = (value?: number | string | null) => {
+  if (value === null || value === undefined || value === '') return '-';
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(numeric)) return '-';
+  return numeric.toLocaleString('ko-KR');
+};
+const formatArrayValue = (value?: string[] | null) =>
+  Array.isArray(value) && value.length > 0 ? value.join(', ') : '-';
 
 export default function CompanyUsersPage({
   params,
@@ -60,7 +104,15 @@ export default function CompanyUsersPage({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'client_admin' | 'client_member'>('client_member');
+  const [role, setRole] = useState<'client_admin' | 'client_member'>('client_admin');
+  const [profileData, setProfileData] = useState<CompanyMetadata>({});
+  const [profileDraft, setProfileDraft] = useState<CompanyMetadata>({});
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [issuedCredentials, setIssuedCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [createCopyStatus, setCreateCopyStatus] = useState(false);
+  const [copyStatusByUser, setCopyStatusByUser] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const loadUsers = async () => {
@@ -142,24 +194,28 @@ export default function CompanyUsersPage({
         return;
       }
 
-      const companiesResponse = await fetch('/api/admin/companies', { cache: 'no-store' });
-      if (companiesResponse.status === 401) {
+      const companyResponse = await fetch(`/api/admin/companies/${resolvedParams.id}`, {
+        cache: 'no-store',
+      });
+      if (companyResponse.status === 401) {
         router.replace('/login');
         return;
       }
-      if (!companiesResponse.ok) {
+      if (!companyResponse.ok) {
         if (active) {
           setError('고객사 정보를 불러올 수 없습니다');
           setLoading(false);
         }
         return;
       }
-      const companiesData = await companiesResponse.json();
-      const companyList = Array.isArray(companiesData?.companies) ? companiesData.companies : [];
-      const foundCompany = companyList.find((item: ApiCompany) => item.id === resolvedParams.id) || null;
+      const companyData = await companyResponse.json().catch(() => null);
+      const foundCompany = companyData?.company ?? null;
 
       if (active) {
         setCompany(foundCompany);
+        const nextMetadata = (foundCompany?.metadata ?? {}) as CompanyMetadata;
+        setProfileData(nextMetadata);
+        setProfileDraft(nextMetadata);
       }
 
       if (!foundCompany) {
@@ -205,6 +261,7 @@ export default function CompanyUsersPage({
       const newPassword = data?.tempPassword;
       if (newPassword) {
         setUserTempPasswords((prev) => ({ ...prev, [userId]: newPassword }));
+        setCopyStatusByUser((prev) => ({ ...prev, [userId]: false }));
         showToast('임시 비밀번호가 발급되었습니다', 'success');
       }
     } finally {
@@ -270,6 +327,66 @@ export default function CompanyUsersPage({
     }
   };
 
+  const updateProfileField = (key: keyof CompanyMetadata, value: CompanyMetadata[keyof CompanyMetadata]) => {
+    setProfileDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleProfileArrayValue = (key: keyof CompanyMetadata, value: string) => {
+    setProfileDraft((prev) => {
+      const current = Array.isArray(prev[key]) ? (prev[key] as string[]) : [];
+      const exists = current.includes(value);
+      const next = exists ? current.filter((item) => item !== value) : [...current, value];
+      return { ...prev, [key]: next };
+    });
+  };
+
+  const handleProfileSave = async () => {
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      const response = await fetch(`/api/admin/companies/${resolvedParams.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metadata: profileDraft }),
+      });
+
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        setProfileError('프로필 저장에 실패했습니다');
+        showToast('프로필 저장에 실패했습니다', 'error');
+        return;
+      }
+
+      const data = await response.json().catch(() => null);
+      const nextMetadata = (data?.company?.metadata ?? profileDraft) as CompanyMetadata;
+      setProfileData(nextMetadata);
+      setProfileDraft(nextMetadata);
+      setIsEditingProfile(false);
+      showToast('프로필이 저장되었습니다', 'success');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleCopyCredentials = async (emailValue: string, passwordValue: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(`이메일: ${emailValue}\n임시 비밀번호: ${passwordValue}`);
+      if (key === 'create') {
+        setCreateCopyStatus(true);
+        setTimeout(() => setCreateCopyStatus(false), 2000);
+      } else {
+        setCopyStatusByUser((prev) => ({ ...prev, [key]: true }));
+        setTimeout(() => setCopyStatusByUser((prev) => ({ ...prev, [key]: false })), 2000);
+      }
+    } catch {
+      showToast('복사에 실패했습니다', 'error');
+    }
+  };
+
   // SSOT 하드룰: StaffAdmin만 접근 가능
   const isStaffAdmin = currentUser?.role === 'staff_admin';
 
@@ -315,6 +432,10 @@ export default function CompanyUsersPage({
 
   // SSOT 하드룰: Seat 5 하드 제한
   const canAddUser = activeUserCount < 5;
+  const profile = isEditingProfile ? profileDraft : profileData;
+  const interestCategories = Array.isArray(profile.interest_category) ? profile.interest_category : [];
+  const currentChannels = Array.isArray(profile.current_channel) ? profile.current_channel : [];
+  const targetChannels = Array.isArray(profile.target_channel) ? profile.target_channel : [];
 
   return (
     <AppLayout
@@ -346,6 +467,444 @@ export default function CompanyUsersPage({
           >
             {deleteLoading ? '삭제 중...' : '고객사 삭제'}
           </button>
+        </div>
+
+        {/* 고객사 프로필 */}
+        <div className="bg-white border border-border rounded-lg p-6 mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">고객사 프로필</h2>
+            <div className="flex items-center gap-2">
+              {isEditingProfile ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingProfile(false);
+                      setProfileDraft(profileData);
+                      setProfileError(null);
+                    }}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProfileSave}
+                    disabled={profileSaving}
+                    className="px-3 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
+                  >
+                    {profileSaving ? '저장 중...' : '저장'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingProfile(true);
+                    setProfileDraft(profileData);
+                    setProfileError(null);
+                  }}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  프로필 수정
+                </button>
+              )}
+            </div>
+          </div>
+
+          {profileError && <p className="text-sm text-red-600 mb-3">{profileError}</p>}
+
+          <div className="space-y-6 divide-y divide-gray-200">
+            <section className="pt-0">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">기본 정보</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">사업자번호</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={profileDraft.biz_no ?? ''}
+                      onChange={(e) => updateProfileField('biz_no', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.biz_no)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={profileDraft.address ?? ''}
+                      onChange={(e) => updateProfileField('address', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.address)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">대표 연락처</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={profileDraft.phone ?? ''}
+                      onChange={(e) => updateProfileField('phone', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.phone)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">담당자 이름</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={profileDraft.contact_name ?? ''}
+                      onChange={(e) => updateProfileField('contact_name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.contact_name)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">담당자 이메일</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="email"
+                      value={profileDraft.contact_email ?? ''}
+                      onChange={(e) => updateProfileField('contact_email', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.contact_email)}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="pt-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">계약 & 정산</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">계약 상태</label>
+                  {isEditingProfile ? (
+                    <select
+                      value={profileDraft.contract_status ?? ''}
+                      onChange={(e) => updateProfileField('contract_status', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">선택</option>
+                      {contractStatusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.contract_status ?? null)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">스타터 패키지</label>
+                  {isEditingProfile ? (
+                    <label className="inline-flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={Boolean(profileDraft.starter_package)}
+                        onChange={(e) => updateProfileField('starter_package', e.target.checked)}
+                      />
+                      <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
+                        <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {profileDraft.starter_package ? 'ON' : 'OFF'}
+                      </span>
+                    </label>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatBooleanValue(profile.starter_package)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">프로젝트 전체 금액 (원)</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="number"
+                      value={profileDraft.total_amount ?? ''}
+                      onChange={(e) => updateProfileField('total_amount', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatAmountValue(profile.total_amount)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">계약금 30% 입금</label>
+                  {isEditingProfile ? (
+                    <label className="inline-flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={Boolean(profileDraft.deposit_paid)}
+                        onChange={(e) => updateProfileField('deposit_paid', e.target.checked)}
+                      />
+                      <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
+                        <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {profileDraft.deposit_paid ? 'ON' : 'OFF'}
+                      </span>
+                    </label>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatBooleanValue(profile.deposit_paid)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">잔금 70% 입금</label>
+                  {isEditingProfile ? (
+                    <label className="inline-flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={Boolean(profileDraft.balance_paid)}
+                        onChange={(e) => updateProfileField('balance_paid', e.target.checked)}
+                      />
+                      <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
+                        <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {profileDraft.balance_paid ? 'ON' : 'OFF'}
+                      </span>
+                    </label>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatBooleanValue(profile.balance_paid)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">계약 시작일</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="date"
+                      value={profileDraft.contract_start ?? ''}
+                      onChange={(e) => updateProfileField('contract_start', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.contract_start)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">계약 종료일</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="date"
+                      value={profileDraft.contract_end ?? ''}
+                      onChange={(e) => updateProfileField('contract_end', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.contract_end)}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="pt-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">영업 & 유입</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source</label>
+                  {isEditingProfile ? (
+                    <select
+                      value={profileDraft.lead_source ?? ''}
+                      onChange={(e) => updateProfileField('lead_source', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">선택</option>
+                      {leadSourceOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.lead_source ?? null)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">첫 상담일</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="date"
+                      value={profileDraft.first_contact ?? ''}
+                      onChange={(e) => updateProfileField('first_contact', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.first_contact)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">목표 런칭 시기</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="date"
+                      value={profileDraft.target_launch ?? ''}
+                      onChange={(e) => updateProfileField('target_launch', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.target_launch)}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="pt-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">상품 & 비즈니스</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">관심 카테고리</label>
+                  {isEditingProfile ? (
+                    <div className="flex flex-wrap gap-3">
+                      {interestCategoryOptions.map((option) => (
+                        <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={interestCategories.includes(option)}
+                            onChange={() => toggleProfileArrayValue('interest_category', option)}
+                            className="accent-primary"
+                          />
+                          {option}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatArrayValue(interestCategories)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">현재 운영 채널</label>
+                  {isEditingProfile ? (
+                    <div className="flex flex-wrap gap-3">
+                      {channelOptions.map((option) => (
+                        <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={currentChannels.includes(option)}
+                            onChange={() => toggleProfileArrayValue('current_channel', option)}
+                            className="accent-primary"
+                          />
+                          {option}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatArrayValue(currentChannels)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">목표 판매 채널</label>
+                  {isEditingProfile ? (
+                    <div className="flex flex-wrap gap-3">
+                      {channelOptions.map((option) => (
+                        <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={targetChannels.includes(option)}
+                            onChange={() => toggleProfileArrayValue('target_channel', option)}
+                            className="accent-primary"
+                          />
+                          {option}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatArrayValue(targetChannels)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">예상 발주 수량</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={profileDraft.est_order_qty ?? ''}
+                      onChange={(e) => updateProfileField('est_order_qty', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.est_order_qty)}</p>
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pain Point</label>
+                  {isEditingProfile ? (
+                    <textarea
+                      value={profileDraft.pain_point ?? ''}
+                      onChange={(e) => updateProfileField('pain_point', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.pain_point)}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="pt-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">내부 관리 (어드민 전용)</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Client Tier</label>
+                  {isEditingProfile ? (
+                    <select
+                      value={profileDraft.client_tier ?? ''}
+                      onChange={(e) => updateProfileField('client_tier', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">선택</option>
+                      {clientTierOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.client_tier ?? null)}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">마지막 컨택일</label>
+                  {isEditingProfile ? (
+                    <input
+                      type="date"
+                      value={profileDraft.last_contact ?? ''}
+                      onChange={(e) => updateProfileField('last_contact', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.last_contact)}</p>
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
+                  {isEditingProfile ? (
+                    <textarea
+                      value={profileDraft.internal_notes ?? ''}
+                      onChange={(e) => updateProfileField('internal_notes', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-900">{formatTextValue(profile.internal_notes)}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
 
         {/* Seat 제한 경고 */}
@@ -381,6 +940,7 @@ export default function CompanyUsersPage({
               }
               setFormError(null);
               setTempPassword(null);
+              setIssuedCredentials(null);
               setSubmitting(true);
 
               const response = await fetch(`/api/admin/companies/${resolvedParams.id}/users`, {
@@ -422,10 +982,15 @@ export default function CompanyUsersPage({
                 return;
               }
 
-              setTempPassword(data?.tempPassword ?? null);
+              const issuedPassword = data?.tempPassword ?? null;
+              setTempPassword(issuedPassword);
+              if (issuedPassword) {
+                setIssuedCredentials({ email, password: issuedPassword });
+                setCreateCopyStatus(false);
+              }
               setName('');
               setEmail('');
-              setRole('client_member');
+              setRole('client_admin');
               setSubmitting(false);
               showToast('사용자가 발급되었습니다.', 'success');
               await loadUsers();
@@ -470,18 +1035,35 @@ export default function CompanyUsersPage({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 권한
               </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as 'client_admin' | 'client_member')}
-                disabled={!canAddUser || submitting}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                <option value="client_admin">고객 관리자</option>
-                <option value="client_member">고객 일반</option>
-              </select>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="radio"
+                    name="user-role"
+                    value="client_admin"
+                    checked={role === 'client_admin'}
+                    onChange={() => setRole('client_admin')}
+                    disabled={!canAddUser || submitting}
+                    className="accent-primary"
+                  />
+                  고객 관리자
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="radio"
+                    name="user-role"
+                    value="client_member"
+                    checked={role === 'client_member'}
+                    onChange={() => setRole('client_member')}
+                    disabled={!canAddUser || submitting}
+                    className="accent-primary"
+                  />
+                  고객 일반
+                </label>
+              </div>
             </div>
 
             <button
@@ -493,9 +1075,26 @@ export default function CompanyUsersPage({
               {submitting ? '발급 중...' : '사용자 발급 (임시 비밀번호 자동 생성)'}
             </button>
 
-            {tempPassword && (
-              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
-                임시 비밀번호: {tempPassword} — 복사 후 고객에게 전달하세요
+            {issuedCredentials && (
+              <div className="border border-green-200 bg-green-50 rounded-md p-4 text-sm text-green-800">
+                <p className="font-semibold mb-2">✅ 사용자 발급 완료</p>
+                <div className="space-y-1 text-sm">
+                  <p>이메일: {issuedCredentials.email}</p>
+                  <p>임시 PW: {issuedCredentials.password}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleCopyCredentials(
+                      issuedCredentials.email,
+                      issuedCredentials.password,
+                      'create'
+                    )
+                  }
+                  className="mt-3 inline-flex items-center gap-2 px-3 py-2 text-sm border border-green-300 rounded-md text-green-800 hover:bg-green-100"
+                >
+                  {createCopyStatus ? '✅ 복사됨' : '📋 ID/PW 복사하기'}
+                </button>
               </div>
             )}
 
@@ -524,49 +1123,69 @@ export default function CompanyUsersPage({
             {users.length === 0 ? (
               <div className="text-sm text-gray-500">등록된 사용자가 없습니다</div>
             ) : (
-              users.map((item) => (
-                <div key={item.user_id} className="bg-muted rounded-md p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-full">
-                        <User className="w-4 h-4 text-primary" />
+              users.map((item) => {
+                const isClientAdmin = item.role === 'client_admin';
+                const roleLabel = isClientAdmin ? '고객 관리자' : '고객 일반';
+                const roleStyle = isClientAdmin ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600';
+                const tempPasswordValue = userTempPasswords[item.user_id];
+
+                return (
+                  <div key={item.user_id} className="bg-muted rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-full">
+                          <User className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {item.name ?? '이름 없음'}
+                          </p>
+                          <p className="text-xs text-gray-500">{item.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {item.name ?? '이름 없음'}
-                        </p>
-                        <p className="text-xs text-gray-500">{item.email}</p>
+
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${roleStyle}`}>
+                          {roleLabel}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleResetPassword(item.user_id)}
+                          disabled={resetLoading[item.user_id]}
+                          className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50"
+                        >
+                          {resetLoading[item.user_id] ? '재발급 중...' : '재발급'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveUser(item.user_id, item.name ?? item.email)}
+                          disabled={removeLoading[item.user_id]}
+                          className="text-xs px-3 py-1.5 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {removeLoading[item.user_id] ? '제거 중...' : '제거'}
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-500">{item.role}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleResetPassword(item.user_id)}
-                        disabled={resetLoading[item.user_id]}
-                        className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50"
-                      >
-                        {resetLoading[item.user_id] ? '재발급 중...' : '재발급'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveUser(item.user_id, item.name ?? item.email)}
-                        disabled={removeLoading[item.user_id]}
-                        className="text-xs px-3 py-1.5 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {removeLoading[item.user_id] ? '제거 중...' : '제거'}
-                      </button>
-                    </div>
+                    {tempPasswordValue && (
+                      <div className="mt-3 border border-green-200 bg-green-50 rounded-md p-4 text-sm text-green-800">
+                        <p className="font-semibold mb-2">✅ 사용자 재발급 완료</p>
+                        <div className="space-y-1 text-sm">
+                          <p>이메일: {item.email}</p>
+                          <p>임시 PW: {tempPasswordValue}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCredentials(item.email, tempPasswordValue, item.user_id)}
+                          className="mt-3 inline-flex items-center gap-2 px-3 py-2 text-sm border border-green-300 rounded-md text-green-800 hover:bg-green-100"
+                        >
+                          {copyStatusByUser[item.user_id] ? '✅ 복사됨' : '📋 ID/PW 복사하기'}
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  {userTempPasswords[item.user_id] && (
-                    <div className="mt-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
-                      임시 비밀번호: {userTempPasswords[item.user_id]} — 복사 후 고객에게 전달하세요
-                    </div>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

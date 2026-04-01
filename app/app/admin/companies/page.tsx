@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Plus, ShieldAlert, Users } from 'lucide-react';
+import { Building2, Plus, ShieldAlert, Users, Download } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@/types';
@@ -33,6 +33,7 @@ export default function CompaniesAdminPage() {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const loadCompanies = async () => {
     const response = await fetch('/api/admin/companies', { cache: 'no-store' });
@@ -50,6 +51,31 @@ export default function CompaniesAdminPage() {
     }
     const data = await response.json();
     setCompanies(Array.isArray(data?.companies) ? data.companies : []);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/companies/export');
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      if (!response.ok) {
+        setError('엑셀 내보내기에 실패했습니다');
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'brution-companies.xlsx';
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   useEffect(() => {
@@ -170,13 +196,24 @@ export default function CompaniesAdminPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            새 고객사 추가
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? '내보내는 중...' : '엑셀 내보내기'}
+            </button>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              새 고객사 추가
+            </button>
+          </div>
         </div>
 
         {showCreateForm && (

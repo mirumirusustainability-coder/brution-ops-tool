@@ -65,7 +65,7 @@ export const GET = async (
 
     const { data: company, error: companyError } = await admin
       .from('companies')
-      .select('id, name, created_at, updated_at')
+      .select('id, name, metadata, created_at, updated_at')
       .eq('id', id)
       .single()
 
@@ -98,6 +98,71 @@ export const GET = async (
       projects: projects ?? [],
       members: members ?? [],
     })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'UNKNOWN'
+    const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
+    return NextResponse.json({ error: message }, { status })
+  }
+}
+
+export const PATCH = async (
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const profile = await getProfile()
+    if (!isStaffAdmin(profile.role)) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    }
+
+    const { id } = await params
+    const body = await request.json().catch(() => null)
+    const name = typeof body?.name === 'string' ? body.name.trim() : undefined
+    const incomingMetadata =
+      body?.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)
+        ? body.metadata
+        : null
+
+    if (!name && !incomingMetadata) {
+      return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
+    }
+
+    const admin = createSupabaseAdmin()
+    let mergedMetadata: Record<string, any> | undefined = undefined
+
+    if (incomingMetadata) {
+      const { data: existing, error: existingError } = await admin
+        .from('companies')
+        .select('metadata')
+        .eq('id', id)
+        .single()
+
+      if (existingError || !existing) {
+        return NextResponse.json({ error: 'COMPANY_NOT_FOUND' }, { status: 404 })
+      }
+
+      mergedMetadata = {
+        ...(existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
+        ...incomingMetadata,
+      }
+    }
+
+    const updatePayload: Record<string, any> = {}
+    if (name) updatePayload.name = name
+    if (mergedMetadata) updatePayload.metadata = mergedMetadata
+
+    const { data: updated, error: updateError } = await admin
+      .from('companies')
+      .update(updatePayload)
+      .eq('id', id)
+      .select('id, name, metadata, created_at, updated_at')
+      .single()
+
+    if (updateError || !updated) {
+      return NextResponse.json({ error: 'COMPANY_UPDATE_FAILED' }, { status: 500 })
+    }
+
+    return NextResponse.json({ company: updated })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
