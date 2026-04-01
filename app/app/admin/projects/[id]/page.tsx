@@ -58,6 +58,8 @@ type AdminAsset = {
   deliverable_version_id: string
   path: string
   original_name: string | null
+  file_name?: string | null
+  name?: string | null
   created_at: string
 }
 
@@ -775,11 +777,12 @@ export default function AdminProjectDetailPage({
                           <div className="space-y-1">
                             {assets.length ? (
                               assets.map((asset) => {
-                                const fileName = asset.original_name ?? getFileNameFromPath(asset.path) ?? '파일'
+                                const displayName =
+                                  asset.file_name || asset.name || getFileNameFromPath(asset.path) || '파일'
 
                                 return (
                                   <div key={asset.id} className="flex items-center justify-between text-sm text-gray-600">
-                                    <span className="truncate">{fileName}</span>
+                                    <span className="truncate">{displayName}</span>
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteAsset(asset.id, version.id)}

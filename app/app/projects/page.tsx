@@ -33,9 +33,7 @@ export default function ProjectsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [companyName, setCompanyName] = useState('');
-  const activeCount = projects.filter(
-    (project) => project.status === 'active' || project.status === null || project.status === undefined
-  ).length;
+  const activeCount = projects.length;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +57,7 @@ export default function ProjectsPage() {
     const data = await projectsResponse.json();
     const items = Array.isArray(data?.projects) ? data.projects : [];
     setProjects(items);
+    console.log('projects:', items.map((project) => ({ id: project.id, status: project.status })));
     const nextCompanyName = items.length > 0 ? getCompanyName(items[0].companies) : '';
     if (nextCompanyName) {
       setCompanyName(nextCompanyName);

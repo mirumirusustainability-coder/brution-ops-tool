@@ -51,6 +51,8 @@ type ApiDeliverableVersion = {
 type AssetInfo = {
   assetId: string;
   path: string;
+  fileName?: string | null;
+  name?: string | null;
 };
 
 const mapProject = (project: ApiProject): ProjectDetail => ({
@@ -307,7 +309,8 @@ export default function ProjectDetailPage({
           if (version.asset_id) {
             nextAssets[version.id] = {
               assetId: version.asset_id,
-              path: version.asset_path ?? version.asset_name ?? '',
+              path: version.asset_path ?? '',
+              fileName: version.asset_name ?? null,
             };
           }
         });
@@ -432,8 +435,11 @@ export default function ProjectDetailPage({
                         <div className="space-y-3">
                           {sortedVersions.map((version) => {
                             const assetInfo = assetsByVersion[version.id];
-                            const fileName =
-                              getFileNameFromPath(assetInfo?.path) ?? version.title ?? undefined;
+                            const displayName =
+                              assetInfo?.fileName ||
+                              assetInfo?.name ||
+                              getFileNameFromPath(assetInfo?.path) ||
+                              '파일';
 
                             return (
                               <div
@@ -442,13 +448,13 @@ export default function ProjectDetailPage({
                               >
                                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                   <p className="text-sm font-medium text-gray-900">
-                                    {fileName ?? `v${version.version_no}`}
+                                    {displayName}
                                   </p>
                                   <DownloadButton
                                     status={version.status}
                                     userRole={currentUser.role}
                                     assetId={assetInfo?.assetId}
-                                    fileName={fileName}
+                                    fileName={displayName}
                                   />
                                 </div>
                                 <p className="text-xs text-gray-400 mt-1">
