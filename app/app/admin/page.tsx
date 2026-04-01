@@ -172,6 +172,11 @@ export default function AdminDashboardPage() {
     paused: 'bg-gray-100 text-gray-600',
   }
 
+  const greetingMessage =
+    currentUser?.role === 'staff_admin'
+      ? '안녕하세요, 브루션 관리자님!'
+      : `안녕하세요, ${currentUser?.name || '고객사'}님!`
+
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
   }
@@ -188,7 +193,8 @@ export default function AdminDashboardPage() {
     <AppLayout user={currentUser}>
       <div className="max-w-6xl space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">어드민 대시보드</h1>
+          <p className="text-sm text-gray-500">{greetingMessage}</p>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1">어드민 대시보드</h1>
           <p className="text-sm text-gray-500 mt-1">운영 현황을 빠르게 확인하세요.</p>
         </div>
 

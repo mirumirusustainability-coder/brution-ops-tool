@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sparkles, AlertCircle, Copy, Check, PenTool } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
-import { mockUsers } from '@/lib/mock-data';
+import { createBrowserClient } from '@supabase/ssr';
+import { User, UserRole } from '@/types';
 
 const mockNamingResults = [
   '브루션 에어쿨 프라임',
@@ -17,7 +19,10 @@ const mockNamingResults = [
 ];
 
 export default function NamingPage() {
-  const [currentUser, setCurrentUser] = useState(mockUsers[0]);
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [hasResult, setHasResult] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -27,6 +32,71 @@ export default function NamingPage() {
   const [target, setTarget] = useState('');
   const [forbiddenWords, setForbiddenWords] = useState('');
   const [requiredWords, setRequiredWords] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    const loadUser = async () => {
+      setLoading(true);
+      setError(null);
+
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.replace('/login');
+        return;
+      }
+
+      const meResponse = await fetch('/api/auth/me', {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (meResponse.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!meResponse.ok) {
+        if (active) {
+          setError('사용자 정보를 불러올 수 없습니다');
+          setLoading(false);
+        }
+        return;
+      }
+
+      const me = await meResponse.json();
+      const user: User = {
+        id: me?.userId ?? '',
+        email: me?.email ?? '',
+        name: me?.name ?? me?.email ?? '',
+        role: (me?.role ?? 'staff') as UserRole,
+        companyId: me?.companyId ?? '',
+        mustChangePassword: me?.mustChangePassword ?? false,
+        status: (me?.status ?? 'active') as 'active' | 'inactive',
+      };
+
+      if (user.role !== 'staff_admin') {
+        router.replace('/app/projects');
+        return;
+      }
+
+      if (active) {
+        setCurrentUser(user);
+        setLoading(false);
+      }
+    };
+
+    loadUser();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,13 +113,24 @@ export default function NamingPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (loading && !currentUser) {
+    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>;
+  }
+
+  if (error && !currentUser) {
+    return <div className="p-6 text-sm text-red-600">{error}</div>;
+  }
+
+  if (!currentUser) {
+    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
+  }
+
   return (
     <AppLayout user={currentUser}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">상품명 생성</h1>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Left Panel: Inputs */}
           <div className="bg-white border border-border rounded-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">입력 정보</h2>
 
@@ -144,7 +225,6 @@ export default function NamingPage() {
             </div>
           </div>
 
-          {/* Right Panel: Results */}
           <div className="bg-white border border-border rounded-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">생성 결과</h2>
 

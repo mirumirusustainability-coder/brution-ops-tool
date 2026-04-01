@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Search, X } from 'lucide-react'
+import { ChevronRight, Plus, Search, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
 import { ToastContainer } from '@/components/toast'
 import { createBrowserClient } from '@supabase/ssr'
@@ -77,7 +77,6 @@ export default function AdminProjectsPage() {
   const [formStep, setFormStep] = useState(0)
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     const filterParam = searchParams.get('filter')
@@ -218,26 +217,6 @@ export default function AdminProjectsPage() {
       active = false
     }
   }, [router])
-
-  const handleDeleteProject = async (project: ApiProject) => {
-    const confirmed = window.confirm(`정말 ${project.name}을 삭제하시겠습니까?`)
-    if (!confirmed) return
-
-    setDeletingId(project.id)
-    const response = await fetch(`/api/admin/projects/${project.id}`, {
-      method: 'DELETE',
-    })
-
-    if (!response.ok) {
-      showToast('프로젝트 삭제에 실패했습니다', 'error')
-      setDeletingId(null)
-      return
-    }
-
-    setProjects((prev) => prev.filter((item) => item.id !== project.id))
-    showToast('프로젝트가 삭제되었습니다', 'success')
-    setDeletingId(null)
-  }
 
   const filteredProjects = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -453,7 +432,7 @@ export default function AdminProjectsPage() {
                   <th className="px-4 py-3 text-left font-semibold">STEP</th>
                   <th className="px-4 py-3 text-left font-semibold">상태</th>
                   <th className="px-4 py-3 text-left font-semibold">생성일</th>
-                  <th className="px-4 py-3 text-right font-semibold">액션</th>
+                  <th className="px-4 py-3 text-right font-semibold">보기</th>
                 </tr>
               </thead>
               <tbody>
@@ -463,7 +442,11 @@ export default function AdminProjectsPage() {
                   const statusStyle = statusBadgeStyles[statusValue] ?? statusBadgeStyles.active
 
                   return (
-                    <tr key={project.id} className="group border-t border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={project.id}
+                      onClick={() => router.push(`/app/admin/projects/${project.id}`)}
+                      className="group border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    >
                       <td className="px-4 py-3">
                         <span className="text-base font-semibold text-gray-900">
                           {getCompanyName(project.companies) || '미지정'}
@@ -482,24 +465,8 @@ export default function AdminProjectsPage() {
                       <td className="px-4 py-3 text-gray-500">
                         {new Date(project.created_at).toLocaleDateString('ko-KR')}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/app/admin/projects/${project.id}`)}
-                            className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-white"
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProject(project)}
-                            disabled={deletingId === project.id}
-                            className="rounded-md border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            {deletingId === project.id ? '삭제 중...' : '삭제'}
-                          </button>
-                        </div>
+                      <td className="px-4 py-3 text-right text-gray-400">
+                        <ChevronRight className="ml-auto h-4 w-4" />
                       </td>
                     </tr>
                   )

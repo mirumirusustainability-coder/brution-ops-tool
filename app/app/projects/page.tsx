@@ -14,6 +14,7 @@ type ApiProject = {
   name: string;
   description: string | null;
   step: number;
+  status?: 'active' | 'completed' | 'paused';
   created_at: string;
   updated_at: string;
   companies?: { name?: string } | { name?: string }[] | null;
@@ -32,6 +33,7 @@ export default function ProjectsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [companyName, setCompanyName] = useState('');
+  const activeProjectCount = projects.filter((project) => (project.status ?? 'active') === 'active').length;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +58,9 @@ export default function ProjectsPage() {
     const items = Array.isArray(data?.projects) ? data.projects : [];
     setProjects(items);
     const nextCompanyName = items.length > 0 ? getCompanyName(items[0].companies) : '';
-    setCompanyName(nextCompanyName);
+    if (nextCompanyName) {
+      setCompanyName(nextCompanyName);
+    }
     return { ok: true };
   };
 
@@ -135,8 +139,18 @@ export default function ProjectsPage() {
         status: (me?.status ?? 'active') as 'active' | 'inactive',
       };
 
+      const meCompanyName =
+        typeof (me as { companyName?: string })?.companyName === 'string'
+          ? (me as { companyName?: string }).companyName
+          : typeof (me as { company?: { name?: string } })?.company?.name === 'string'
+            ? (me as { company?: { name?: string } }).company?.name
+            : '';
+
       if (active) {
         setCurrentUser(user);
+        if (meCompanyName) {
+          setCompanyName(meCompanyName);
+        }
       }
 
       await loadProjects();
@@ -171,15 +185,16 @@ export default function ProjectsPage() {
     <AppLayout user={currentUser}>
       <div className="max-w-6xl">
         {/* Header */}
-        <div className="flex flex-col gap-2 mb-6">
-          <div>
-            <p className="text-sm text-gray-500">
-              {companyName ? `${companyName}님, 안녕하세요` : '안녕하세요'}
-            </p>
-            <h1 className="text-2xl font-bold text-gray-900">프로젝트</h1>
+        <div className="pt-6 mb-6">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="text-2xl text-gray-600">안녕하세요,</span>
+            <span className="text-2xl font-bold text-gray-900">
+              {companyName || '고객사'}
+            </span>
+            <span className="text-2xl text-gray-600">님!</span>
           </div>
-          <p className="text-sm text-gray-600">
-            진행 중인 프로젝트 {projects.length}건을 확인하세요.
+          <p className="text-base text-gray-500 mt-1">
+            현재 {activeProjectCount}개 프로젝트가 진행 중입니다.
           </p>
         </div>
 

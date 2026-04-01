@@ -6,7 +6,7 @@ import { FileText } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { StepProgress } from '@/components/step-progress';
 import { DownloadButton } from '@/components/download-button';
-import { DELIVERABLE_TYPE_LABELS } from '@/lib/constants';
+import { DELIVERABLE_TYPE_LABELS, STEP_LABELS } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { DeliverableType, ProjectDetail, User } from '@/types';
 
@@ -402,41 +402,59 @@ export default function ProjectDetailPage({
             <div className="space-y-4">
               {filteredDeliverables.map((deliverable) => {
                 const versions = versionsByDeliverable[deliverable.id] ?? [];
-                const latestVersion = versions.length
-                  ? [...versions].sort((a, b) => b.version_no - a.version_no)[0]
-                  : null;
-                const assetInfo = latestVersion ? assetsByVersion[latestVersion.id] : undefined;
-                const fileName =
-                  getFileNameFromPath(assetInfo?.path) ?? latestVersion?.title ?? undefined;
-                const uploadedAt = latestVersion?.created_at
-                  ? new Date(latestVersion.created_at).toLocaleDateString('ko-KR')
-                  : null;
+                const sortedVersions = [...versions].sort((a, b) => b.version_no - a.version_no);
 
                 return (
                   <div
                     key={deliverable.id}
-                    className="bg-white border border-border rounded-lg p-5"
+                    className="bg-white border border-border rounded-lg p-6"
                   >
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs text-gray-500">{DELIVERABLE_TYPE_LABELS[deliverable.type]}</p>
+                    <div className="flex flex-col gap-4">
+                      <div className="space-y-2">
+                        <p className="text-[11px] text-gray-400">
+                          {DELIVERABLE_TYPE_LABELS[deliverable.type]}
+                        </p>
                         <h3 className="text-lg font-semibold text-gray-900">
                           {deliverable.title || DELIVERABLE_TYPE_LABELS[deliverable.type]}
                         </h3>
-                        {uploadedAt ? (
-                          <p className="text-sm text-gray-500">업로드일 · {uploadedAt}</p>
-                        ) : (
-                          <p className="text-sm text-gray-400">파일 준비 중입니다</p>
-                        )}
+                        <span className="inline-flex w-fit rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
+                          STEP {project.step} · {STEP_LABELS[project.step]}
+                        </span>
                       </div>
-                      <div className="flex flex-col items-start gap-2 md:items-end">
-                        <DownloadButton
-                          status={latestVersion?.status ?? 'draft'}
-                          userRole={currentUser.role}
-                          assetId={assetInfo?.assetId}
-                          fileName={fileName}
-                        />
-                      </div>
+
+                      {sortedVersions.length === 0 ? (
+                        <p className="text-sm text-gray-400">파일 준비 중입니다</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {sortedVersions.map((version) => {
+                            const assetInfo = assetsByVersion[version.id];
+                            const fileName =
+                              getFileNameFromPath(assetInfo?.path) ?? version.title ?? undefined;
+
+                            return (
+                              <div
+                                key={version.id}
+                                className="flex flex-col gap-2 rounded-md bg-muted px-4 py-3 md:flex-row md:items-center md:justify-between"
+                              >
+                                <div className="space-y-1">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    v{version.version_no} {fileName ? `· ${fileName}` : ''}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    업로드일 · {new Date(version.created_at).toLocaleDateString('ko-KR')}
+                                  </p>
+                                </div>
+                                <DownloadButton
+                                  status={version.status}
+                                  userRole={currentUser.role}
+                                  assetId={assetInfo?.assetId}
+                                  fileName={fileName}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -447,11 +465,10 @@ export default function ProjectDetailPage({
       </div>
 
       <div className="fixed bottom-4 left-4 right-4 z-40 rounded-lg border border-border bg-white p-4 shadow-lg lg:left-auto lg:right-6 lg:bottom-6 lg:w-64">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">브루션 문의</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">브루션 담당자 안내</h3>
         <div className="space-y-1 text-xs text-gray-600">
-          <p>이메일: support@brution.co</p>
-          <p>전화: 02-0000-0000</p>
-          <p>운영시간: 평일 10:00 - 18:00</p>
+          <p>담당: 브루션 운영팀</p>
+          <p>문의: help@brution.com</p>
         </div>
       </div>
     </AppLayout>

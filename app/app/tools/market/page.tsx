@@ -1,32 +1,92 @@
 'use client';
 
-import { useState } from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/app-layout';
-import { mockUsers } from '@/lib/mock-data';
+import { createBrowserClient } from '@supabase/ssr';
+import { User, UserRole } from '@/types';
 
 export default function MarketResearchPage() {
-  const [currentUser, setCurrentUser] = useState(mockUsers[0]);
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // SSOT 하드룰: 고객(Client)은 시장조사 접근 불가
-  const isClient = currentUser.role.startsWith('client');
+  useEffect(() => {
+    let active = true;
 
-  if (isClient) {
-    return (
-      <AppLayout user={currentUser}>
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
-            <ShieldAlert className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-red-900 mb-2">
-              접근 권한이 없습니다
-            </h2>
-            <p className="text-red-700">
-              시장조사 리포트는 내부 직원만 접근 가능합니다.
-            </p>
-          </div>
-        </div>
-      </AppLayout>
-    );
+    const loadUser = async () => {
+      setLoading(true);
+      setError(null);
+
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.replace('/login');
+        return;
+      }
+
+      const meResponse = await fetch('/api/auth/me', {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (meResponse.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!meResponse.ok) {
+        if (active) {
+          setError('사용자 정보를 불러올 수 없습니다');
+          setLoading(false);
+        }
+        return;
+      }
+
+      const me = await meResponse.json();
+      const user: User = {
+        id: me?.userId ?? '',
+        email: me?.email ?? '',
+        name: me?.name ?? me?.email ?? '',
+        role: (me?.role ?? 'staff') as UserRole,
+        companyId: me?.companyId ?? '',
+        mustChangePassword: me?.mustChangePassword ?? false,
+        status: (me?.status ?? 'active') as 'active' | 'inactive',
+      };
+
+      if (user.role !== 'staff_admin') {
+        router.replace('/app/projects');
+        return;
+      }
+
+      if (active) {
+        setCurrentUser(user);
+        setLoading(false);
+      }
+    };
+
+    loadUser();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  if (loading && !currentUser) {
+    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>;
+  }
+
+  if (error && !currentUser) {
+    return <div className="p-6 text-sm text-red-600">{error}</div>;
+  }
+
+  if (!currentUser) {
+    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
   }
 
   const isStaffAdmin = currentUser.role === 'staff_admin';
@@ -45,7 +105,6 @@ export default function MarketResearchPage() {
               </p>
             </div>
 
-            {/* Mock UI for market research tool */}
             <div className="grid gap-4">
               <button className="w-full bg-primary text-white py-3 rounded-md hover:bg-primary-hover transition-colors">
                 + 새 시장조사 리포트 생성
