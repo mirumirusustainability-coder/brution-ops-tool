@@ -72,16 +72,56 @@ const interestCategoryOptions = ['뷰티', '식품', '전자', '생활용품', '
 const channelOptions = ['스마트스토어', '쿠팡', '자사몰', '해외', '오프라인', '없음'];
 const clientTierOptions = ['일반', 'VIP', '파트너'];
 
-const formatTextValue = (value?: string | null) => (value ? value : '-');
-const formatBooleanValue = (value?: boolean | null) => (value ? '예' : '아니오');
-const formatAmountValue = (value?: number | string | null) => {
-  if (value === null || value === undefined || value === '') return '-';
+const emptyValue = <span className="text-sm text-gray-400 italic mt-1">-</span>;
+const renderTextValue = (value?: string | null) =>
+  value ? <span className="text-sm text-gray-900 mt-1">{value}</span> : emptyValue;
+const renderAmountValue = (value?: number | string | null) => {
+  if (value === null || value === undefined || value === '') {
+    return emptyValue;
+  }
   const numeric = typeof value === 'number' ? value : Number(value);
-  if (Number.isNaN(numeric)) return '-';
-  return numeric.toLocaleString('ko-KR');
+  if (Number.isNaN(numeric)) {
+    return emptyValue;
+  }
+  return <span className="text-sm text-gray-900 mt-1">₩{numeric.toLocaleString('ko-KR')}</span>;
 };
-const formatArrayValue = (value?: string[] | null) =>
-  Array.isArray(value) && value.length > 0 ? value.join(', ') : '-';
+const renderArrayValue = (value?: string[] | null) =>
+  Array.isArray(value) && value.length > 0
+    ? renderTextValue(value.join(', '))
+    : emptyValue;
+
+const renderBooleanBadge = (value?: boolean | null) => {
+  if (value === null || value === undefined) return emptyValue;
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+        value ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
+      }`}
+    >
+      {value ? '✅ 완료' : '❌ 미완료'}
+    </span>
+  );
+};
+
+const contractStatusStyles: Record<string, string> = {
+  계약전: 'bg-gray-100 text-gray-600',
+  진행중: 'bg-blue-50 text-blue-600',
+  완료: 'bg-green-50 text-green-600',
+};
+const clientTierStyles: Record<string, string> = {
+  일반: 'bg-gray-100 text-gray-600',
+  VIP: 'bg-yellow-50 text-yellow-700',
+  파트너: 'bg-purple-50 text-purple-700',
+};
+const renderBadgeValue = (value?: string | null, styleMap?: Record<string, string>) => {
+  if (!value) return emptyValue;
+  const styles = styleMap?.[value] ?? 'bg-gray-100 text-gray-600';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles}`}>
+      {value}
+    </span>
+  );
+};
 
 export default function CompanyUsersPage({
   params,
@@ -97,7 +137,6 @@ export default function CompanyUsersPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [userTempPasswords, setUserTempPasswords] = useState<Record<string, string>>({});
   const [resetLoading, setResetLoading] = useState<Record<string, boolean>>({});
   const [removeLoading, setRemoveLoading] = useState<Record<string, boolean>>({});
@@ -470,132 +509,108 @@ export default function CompanyUsersPage({
         </div>
 
         {/* 고객사 프로필 */}
-        <div className="bg-white border border-border rounded-lg p-6 mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="mb-6">
+          <div className="flex items-start justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">고객사 프로필</h2>
-            <div className="flex items-center gap-2">
-              {isEditingProfile ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditingProfile(false);
-                      setProfileDraft(profileData);
-                      setProfileError(null);
-                    }}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleProfileSave}
-                    disabled={profileSaving}
-                    className="px-3 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
-                  >
-                    {profileSaving ? '저장 중...' : '저장'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditingProfile(true);
-                    setProfileDraft(profileData);
-                    setProfileError(null);
-                  }}
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  프로필 수정
-                </button>
-              )}
-            </div>
+            {!isEditingProfile && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingProfile(true);
+                  setProfileDraft(profileData);
+                  setProfileError(null);
+                }}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                프로필 수정
+              </button>
+            )}
           </div>
 
           {profileError && <p className="text-sm text-red-600 mb-3">{profileError}</p>}
 
-          <div className="space-y-6 divide-y divide-gray-200">
-            <section className="pt-0">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">기본 정보</h3>
-              <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">기본 정보</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">사업자번호</label>
+                  <label className="text-sm font-medium text-gray-500">사업자번호</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.biz_no ?? ''}
                       onChange={(e) => updateProfileField('biz_no', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.biz_no)}</p>
+                    renderTextValue(profile.biz_no)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
+                  <label className="text-sm font-medium text-gray-500">주소</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.address ?? ''}
                       onChange={(e) => updateProfileField('address', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.address)}</p>
+                    renderTextValue(profile.address)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">대표 연락처</label>
+                  <label className="text-sm font-medium text-gray-500">대표 연락처</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.phone ?? ''}
                       onChange={(e) => updateProfileField('phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.phone)}</p>
+                    renderTextValue(profile.phone)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">담당자 이름</label>
+                  <label className="text-sm font-medium text-gray-500">담당자 이름</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.contact_name ?? ''}
                       onChange={(e) => updateProfileField('contact_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.contact_name)}</p>
+                    renderTextValue(profile.contact_name)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">담당자 이메일</label>
+                  <label className="text-sm font-medium text-gray-500">담당자 이메일</label>
                   {isEditingProfile ? (
                     <input
                       type="email"
                       value={profileDraft.contact_email ?? ''}
                       onChange={(e) => updateProfileField('contact_email', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.contact_email)}</p>
+                    renderTextValue(profile.contact_email)
                   )}
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section className="pt-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">계약 & 정산</h3>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">계약 & 정산</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">계약 상태</label>
+                  <label className="text-sm font-medium text-gray-500">계약 상태</label>
                   {isEditingProfile ? (
                     <select
                       value={profileDraft.contract_status ?? ''}
                       onChange={(e) => updateProfileField('contract_status', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     >
                       <option value="">선택</option>
                       {contractStatusOptions.map((option) => (
@@ -605,13 +620,15 @@ export default function CompanyUsersPage({
                       ))}
                     </select>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.contract_status ?? null)}</p>
+                    <div className="mt-1">
+                      {renderBadgeValue(profile.contract_status ?? null, contractStatusStyles)}
+                    </div>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">스타터 패키지</label>
+                  <label className="text-sm font-medium text-gray-500">스타터 패키지</label>
                   {isEditingProfile ? (
-                    <label className="inline-flex items-center gap-3">
+                    <label className="inline-flex items-center gap-3 mt-1">
                       <input
                         type="checkbox"
                         className="sr-only peer"
@@ -626,26 +643,26 @@ export default function CompanyUsersPage({
                       </span>
                     </label>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatBooleanValue(profile.starter_package)}</p>
+                    <div className="mt-1">{renderBooleanBadge(profile.starter_package)}</div>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">프로젝트 전체 금액 (원)</label>
+                  <label className="text-sm font-medium text-gray-500">프로젝트 전체 금액 (원)</label>
                   {isEditingProfile ? (
                     <input
                       type="number"
                       value={profileDraft.total_amount ?? ''}
                       onChange={(e) => updateProfileField('total_amount', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatAmountValue(profile.total_amount)}</p>
+                    renderAmountValue(profile.total_amount)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">계약금 30% 입금</label>
+                  <label className="text-sm font-medium text-gray-500">계약금 30% 입금</label>
                   {isEditingProfile ? (
-                    <label className="inline-flex items-center gap-3">
+                    <label className="inline-flex items-center gap-3 mt-1">
                       <input
                         type="checkbox"
                         className="sr-only peer"
@@ -660,13 +677,13 @@ export default function CompanyUsersPage({
                       </span>
                     </label>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatBooleanValue(profile.deposit_paid)}</p>
+                    <div className="mt-1">{renderBooleanBadge(profile.deposit_paid)}</div>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">잔금 70% 입금</label>
+                  <label className="text-sm font-medium text-gray-500">잔금 70% 입금</label>
                   {isEditingProfile ? (
-                    <label className="inline-flex items-center gap-3">
+                    <label className="inline-flex items-center gap-3 mt-1">
                       <input
                         type="checkbox"
                         className="sr-only peer"
@@ -681,48 +698,48 @@ export default function CompanyUsersPage({
                       </span>
                     </label>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatBooleanValue(profile.balance_paid)}</p>
+                    <div className="mt-1">{renderBooleanBadge(profile.balance_paid)}</div>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">계약 시작일</label>
+                  <label className="text-sm font-medium text-gray-500">계약 시작일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.contract_start ?? ''}
                       onChange={(e) => updateProfileField('contract_start', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.contract_start)}</p>
+                    renderTextValue(profile.contract_start)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">계약 종료일</label>
+                  <label className="text-sm font-medium text-gray-500">계약 종료일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.contract_end ?? ''}
                       onChange={(e) => updateProfileField('contract_end', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.contract_end)}</p>
+                    renderTextValue(profile.contract_end)
                   )}
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section className="pt-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">영업 & 유입</h3>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">영업 & 유입</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source</label>
+                  <label className="text-sm font-medium text-gray-500">Lead Source</label>
                   {isEditingProfile ? (
                     <select
                       value={profileDraft.lead_source ?? ''}
                       onChange={(e) => updateProfileField('lead_source', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     >
                       <option value="">선택</option>
                       {leadSourceOptions.map((option) => (
@@ -732,45 +749,45 @@ export default function CompanyUsersPage({
                       ))}
                     </select>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.lead_source ?? null)}</p>
+                    renderTextValue(profile.lead_source ?? null)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">첫 상담일</label>
+                  <label className="text-sm font-medium text-gray-500">첫 상담일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.first_contact ?? ''}
                       onChange={(e) => updateProfileField('first_contact', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.first_contact)}</p>
+                    renderTextValue(profile.first_contact)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">목표 런칭 시기</label>
+                  <label className="text-sm font-medium text-gray-500">목표 런칭 시기</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.target_launch ?? ''}
                       onChange={(e) => updateProfileField('target_launch', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.target_launch)}</p>
+                    renderTextValue(profile.target_launch)
                   )}
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section className="pt-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">상품 & 비즈니스</h3>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">상품 & 비즈니스</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">관심 카테고리</label>
+                  <label className="text-sm font-medium text-gray-500">관심 카테고리</label>
                   {isEditingProfile ? (
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-3 mt-1">
                       {interestCategoryOptions.map((option) => (
                         <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
                           <input
@@ -784,13 +801,13 @@ export default function CompanyUsersPage({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatArrayValue(interestCategories)}</p>
+                    renderArrayValue(interestCategories)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">현재 운영 채널</label>
+                  <label className="text-sm font-medium text-gray-500">현재 운영 채널</label>
                   {isEditingProfile ? (
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-3 mt-1">
                       {channelOptions.map((option) => (
                         <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
                           <input
@@ -804,13 +821,13 @@ export default function CompanyUsersPage({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatArrayValue(currentChannels)}</p>
+                    renderArrayValue(currentChannels)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">목표 판매 채널</label>
+                  <label className="text-sm font-medium text-gray-500">목표 판매 채널</label>
                   {isEditingProfile ? (
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-3 mt-1">
                       {channelOptions.map((option) => (
                         <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
                           <input
@@ -824,47 +841,47 @@ export default function CompanyUsersPage({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatArrayValue(targetChannels)}</p>
+                    renderArrayValue(targetChannels)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">예상 발주 수량</label>
+                  <label className="text-sm font-medium text-gray-500">예상 발주 수량</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.est_order_qty ?? ''}
                       onChange={(e) => updateProfileField('est_order_qty', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.est_order_qty)}</p>
+                    renderTextValue(profile.est_order_qty)
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pain Point</label>
+                  <label className="text-sm font-medium text-gray-500">Pain Point</label>
                   {isEditingProfile ? (
                     <textarea
                       value={profileDraft.pain_point ?? ''}
                       onChange={(e) => updateProfileField('pain_point', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.pain_point)}</p>
+                    renderTextValue(profile.pain_point)
                   )}
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section className="pt-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">내부 관리 (어드민 전용)</h3>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">내부 관리 (어드민 전용)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Client Tier</label>
+                  <label className="text-sm font-medium text-gray-500">Client Tier</label>
                   {isEditingProfile ? (
                     <select
                       value={profileDraft.client_tier ?? ''}
                       onChange={(e) => updateProfileField('client_tier', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     >
                       <option value="">선택</option>
                       {clientTierOptions.map((option) => (
@@ -874,37 +891,63 @@ export default function CompanyUsersPage({
                       ))}
                     </select>
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.client_tier ?? null)}</p>
+                    <div className="mt-1">
+                      {renderBadgeValue(profile.client_tier ?? null, clientTierStyles)}
+                    </div>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">마지막 컨택일</label>
+                  <label className="text-sm font-medium text-gray-500">마지막 컨택일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.last_contact ?? ''}
                       onChange={(e) => updateProfileField('last_contact', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.last_contact)}</p>
+                    renderTextValue(profile.last_contact)
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
+                  <label className="text-sm font-medium text-gray-500">Internal Notes</label>
                   {isEditingProfile ? (
                     <textarea
                       value={profileDraft.internal_notes ?? ''}
                       onChange={(e) => updateProfileField('internal_notes', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
                     />
                   ) : (
-                    <p className="text-sm text-gray-900">{formatTextValue(profile.internal_notes)}</p>
+                    renderTextValue(profile.internal_notes)
                   )}
                 </div>
               </div>
-            </section>
+            </div>
           </div>
+
+          {isEditingProfile && (
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingProfile(false);
+                  setProfileDraft(profileData);
+                  setProfileError(null);
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleProfileSave}
+                disabled={profileSaving}
+                className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
+              >
+                {profileSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Seat 제한 경고 */}
@@ -939,7 +982,6 @@ export default function CompanyUsersPage({
                 return;
               }
               setFormError(null);
-              setTempPassword(null);
               setIssuedCredentials(null);
               setSubmitting(true);
 
@@ -983,7 +1025,6 @@ export default function CompanyUsersPage({
               }
 
               const issuedPassword = data?.tempPassword ?? null;
-              setTempPassword(issuedPassword);
               if (issuedPassword) {
                 setIssuedCredentials({ email, password: issuedPassword });
                 setCreateCopyStatus(false);

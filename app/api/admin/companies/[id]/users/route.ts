@@ -103,7 +103,7 @@ export const POST = async (
     const body = await request.json().catch(() => null)
     const email = body?.email
     const name = body?.name
-    const role = body?.role
+    const role = body?.role ?? 'client_admin'
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json({ error: 'INVALID_EMAIL' }, { status: 400 })
@@ -141,6 +141,7 @@ export const POST = async (
     })
 
     if (createError || !createdUser?.user) {
+      console.error('사용자 발급 오류:', createError)
       return NextResponse.json({ error: 'AUTH_CREATE_FAILED' }, { status: 500 })
     }
 
@@ -159,11 +160,13 @@ export const POST = async (
       .single()
 
     if (profileError || !profileData) {
+      console.error('사용자 발급 오류:', profileError)
       return NextResponse.json({ error: 'PROFILE_CREATE_FAILED' }, { status: 500 })
     }
 
     return NextResponse.json({ user: profileData, tempPassword }, { status: 201 })
   } catch (error) {
+    console.error('사용자 발급 오류:', error)
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
     return NextResponse.json({ error: message }, { status })
