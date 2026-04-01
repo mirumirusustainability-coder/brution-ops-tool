@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 
 import { isStaffAdmin } from '@/lib/supabase/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/server'
@@ -67,63 +67,55 @@ export const GET = async () => {
       return new Response(JSON.stringify({ error: 'COMPANIES_FETCH_FAILED' }), { status: 500 })
     }
 
-    const headers = [
-      '회사명',
-      '사업자번호',
-      '주소',
-      '대표연락처',
-      '담당자이름',
-      '담당자이메일',
-      '계약상태',
-      '스타터패키지',
-      '전체금액',
-      '계약금입금',
-      '잔금입금',
-      '계약시작일',
-      '계약종료일',
-      'Lead Source',
-      '관심카테고리',
-      'Pain Point',
-      'Client Tier',
-      '메모',
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('고객사 목록')
+
+    worksheet.columns = [
+      { header: '회사명', key: 'name', width: 20 },
+      { header: '사업자번호', key: 'biz_no', width: 15 },
+      { header: '주소', key: 'address', width: 30 },
+      { header: '대표연락처', key: 'phone', width: 15 },
+      { header: '담당자이름', key: 'contact_name', width: 15 },
+      { header: '담당자이메일', key: 'contact_email', width: 25 },
+      { header: '계약상태', key: 'contract_status', width: 12 },
+      { header: '스타터패키지', key: 'starter_package', width: 12 },
+      { header: '전체금액', key: 'total_amount', width: 15 },
+      { header: '계약금입금', key: 'deposit_paid', width: 12 },
+      { header: '잔금입금', key: 'balance_paid', width: 12 },
+      { header: '계약시작일', key: 'contract_start', width: 12 },
+      { header: '계약종료일', key: 'contract_end', width: 12 },
+      { header: 'Lead Source', key: 'lead_source', width: 15 },
+      { header: '관심카테고리', key: 'interest_category', width: 20 },
+      { header: 'Pain Point', key: 'pain_point', width: 30 },
+      { header: 'Client Tier', key: 'client_tier', width: 10 },
+      { header: '내부메모', key: 'internal_notes', width: 30 },
     ]
 
-    const rows = (companies ?? []).map((company) => {
-      const metadata = (company.metadata ?? {}) as Record<string, any>
-      const interestCategory = Array.isArray(metadata.interest_category)
-        ? metadata.interest_category.join(', ')
-        : ''
-      const starterPackage = metadata.starter_package ? '예' : '아니오'
-      const depositPaid = metadata.deposit_paid ? '예' : '아니오'
-      const balancePaid = metadata.balance_paid ? '예' : '아니오'
-
-      return [
-        company.name ?? '',
-        metadata.biz_no ?? '',
-        metadata.address ?? '',
-        metadata.phone ?? '',
-        metadata.contact_name ?? '',
-        metadata.contact_email ?? '',
-        metadata.contract_status ?? '',
-        starterPackage,
-        metadata.total_amount ?? '',
-        depositPaid,
-        balancePaid,
-        metadata.contract_start ?? '',
-        metadata.contract_end ?? '',
-        metadata.lead_source ?? '',
-        interestCategory,
-        metadata.pain_point ?? '',
-        metadata.client_tier ?? '',
-        metadata.internal_notes ?? '',
-      ]
+    ;(companies ?? []).forEach((company) => {
+      const m = (company.metadata ?? {}) as Record<string, any>
+      worksheet.addRow({
+        name: company.name ?? '',
+        biz_no: m.biz_no ?? '',
+        address: m.address ?? '',
+        phone: m.phone ?? '',
+        contact_name: m.contact_name ?? '',
+        contact_email: m.contact_email ?? '',
+        contract_status: m.contract_status ?? '',
+        starter_package: m.starter_package ? 'Y' : 'N',
+        total_amount: m.total_amount ?? '',
+        deposit_paid: m.deposit_paid ? 'Y' : 'N',
+        balance_paid: m.balance_paid ? 'Y' : 'N',
+        contract_start: m.contract_start ?? '',
+        contract_end: m.contract_end ?? '',
+        lead_source: m.lead_source ?? '',
+        interest_category: Array.isArray(m.interest_category) ? m.interest_category.join(', ') : '',
+        pain_point: m.pain_point ?? '',
+        client_tier: m.client_tier ?? '',
+        internal_notes: m.internal_notes ?? '',
+      })
     })
 
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Companies')
-
-    const buffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
+    const buffer = await workbook.xlsx.writeBuffer()
 
     return new Response(buffer, {
       headers: {

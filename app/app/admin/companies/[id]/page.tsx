@@ -72,9 +72,9 @@ const interestCategoryOptions = ['뷰티', '식품', '전자', '생활용품', '
 const channelOptions = ['스마트스토어', '쿠팡', '자사몰', '해외', '오프라인', '없음'];
 const clientTierOptions = ['일반', 'VIP', '파트너'];
 
-const emptyValue = <span className="text-sm text-gray-400 italic mt-1">-</span>;
+const emptyValue = <p className="text-sm text-gray-400 italic">-</p>;
 const renderTextValue = (value?: string | null) =>
-  value ? <span className="text-sm text-gray-900 mt-1">{value}</span> : emptyValue;
+  value ? <p className="text-sm text-gray-900">{value}</p> : emptyValue;
 const renderAmountValue = (value?: number | string | null) => {
   if (value === null || value === undefined || value === '') {
     return emptyValue;
@@ -83,7 +83,7 @@ const renderAmountValue = (value?: number | string | null) => {
   if (Number.isNaN(numeric)) {
     return emptyValue;
   }
-  return <span className="text-sm text-gray-900 mt-1">₩{numeric.toLocaleString('ko-KR')}</span>;
+  return <p className="text-sm text-gray-900">₩{numeric.toLocaleString('ko-KR')}</p>;
 };
 const renderArrayValue = (value?: string[] | null) =>
   Array.isArray(value) && value.length > 0
@@ -143,7 +143,7 @@ export default function CompanyUsersPage({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'client_admin' | 'client_member'>('client_admin');
+  const [role, setRole] = useState<'client_admin' | 'client_user'>('client_admin');
   const [profileData, setProfileData] = useState<CompanyMetadata>({});
   const [profileDraft, setProfileDraft] = useState<CompanyMetadata>({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -530,69 +530,69 @@ export default function CompanyUsersPage({
           {profileError && <p className="text-sm text-red-600 mb-3">{profileError}</p>}
 
           <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">기본 정보</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">기본 정보</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">사업자번호</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">사업자번호</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.biz_no ?? ''}
                       onChange={(e) => updateProfileField('biz_no', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.biz_no)
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">주소</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">주소</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.address ?? ''}
                       onChange={(e) => updateProfileField('address', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.address)
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">대표 연락처</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">대표 연락처</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.phone ?? ''}
                       onChange={(e) => updateProfileField('phone', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.phone)
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">담당자 이름</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">담당자 이름</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.contact_name ?? ''}
                       onChange={(e) => updateProfileField('contact_name', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.contact_name)
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">담당자 이메일</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">담당자 이메일</label>
                   {isEditingProfile ? (
                     <input
                       type="email"
                       value={profileDraft.contact_email ?? ''}
                       onChange={(e) => updateProfileField('contact_email', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.contact_email)
@@ -601,16 +601,16 @@ export default function CompanyUsersPage({
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">계약 & 정산</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">계약 & 정산</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">계약 상태</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 상태</label>
                   {isEditingProfile ? (
                     <select
                       value={profileDraft.contract_status ?? ''}
                       onChange={(e) => updateProfileField('contract_status', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">선택</option>
                       {contractStatusOptions.map((option) => (
@@ -626,7 +626,7 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">스타터 패키지</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">스타터 패키지</label>
                   {isEditingProfile ? (
                     <label className="inline-flex items-center gap-3 mt-1">
                       <input
@@ -647,20 +647,20 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">프로젝트 전체 금액 (원)</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">프로젝트 전체 금액 (원)</label>
                   {isEditingProfile ? (
                     <input
                       type="number"
                       value={profileDraft.total_amount ?? ''}
                       onChange={(e) => updateProfileField('total_amount', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderAmountValue(profile.total_amount)
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">계약금 30% 입금</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약금 30% 입금</label>
                   {isEditingProfile ? (
                     <label className="inline-flex items-center gap-3 mt-1">
                       <input
@@ -681,7 +681,7 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">잔금 70% 입금</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">잔금 70% 입금</label>
                   {isEditingProfile ? (
                     <label className="inline-flex items-center gap-3 mt-1">
                       <input
@@ -702,26 +702,26 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">계약 시작일</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 시작일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.contract_start ?? ''}
                       onChange={(e) => updateProfileField('contract_start', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.contract_start)
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">계약 종료일</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 종료일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.contract_end ?? ''}
                       onChange={(e) => updateProfileField('contract_end', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.contract_end)
@@ -730,16 +730,16 @@ export default function CompanyUsersPage({
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">영업 & 유입</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">영업 & 유입</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Lead Source</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Lead Source</label>
                   {isEditingProfile ? (
                     <select
                       value={profileDraft.lead_source ?? ''}
                       onChange={(e) => updateProfileField('lead_source', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">선택</option>
                       {leadSourceOptions.map((option) => (
@@ -753,26 +753,26 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">첫 상담일</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">첫 상담일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.first_contact ?? ''}
                       onChange={(e) => updateProfileField('first_contact', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.first_contact)
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">목표 런칭 시기</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">목표 런칭 시기</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.target_launch ?? ''}
                       onChange={(e) => updateProfileField('target_launch', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.target_launch)
@@ -781,11 +781,11 @@ export default function CompanyUsersPage({
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">상품 & 비즈니스</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">상품 & 비즈니스</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">관심 카테고리</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">관심 카테고리</label>
                   {isEditingProfile ? (
                     <div className="flex flex-wrap gap-3 mt-1">
                       {interestCategoryOptions.map((option) => (
@@ -805,7 +805,7 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">현재 운영 채널</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">현재 운영 채널</label>
                   {isEditingProfile ? (
                     <div className="flex flex-wrap gap-3 mt-1">
                       {channelOptions.map((option) => (
@@ -825,7 +825,7 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">목표 판매 채널</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">목표 판매 채널</label>
                   {isEditingProfile ? (
                     <div className="flex flex-wrap gap-3 mt-1">
                       {channelOptions.map((option) => (
@@ -845,25 +845,25 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">예상 발주 수량</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">예상 발주 수량</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={profileDraft.est_order_qty ?? ''}
                       onChange={(e) => updateProfileField('est_order_qty', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.est_order_qty)
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-sm font-medium text-gray-500">Pain Point</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Pain Point</label>
                   {isEditingProfile ? (
                     <textarea
                       value={profileDraft.pain_point ?? ''}
                       onChange={(e) => updateProfileField('pain_point', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
                     />
                   ) : (
                     renderTextValue(profile.pain_point)
@@ -872,16 +872,16 @@ export default function CompanyUsersPage({
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">내부 관리 (어드민 전용)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">내부 관리 (어드민 전용)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Client Tier</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Client Tier</label>
                   {isEditingProfile ? (
                     <select
                       value={profileDraft.client_tier ?? ''}
                       onChange={(e) => updateProfileField('client_tier', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">선택</option>
                       {clientTierOptions.map((option) => (
@@ -897,25 +897,25 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">마지막 컨택일</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">마지막 컨택일</label>
                   {isEditingProfile ? (
                     <input
                       type="date"
                       value={profileDraft.last_contact ?? ''}
                       onChange={(e) => updateProfileField('last_contact', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
                     renderTextValue(profile.last_contact)
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-sm font-medium text-gray-500">Internal Notes</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Internal Notes</label>
                   {isEditingProfile ? (
                     <textarea
                       value={profileDraft.internal_notes ?? ''}
                       onChange={(e) => updateProfileField('internal_notes', e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md min-h-[80px]"
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
                     />
                   ) : (
                     renderTextValue(profile.internal_notes)
@@ -1096,9 +1096,9 @@ export default function CompanyUsersPage({
                   <input
                     type="radio"
                     name="user-role"
-                    value="client_member"
-                    checked={role === 'client_member'}
-                    onChange={() => setRole('client_member')}
+                    value="client_user"
+                    checked={role === 'client_user'}
+                    onChange={() => setRole('client_user')}
                     disabled={!canAddUser || submitting}
                     className="accent-primary"
                   />

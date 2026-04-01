@@ -113,7 +113,7 @@ export const POST = async (
       return NextResponse.json({ error: 'INVALID_NAME' }, { status: 400 })
     }
 
-    if (role !== 'client_admin' && role !== 'client_member') {
+    if (role !== 'client_admin' && role !== 'client_user') {
       return NextResponse.json({ error: 'INVALID_ROLE' }, { status: 400 })
     }
 
@@ -141,8 +141,11 @@ export const POST = async (
     })
 
     if (createError || !createdUser?.user) {
-      console.error('사용자 발급 오류:', createError)
-      return NextResponse.json({ error: 'AUTH_CREATE_FAILED' }, { status: 500 })
+      console.error('상세 오류:', JSON.stringify(createError))
+      return NextResponse.json(
+        { error: createError?.message ?? 'AUTH_CREATE_FAILED', details: JSON.stringify(createError) },
+        { status: 500 }
+      )
     }
 
     const { error: profileError, data: profileData } = await admin
@@ -160,15 +163,21 @@ export const POST = async (
       .single()
 
     if (profileError || !profileData) {
-      console.error('사용자 발급 오류:', profileError)
-      return NextResponse.json({ error: 'PROFILE_CREATE_FAILED' }, { status: 500 })
+      console.error('상세 오류:', JSON.stringify(profileError))
+      return NextResponse.json(
+        { error: profileError?.message ?? 'PROFILE_CREATE_FAILED', details: JSON.stringify(profileError) },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ user: profileData, tempPassword }, { status: 201 })
   } catch (error) {
-    console.error('사용자 발급 오류:', error)
+    console.error('상세 오류:', JSON.stringify(error))
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+    return NextResponse.json(
+      { error: message, details: JSON.stringify(error) },
+      { status }
+    )
   }
 }

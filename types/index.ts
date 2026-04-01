@@ -1,5 +1,5 @@
 // User Roles
-export type UserRole = 'staff_admin' | 'staff_member' | 'client_admin' | 'client_member';
+export type UserRole = 'staff_admin' | 'staff_member' | 'client_admin' | 'client_user';
 
 // Version Status
 export type VersionStatus = 'draft' | 'in_review';
