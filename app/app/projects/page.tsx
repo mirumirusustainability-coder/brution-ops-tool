@@ -57,7 +57,6 @@ export default function ProjectsPage() {
     const data = await projectsResponse.json();
     const items = Array.isArray(data?.projects) ? data.projects : [];
     setProjects(items);
-    console.log('projects:', items.map((project) => ({ id: project.id, status: project.status })));
     const nextCompanyName = items.length > 0 ? getCompanyName(items[0].companies) : '';
     if (nextCompanyName) {
       setCompanyName(nextCompanyName);
