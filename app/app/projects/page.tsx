@@ -33,7 +33,9 @@ export default function ProjectsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [companyName, setCompanyName] = useState('');
-  const activeCount = projects.filter((project) => project.status === 'active' || !project.status).length;
+  const activeCount = projects.filter(
+    (project) => project.status === 'active' || project.status === null || project.status === undefined
+  ).length;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

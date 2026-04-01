@@ -403,6 +403,7 @@ export default function ProjectDetailPage({
               {filteredDeliverables.map((deliverable) => {
                 const versions = versionsByDeliverable[deliverable.id] ?? [];
                 const sortedVersions = [...versions].sort((a, b) => b.version_no - a.version_no);
+                const hasFiles = sortedVersions.some((version) => assetsByVersion[version.id]?.assetId);
 
                 return (
                   <div
@@ -411,18 +412,21 @@ export default function ProjectDetailPage({
                   >
                     <div className="flex flex-col gap-4">
                       <div className="space-y-2">
-                        <h3 className="text-lg font-semibold text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-gray-500" />
+                          <p className="text-lg font-semibold text-gray-900">
+                            {DELIVERABLE_TYPE_LABELS[deliverable.type]}
+                          </p>
+                        </div>
+                        <p className="text-sm text-gray-500">
                           {deliverable.title || DELIVERABLE_TYPE_LABELS[deliverable.type]}
-                        </h3>
-                        <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-600">
+                        </p>
+                        <span className="inline-flex w-fit rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
                           STEP {project.step} · {STEP_LABELS[project.step]}
                         </span>
-                        <p className="text-sm text-gray-500">
-                          {DELIVERABLE_TYPE_LABELS[deliverable.type]}
-                        </p>
                       </div>
 
-                      {sortedVersions.length === 0 ? (
+                      {!hasFiles ? (
                         <p className="text-sm text-gray-400">파일 준비 중입니다</p>
                       ) : (
                         <div className="space-y-3">
@@ -434,22 +438,22 @@ export default function ProjectDetailPage({
                             return (
                               <div
                                 key={version.id}
-                                className="flex flex-col gap-2 rounded-md bg-muted px-4 py-3 md:flex-row md:items-center md:justify-between"
+                                className="rounded-md bg-gray-50 p-3"
                               >
-                                <div className="space-y-1">
+                                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                   <p className="text-sm font-medium text-gray-900">
-                                    v{version.version_no} {fileName ? `· ${fileName}` : ''}
+                                    {fileName ?? `v${version.version_no}`}
                                   </p>
-                                  <p className="text-sm text-gray-500">
-                                    업로드일 · {new Date(version.created_at).toLocaleDateString('ko-KR')}
-                                  </p>
+                                  <DownloadButton
+                                    status={version.status}
+                                    userRole={currentUser.role}
+                                    assetId={assetInfo?.assetId}
+                                    fileName={fileName}
+                                  />
                                 </div>
-                                <DownloadButton
-                                  status={version.status}
-                                  userRole={currentUser.role}
-                                  assetId={assetInfo?.assetId}
-                                  fileName={fileName}
-                                />
+                                <p className="text-xs text-gray-400 mt-1">
+                                  업로드일 · {new Date(version.created_at).toLocaleDateString('ko-KR')}
+                                </p>
                               </div>
                             );
                           })}
