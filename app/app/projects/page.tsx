@@ -186,16 +186,24 @@ export default function ProjectsPage() {
       <div className="max-w-6xl">
         {/* Header */}
         <div className="pt-6 mb-6">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-2xl text-gray-600">안녕하세요,</span>
-            <span className="text-2xl font-bold text-gray-900">
-              {companyName || '고객사'}
-            </span>
-            <span className="text-2xl text-gray-600">님!</span>
-          </div>
-          <p className="text-base text-gray-500 mt-1">
-            현재 {activeProjectCount}개 프로젝트가 진행 중입니다.
-          </p>
+          {currentUser.role === 'staff_admin' ? (
+            <>
+              <p className="text-2xl font-bold text-gray-900">안녕하세요, 브루션 관리자님!</p>
+              <p className="text-base text-gray-500 mt-1">전체 프로젝트를 관리합니다.</p>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-2xl font-bold text-gray-900">
+                  {companyName || '고객사'}
+                </span>
+                <span className="text-2xl text-gray-600">님, 안녕하세요</span>
+              </div>
+              <p className="text-base text-gray-500 mt-1">
+                현재 {activeProjectCount}개 프로젝트가 진행 중입니다.
+              </p>
+            </>
+          )}
         </div>
 
         {loading && (

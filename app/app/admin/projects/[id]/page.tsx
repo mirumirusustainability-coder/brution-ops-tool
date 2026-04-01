@@ -667,11 +667,14 @@ export default function AdminProjectDetailPage({
             deliverables.map((deliverable) => (
               <div key={deliverable.id} className="bg-white border border-border rounded-lg p-5">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{deliverable.title || '제목 없음'}</h3>
-                    <p className="text-xs text-gray-500 mt-1">
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{deliverable.title || '제목 없음'}</h3>
+                    <p className="text-sm text-gray-500">
                       타입: {DELIVERABLE_TYPE_LABELS[deliverable.type]} · 공개범위: {deliverable.visibility}
                     </p>
+                    <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-600">
+                      STEP {project.step ?? 0} · {STEP_LABELS[project.step ?? 0]}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -719,7 +722,7 @@ export default function AdminProjectDetailPage({
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-medium text-gray-900">v{version.version_no}</p>
-                              <p className="text-xs text-gray-500">{version.title || '제목 없음'}</p>
+                              <p className="text-sm text-gray-500">{version.title || '제목 없음'}</p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <select
@@ -775,7 +778,7 @@ export default function AdminProjectDetailPage({
                                 const fileName = asset.original_name ?? getFileNameFromPath(asset.path) ?? '파일'
 
                                 return (
-                                  <div key={asset.id} className="flex items-center justify-between text-xs text-gray-600">
+                                  <div key={asset.id} className="flex items-center justify-between text-sm text-gray-600">
                                     <span className="truncate">{fileName}</span>
                                     <button
                                       type="button"
@@ -789,7 +792,7 @@ export default function AdminProjectDetailPage({
                                 )
                               })
                             ) : (
-                              <p className="text-xs text-gray-400">업로드된 파일 없음</p>
+                              <p className="text-sm text-gray-400">업로드된 파일 없음</p>
                             )}
                           </div>
                         </div>

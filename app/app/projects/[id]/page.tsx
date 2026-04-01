@@ -407,17 +407,17 @@ export default function ProjectDetailPage({
                 return (
                   <div
                     key={deliverable.id}
-                    className="bg-white border border-border rounded-lg p-6"
+                    className="bg-white border border-border rounded-lg p-5"
                   >
                     <div className="flex flex-col gap-4">
                       <div className="space-y-2">
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-sm text-gray-500">
                           {DELIVERABLE_TYPE_LABELS[deliverable.type]}
                         </p>
                         <h3 className="text-lg font-semibold text-gray-900">
                           {deliverable.title || DELIVERABLE_TYPE_LABELS[deliverable.type]}
                         </h3>
-                        <span className="inline-flex w-fit rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
+                        <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-600">
                           STEP {project.step} · {STEP_LABELS[project.step]}
                         </span>
                       </div>
@@ -440,7 +440,7 @@ export default function ProjectDetailPage({
                                   <p className="text-sm font-medium text-gray-900">
                                     v{version.version_no} {fileName ? `· ${fileName}` : ''}
                                   </p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-sm text-gray-500">
                                     업로드일 · {new Date(version.created_at).toLocaleDateString('ko-KR')}
                                   </p>
                                 </div>

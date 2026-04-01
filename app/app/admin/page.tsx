@@ -193,9 +193,9 @@ export default function AdminDashboardPage() {
     <AppLayout user={currentUser}>
       <div className="max-w-6xl space-y-8">
         <div>
-          <p className="text-sm text-gray-500">{greetingMessage}</p>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">어드민 대시보드</h1>
-          <p className="text-sm text-gray-500 mt-1">운영 현황을 빠르게 확인하세요.</p>
+          <h1 className="text-3xl font-bold text-gray-900">{greetingMessage}</h1>
+          <p className="text-xl font-semibold text-gray-900 mt-2">어드민 대시보드</p>
+          <p className="text-base text-gray-500 mt-1">운영 현황을 빠르게 확인하세요.</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -205,10 +205,10 @@ export default function AdminDashboardPage() {
             className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500">전체 프로젝트</p>
+              <p className="text-base text-gray-500">전체 프로젝트</p>
               <FolderOpen className="h-5 w-5 text-blue-500" />
             </div>
-            <p className="mt-3 text-4xl font-semibold text-gray-900">{counts?.projects ?? 0}</p>
+            <p className="mt-3 text-4xl font-bold text-gray-900">{counts?.projects ?? 0}</p>
           </button>
           <button
             type="button"
@@ -216,10 +216,10 @@ export default function AdminDashboardPage() {
             className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500">진행중 프로젝트</p>
+              <p className="text-base text-gray-500">진행중 프로젝트</p>
               <TrendingUp className="h-5 w-5 text-emerald-500" />
             </div>
-            <p className="mt-3 text-4xl font-semibold text-gray-900">
+            <p className="mt-3 text-4xl font-bold text-gray-900">
               {counts?.activeProjects ?? 0}
             </p>
           </button>
@@ -229,10 +229,10 @@ export default function AdminDashboardPage() {
             className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500">전체 고객사</p>
+              <p className="text-base text-gray-500">전체 고객사</p>
               <Building2 className="h-5 w-5 text-indigo-500" />
             </div>
-            <p className="mt-3 text-4xl font-semibold text-gray-900">{counts?.companies ?? 0}</p>
+            <p className="mt-3 text-4xl font-bold text-gray-900">{counts?.companies ?? 0}</p>
           </button>
           <button
             type="button"
@@ -240,17 +240,17 @@ export default function AdminDashboardPage() {
             className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500">전체 담당자</p>
+              <p className="text-base text-gray-500">전체 담당자</p>
               <Users className="h-5 w-5 text-purple-500" />
             </div>
-            <p className="mt-3 text-4xl font-semibold text-gray-900">{counts?.users ?? 0}</p>
+            <p className="mt-3 text-4xl font-bold text-gray-900">{counts?.users ?? 0}</p>
           </button>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <div className="rounded-lg border border-border bg-white p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">STEP별 프로젝트 현황</h2>
+              <h2 className="text-xl font-semibold text-gray-900">STEP별 프로젝트 현황</h2>
               <span className="text-xs text-gray-400">총 {totalProjects}건</span>
             </div>
             <div className="space-y-3">
@@ -259,11 +259,11 @@ export default function AdminDashboardPage() {
                 const ratio = totalProjects > 0 ? Math.round((count / totalProjects) * 100) : 0
                 return (
                   <div key={step} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span>
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span className="text-base font-medium">
                         STEP {step} · {STEP_LABELS[step]}
                       </span>
-                      <span>{count}건</span>
+                      <span className="text-sm">{count}건</span>
                     </div>
                     <div className="h-2 w-full rounded-full bg-gray-100">
                       <div className="h-2 rounded-full bg-blue-500" style={{ width: `${ratio}%` }} />
@@ -275,14 +275,14 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="rounded-lg border border-border bg-white p-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">액션 필요</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">액션 필요</h2>
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => router.push('/app/admin/projects?filter=in_review')}
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left transition hover:bg-gray-100 hover:shadow-md cursor-pointer"
               >
-                <p className="text-xs text-gray-500">검토중 버전</p>
+                <p className="text-base text-gray-500">검토중 버전</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">{pendingVersions}</p>
               </button>
               <button
@@ -290,7 +290,7 @@ export default function AdminDashboardPage() {
                 onClick={() => router.push('/app/admin/projects?filter=paused')}
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left transition hover:bg-gray-100 hover:shadow-md cursor-pointer"
               >
-                <p className="text-xs text-gray-500">보류 프로젝트</p>
+                <p className="text-base text-gray-500">보류 프로젝트</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">{pausedProjects}</p>
               </button>
             </div>
@@ -299,7 +299,7 @@ export default function AdminDashboardPage() {
 
         <div className="rounded-lg border border-border bg-white p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">최근 프로젝트</h2>
+            <h2 className="text-xl font-semibold text-gray-900">최근 프로젝트</h2>
             <button
               type="button"
               onClick={() => router.push('/app/admin/projects')}
@@ -329,17 +329,17 @@ export default function AdminDashboardPage() {
                         <p className="text-base font-semibold text-gray-900">
                           {getCompanyName(project.companies) || '미지정'}
                         </p>
-                        <p className="text-lg font-semibold text-gray-800">{project.name}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-base text-gray-800">{project.name}</p>
+                        <p className="text-sm text-gray-400 mt-1">
                           마지막 업데이트: {new Date(project.updated_at ?? project.created_at).toLocaleDateString('ko-KR')}
                         </p>
                       </div>
-                      <div className="text-right text-xs text-gray-500 space-y-2">
+                      <div className="text-right text-sm text-gray-500 space-y-2">
                         <p>
                           STEP {project.step} · {STEP_LABELS[project.step]}
                         </p>
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
                             statusBadgeStyles[statusValue]
                           }`}
                         >
