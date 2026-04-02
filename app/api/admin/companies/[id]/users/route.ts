@@ -142,9 +142,19 @@ export const POST = async (
 
     if (createError || !createdUser?.user) {
       console.error('상세 오류:', JSON.stringify(createError))
+
+      let errorMessage = '사용자 생성에 실패했습니다'
+      if (createError?.code === 'email_exists') {
+        errorMessage = '이미 등록된 이메일입니다'
+      } else if (createError?.code === 'invalid_email') {
+        errorMessage = '올바르지 않은 이메일 형식입니다'
+      } else if (createError?.code === 'weak_password') {
+        errorMessage = '비밀번호가 너무 약합니다'
+      }
+
       return NextResponse.json(
-        { error: createError?.message ?? 'AUTH_CREATE_FAILED', details: JSON.stringify(createError) },
-        { status: 500 }
+        { error: errorMessage },
+        { status: 422 }
       )
     }
 

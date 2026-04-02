@@ -1017,6 +1017,14 @@ export default function CompanyUsersPage({
                 return;
               }
 
+              if (response.status === 422) {
+                const message = data?.error ?? '사용자 발급에 실패했습니다.';
+                setFormError(message);
+                showToast(message, 'error');
+                setSubmitting(false);
+                return;
+              }
+
               if (!response.ok) {
                 setFormError('사용자 발급에 실패했습니다.');
                 showToast('사용자 발급에 실패했습니다.', 'error');
