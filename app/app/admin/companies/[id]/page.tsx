@@ -26,7 +26,7 @@ type CompanyMetadata = {
   biz_no?: string | null;
   address?: string | null;
   phone?: string | null;
-  contact_name?: string | null;
+  representative_name?: string | null;
   contact_email?: string | null;
   contract_status?: '계약전' | '진행중' | '완료' | string | null;
   starter_package?: boolean | null;
@@ -170,7 +170,6 @@ export default function CompanyUsersPage({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'client_admin' | 'client_member'>('client_admin');
   const [profileData, setProfileData] = useState<CompanyMetadata>({});
   const [profileDraft, setProfileDraft] = useState<CompanyMetadata>({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -613,16 +612,17 @@ export default function CompanyUsersPage({
                   )}
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">담당자 이름</label>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">대표자 이름</label>
                   {isEditingProfile ? (
                     <input
                       type="text"
-                      value={profileDraft.contact_name ?? ''}
-                      onChange={(e) => updateProfileField('contact_name', e.target.value)}
+                      value={profileDraft.representative_name ?? ''}
+                      onChange={(e) => updateProfileField('representative_name', e.target.value)}
+                      placeholder="홍길동"
                       className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   ) : (
-                    renderTextValue(profile.contact_name)
+                    renderTextValue(profile.representative_name)
                   )}
                 </div>
                 <div>
@@ -655,16 +655,13 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openSections.contract ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                className={`${
+                  openSections.contract
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
                 }`}
               >
-                <div className="min-h-0 overflow-hidden">
-                  <div
-                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                      openSections.contract ? 'pt-4' : 'pt-0'
-                    }`}
-                  >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 상태</label>
                     {isEditingProfile ? (
@@ -804,7 +801,6 @@ export default function CompanyUsersPage({
                 </div>
               </div>
             </div>
-            </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
               <button
@@ -820,16 +816,13 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openSections.sales ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                className={`${
+                  openSections.sales
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
                 }`}
               >
-                <div className="min-h-0 overflow-hidden">
-                  <div
-                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                      openSections.sales ? 'pt-4' : 'pt-0'
-                    }`}
-                  >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Lead Source</label>
                     {isEditingProfile ? (
@@ -878,7 +871,6 @@ export default function CompanyUsersPage({
                 </div>
               </div>
             </div>
-            </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
               <button
@@ -894,16 +886,13 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openSections.business ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                className={`${
+                  openSections.business
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
                 }`}
               >
-                <div className="min-h-0 overflow-hidden">
-                  <div
-                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                      openSections.business ? 'pt-4' : 'pt-0'
-                    }`}
-                  >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">관심 카테고리</label>
                     {isEditingProfile ? (
@@ -1006,7 +995,6 @@ export default function CompanyUsersPage({
                 </div>
               </div>
             </div>
-            </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
               <button
@@ -1022,16 +1010,13 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openSections.internal ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                className={`${
+                  openSections.internal
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
                 }`}
               >
-                <div className="min-h-0 overflow-hidden">
-                  <div
-                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                      openSections.internal ? 'pt-4' : 'pt-0'
-                    }`}
-                  >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Client Tier</label>
                     {isEditingProfile ? (
@@ -1147,7 +1132,7 @@ export default function CompanyUsersPage({
               const response = await fetch(`/api/admin/companies/${resolvedParams.id}/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, name, role }),
+                body: JSON.stringify({ email, name, role: 'client_admin' }),
               });
 
               if (response.status === 401) {
@@ -1172,7 +1157,6 @@ export default function CompanyUsersPage({
               }
               setName('');
               setEmail('');
-              setRole('client_admin');
               setSubmitting(false);
               showToast('사용자가 발급되었습니다.', 'success');
               await loadUsers();
@@ -1216,37 +1200,6 @@ export default function CompanyUsersPage({
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                권한
-              </label>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="radio"
-                    name="user-role"
-                    value="client_admin"
-                    checked={role === 'client_admin'}
-                    onChange={() => setRole('client_admin')}
-                    disabled={!canAddUser || submitting}
-                    className="accent-primary"
-                  />
-                  고객 관리자
-                </label>
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="radio"
-                    name="user-role"
-                    value="client_member"
-                    checked={role === 'client_member'}
-                    onChange={() => setRole('client_member')}
-                    disabled={!canAddUser || submitting}
-                    className="accent-primary"
-                  />
-                  고객 일반
-                </label>
-              </div>
-            </div>
 
             <button
               type="submit"
@@ -1306,14 +1259,6 @@ export default function CompanyUsersPage({
               <div className="text-sm text-gray-500">등록된 사용자가 없습니다</div>
             ) : (
               users.map((item) => {
-                const isClientAdmin = item.role === 'client_admin';
-                const isClientMember = item.role === 'client_member';
-                const roleLabel = isClientAdmin ? '고객 관리자' : isClientMember ? '고객 일반' : '알 수 없음';
-                const roleStyle = isClientAdmin
-                  ? 'bg-blue-50 text-blue-600'
-                  : isClientMember
-                    ? 'bg-gray-100 text-gray-600'
-                    : 'bg-gray-100 text-gray-600';
                 const tempPasswordValue = userTempPasswords[item.user_id];
 
                 return (
@@ -1332,9 +1277,6 @@ export default function CompanyUsersPage({
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${roleStyle}`}>
-                          {roleLabel}
-                        </span>
                         <button
                           type="button"
                           onClick={() => handleResetPassword(item.user_id)}

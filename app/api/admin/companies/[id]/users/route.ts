@@ -103,7 +103,7 @@ export const POST = async (
     const body = await request.json().catch(() => null)
     const email = body?.email
     const name = body?.name
-    const role = body?.role ?? 'client_admin'
+    const role = 'client_admin'
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json({ error: 'INVALID_EMAIL' }, { status: 400 })
@@ -111,10 +111,6 @@ export const POST = async (
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'INVALID_NAME' }, { status: 400 })
-    }
-
-    if (role !== 'client_admin' && role !== 'client_member') {
-      return NextResponse.json({ error: 'INVALID_ROLE' }, { status: 400 })
     }
 
     const admin = createSupabaseAdmin()

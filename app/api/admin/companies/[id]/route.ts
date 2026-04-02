@@ -123,6 +123,11 @@ export const PATCH = async (
         ? body.metadata
         : null
 
+    if (incomingMetadata && 'contact_name' in incomingMetadata && !('representative_name' in incomingMetadata)) {
+      incomingMetadata.representative_name = incomingMetadata.contact_name
+      delete incomingMetadata.contact_name
+    }
+
     if (!name && !incomingMetadata) {
       return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
     }
