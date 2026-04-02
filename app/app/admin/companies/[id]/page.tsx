@@ -1067,7 +1067,6 @@ export default function CompanyUsersPage({
               </div>
             </div>
           </div>
-          </div>
 
           {isEditingProfile && (
             <div className="flex justify-end gap-2 mt-6">
