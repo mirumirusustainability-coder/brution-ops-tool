@@ -113,7 +113,7 @@ export const POST = async (
       return NextResponse.json({ error: 'INVALID_NAME' }, { status: 400 })
     }
 
-    if (role !== 'client_admin' && role !== 'client_user') {
+    if (role !== 'client_admin' && role !== 'client_member') {
       return NextResponse.json({ error: 'INVALID_ROLE' }, { status: 400 })
     }
 

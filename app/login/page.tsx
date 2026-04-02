@@ -60,8 +60,10 @@ export default function LoginPage() {
       const me = await meResponse.json();
       if (me?.mustChangePassword) {
         router.replace('/force-password-change');
+      } else if (me?.role === 'staff_admin') {
+        router.push('/app/admin');
       } else {
-        router.replace('/app/projects');
+        router.push('/app/projects');
       }
     } catch (err) {
       setError('로그인 처리 중 오류가 발생했습니다');

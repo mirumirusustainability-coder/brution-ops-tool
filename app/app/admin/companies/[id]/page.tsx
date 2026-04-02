@@ -39,8 +39,11 @@ type CompanyMetadata = {
   first_contact?: string | null;
   target_launch?: string | null;
   interest_category?: string[] | null;
+  interest_category_other?: string | null;
   current_channel?: string[] | null;
+  current_channel_other?: string | null;
   target_channel?: string[] | null;
+  target_channel_other?: string | null;
   est_order_qty?: string | null;
   pain_point?: string | null;
   client_tier?: '일반' | 'VIP' | '파트너' | string | null;
@@ -69,50 +72,23 @@ const mapUser = (me: any): AppUser => ({
 const contractStatusOptions = ['계약전', '진행중', '완료'];
 const leadSourceOptions = ['지인소개', 'SNS', '광고', '콜드아웃리치', '기타'];
 const interestCategoryOptions = [
-  '뷰티/화장품',
-  '스킨케어',
-  '메이크업',
-  '헤어/바디',
-  '향수/프래그런스',
-  '건강/영양제',
+  '뷰티',
   '식품/음료',
   '유아/베이비',
-  '패션/의류',
-  '패션잡화 (가방/지갑/벨트)',
-  '신발',
-  '주얼리/액세서리',
-  '스포츠/레저',
-  '아웃도어',
+  '패션',
   '반려동물',
   '가전/디지털',
   '생활/주방',
   '인테리어/가구',
-  '문구/오피스',
-  '자동차/공구',
-  '도서/음반',
-  '완구/취미',
   '기타',
 ];
 const channelOptions = [
-  '스마트스토어',
+  '네이버',
   '쿠팡',
-  '11번가',
-  'G마켓/옥션',
-  '위메프/티몬',
-  '인터파크',
-  'SSG',
-  '롯데온',
-  '카카오쇼핑',
-  '네이버쇼핑',
-  '자사몰',
-  '인스타그램',
-  '틱톡샵',
-  '유튜브 쇼핑',
-  '라이브커머스',
+  '오픈마켓 (G마켓/옥션/11번가)',
+  '공동구매 (SNS)',
   '오프라인 매장',
-  '아마존',
-  '라자다/쇼피 (동남아)',
-  '없음',
+  '해외 쇼핑몰',
   '기타',
 ];
 const clientTierOptions = ['일반', 'VIP', '파트너'];
@@ -134,6 +110,12 @@ const renderArrayValue = (value?: string[] | null) =>
   Array.isArray(value) && value.length > 0
     ? renderTextValue(value.join(', '))
     : emptyValue;
+
+const formatArrayWithOther = (value?: string[] | null, other?: string | null) => {
+  const items = Array.isArray(value) ? value : [];
+  if (!items.length) return [];
+  return items.map((item) => (item === '기타' && other ? `기타(${other})` : item));
+};
 
 const renderBooleanBadge = (value?: boolean | null) => {
   if (value === null || value === undefined) return emptyValue;
@@ -188,7 +170,7 @@ export default function CompanyUsersPage({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'client_admin' | 'client_user'>('client_admin');
+  const [role, setRole] = useState<'client_admin' | 'client_member'>('client_admin');
   const [profileData, setProfileData] = useState<CompanyMetadata>({});
   const [profileDraft, setProfileDraft] = useState<CompanyMetadata>({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -530,6 +512,9 @@ export default function CompanyUsersPage({
   const interestCategories = Array.isArray(profile.interest_category) ? profile.interest_category : [];
   const currentChannels = Array.isArray(profile.current_channel) ? profile.current_channel : [];
   const targetChannels = Array.isArray(profile.target_channel) ? profile.target_channel : [];
+  const interestCategoryDisplay = formatArrayWithOther(interestCategories, profile.interest_category_other ?? null);
+  const currentChannelDisplay = formatArrayWithOther(currentChannels, profile.current_channel_other ?? null);
+  const targetChannelDisplay = formatArrayWithOther(targetChannels, profile.target_channel_other ?? null);
 
   return (
     <AppLayout
@@ -670,7 +655,7 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-all duration-200 overflow-hidden ${
+                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
                   openSections.contract ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
@@ -701,9 +686,9 @@ export default function CompanyUsersPage({
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">스타터 패키지</label>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">스타터 패키지</p>
                     {isEditingProfile ? (
-                      <label className="inline-flex items-center gap-3 mt-1">
+                      <label className="inline-flex items-center gap-3">
                         <input
                           type="checkbox"
                           className="sr-only peer"
@@ -718,7 +703,7 @@ export default function CompanyUsersPage({
                         </span>
                       </label>
                     ) : (
-                      <div className="mt-1">{renderBooleanBadge(profile.starter_package)}</div>
+                      <div>{renderBooleanBadge(profile.starter_package)}</div>
                     )}
                   </div>
                   <div>
@@ -735,9 +720,22 @@ export default function CompanyUsersPage({
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약금 30% 입금</label>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">예상 발주 수량</label>
                     {isEditingProfile ? (
-                      <label className="inline-flex items-center gap-3 mt-1">
+                      <input
+                        type="text"
+                        value={profileDraft.est_order_qty ?? ''}
+                        onChange={(e) => updateProfileField('est_order_qty', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.est_order_qty)
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">계약금 30% 입금</p>
+                    {isEditingProfile ? (
+                      <label className="inline-flex items-center gap-3">
                         <input
                           type="checkbox"
                           className="sr-only peer"
@@ -752,13 +750,13 @@ export default function CompanyUsersPage({
                         </span>
                       </label>
                     ) : (
-                      <div className="mt-1">{renderBooleanBadge(profile.deposit_paid)}</div>
+                      <div>{renderBooleanBadge(profile.deposit_paid)}</div>
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">잔금 70% 입금</label>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">잔금 70% 입금</p>
                     {isEditingProfile ? (
-                      <label className="inline-flex items-center gap-3 mt-1">
+                      <label className="inline-flex items-center gap-3">
                         <input
                           type="checkbox"
                           className="sr-only peer"
@@ -773,7 +771,7 @@ export default function CompanyUsersPage({
                         </span>
                       </label>
                     ) : (
-                      <div className="mt-1">{renderBooleanBadge(profile.balance_paid)}</div>
+                      <div>{renderBooleanBadge(profile.balance_paid)}</div>
                     )}
                   </div>
                   <div>
@@ -820,7 +818,7 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-all duration-200 overflow-hidden ${
+                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
                   openSections.sales ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
@@ -892,7 +890,7 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-all duration-200 overflow-hidden ${
+                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
                   openSections.business ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
@@ -918,14 +916,23 @@ export default function CompanyUsersPage({
                         ))}
                       </div>
                     ) : (
-                      renderArrayValue(interestCategories)
+                      renderArrayValue(interestCategoryDisplay)
+                    )}
+                    {isEditingProfile && interestCategories.includes('기타') && (
+                      <input
+                        type="text"
+                        value={profileDraft.interest_category_other ?? ''}
+                        onChange={(e) => updateProfileField('interest_category_other', e.target.value)}
+                        placeholder="직접 입력"
+                        className="mt-1 w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                      />
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">현재 운영 채널</label>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">현재 운영 카테고리</label>
                     {isEditingProfile ? (
                       <div className="flex flex-wrap gap-3 mt-1">
-                        {channelOptions.map((option) => (
+                        {interestCategoryOptions.map((option) => (
                           <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
                             <input
                               type="checkbox"
@@ -938,7 +945,16 @@ export default function CompanyUsersPage({
                         ))}
                       </div>
                     ) : (
-                      renderArrayValue(currentChannels)
+                      renderArrayValue(currentChannelDisplay)
+                    )}
+                    {isEditingProfile && currentChannels.includes('기타') && (
+                      <input
+                        type="text"
+                        value={profileDraft.current_channel_other ?? ''}
+                        onChange={(e) => updateProfileField('current_channel_other', e.target.value)}
+                        placeholder="직접 입력"
+                        className="mt-1 w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                      />
                     )}
                   </div>
                   <div>
@@ -958,20 +974,16 @@ export default function CompanyUsersPage({
                         ))}
                       </div>
                     ) : (
-                      renderArrayValue(targetChannels)
+                      renderArrayValue(targetChannelDisplay)
                     )}
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">예상 발주 수량</label>
-                    {isEditingProfile ? (
+                    {isEditingProfile && targetChannels.includes('기타') && (
                       <input
                         type="text"
-                        value={profileDraft.est_order_qty ?? ''}
-                        onChange={(e) => updateProfileField('est_order_qty', e.target.value)}
-                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={profileDraft.target_channel_other ?? ''}
+                        onChange={(e) => updateProfileField('target_channel_other', e.target.value)}
+                        placeholder="직접 입력"
+                        className="mt-1 w-full border border-gray-300 rounded px-2 py-1 text-sm"
                       />
-                    ) : (
-                      renderTextValue(profile.est_order_qty)
                     )}
                   </div>
                   <div className="md:col-span-2">
@@ -1004,7 +1016,7 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-all duration-200 overflow-hidden ${
+                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
                   openSections.internal ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
@@ -1243,9 +1255,9 @@ export default function CompanyUsersPage({
                   <input
                     type="radio"
                     name="user-role"
-                    value="client_user"
-                    checked={role === 'client_user'}
-                    onChange={() => setRole('client_user')}
+                    value="client_member"
+                    checked={role === 'client_member'}
+                    onChange={() => setRole('client_member')}
                     disabled={!canAddUser || submitting}
                     className="accent-primary"
                   />
@@ -1313,8 +1325,13 @@ export default function CompanyUsersPage({
             ) : (
               users.map((item) => {
                 const isClientAdmin = item.role === 'client_admin';
-                const roleLabel = isClientAdmin ? '고객 관리자' : '고객 일반';
-                const roleStyle = isClientAdmin ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600';
+                const isClientMember = item.role === 'client_member';
+                const roleLabel = isClientAdmin ? '고객 관리자' : isClientMember ? '고객 일반' : '알 수 없음';
+                const roleStyle = isClientAdmin
+                  ? 'bg-blue-50 text-blue-600'
+                  : isClientMember
+                    ? 'bg-gray-100 text-gray-600'
+                    : 'bg-gray-100 text-gray-600';
                 const tempPasswordValue = userTempPasswords[item.user_id];
 
                 return (

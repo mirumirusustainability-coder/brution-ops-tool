@@ -56,7 +56,7 @@ const menuItems: MenuItem[] = [
   },
   {
     label: '브랜드 아이덴티티',
-    href: '/app/tools/brand-identity',
+    href: '/app/tools/brand',
     icon: Palette,
     allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
   },
@@ -91,6 +91,31 @@ const adminMenuItems: MenuItem[] = [
 
 export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+
+  const isActivePath = (href: string) => {
+    switch (href) {
+      case '/app/admin':
+        return pathname === '/app/admin';
+      case '/app/admin/projects':
+        return pathname.startsWith('/app/admin/projects');
+      case '/app/admin/companies':
+        return pathname.startsWith('/app/admin/companies');
+      case '/app/projects':
+        return pathname.startsWith('/app/projects');
+      case '/app/tools/keyword':
+        return pathname === '/app/tools/keyword';
+      case '/app/tools/ads':
+        return pathname === '/app/tools/ads';
+      case '/app/tools/market':
+        return pathname === '/app/tools/market';
+      case '/app/tools/brand':
+        return pathname === '/app/tools/brand';
+      case '/app/tools/naming':
+        return pathname === '/app/tools/naming';
+      default:
+        return pathname === href;
+    }
+  };
 
   const filteredItems = menuItems.filter((item) =>
     item.allowedRoles.includes(userRole)
@@ -133,7 +158,7 @@ export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
           <ul className="space-y-1">
             {filteredItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const isActive = isActivePath(item.href);
 
               return (
                 <li key={item.href}>
@@ -162,7 +187,7 @@ export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
               <ul className="space-y-1">
                 {filteredAdminItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                  const isActive = isActivePath(item.href);
 
                   return (
                     <li key={item.href}>
