@@ -655,15 +655,16 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
-                  openSections.contract ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                  openSections.contract ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
                 }`}
               >
-                <div
-                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                    openSections.contract ? 'pt-4' : 'pt-0'
-                  }`}
-                >
+                <div className="min-h-0 overflow-hidden">
+                  <div
+                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                      openSections.contract ? 'pt-4' : 'pt-0'
+                    }`}
+                  >
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 상태</label>
                     {isEditingProfile ? (
@@ -818,15 +819,16 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
-                  openSections.sales ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                  openSections.sales ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
                 }`}
               >
-                <div
-                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                    openSections.sales ? 'pt-4' : 'pt-0'
-                  }`}
-                >
+                <div className="min-h-0 overflow-hidden">
+                  <div
+                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                      openSections.sales ? 'pt-4' : 'pt-0'
+                    }`}
+                  >
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Lead Source</label>
                     {isEditingProfile ? (
@@ -890,15 +892,16 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
-                  openSections.business ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                  openSections.business ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
                 }`}
               >
-                <div
-                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                    openSections.business ? 'pt-4' : 'pt-0'
-                  }`}
-                >
+                <div className="min-h-0 overflow-hidden">
+                  <div
+                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                      openSections.business ? 'pt-4' : 'pt-0'
+                    }`}
+                  >
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">관심 카테고리</label>
                     {isEditingProfile ? (
@@ -1016,15 +1019,16 @@ export default function CompanyUsersPage({
                 )}
               </button>
               <div
-                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
-                  openSections.internal ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                  openSections.internal ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
                 }`}
               >
-                <div
-                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
-                    openSections.internal ? 'pt-4' : 'pt-0'
-                  }`}
-                >
+                <div className="min-h-0 overflow-hidden">
+                  <div
+                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                      openSections.internal ? 'pt-4' : 'pt-0'
+                    }`}
+                  >
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Client Tier</label>
                     {isEditingProfile ? (
@@ -1149,36 +1153,10 @@ export default function CompanyUsersPage({
 
               const data = await response.json().catch(() => null);
 
-              if (response.status === 400) {
-                if (data?.error === 'SEAT_LIMIT_REACHED') {
-                  setFormError('최대 5명 제한에 도달했습니다.');
-                  showToast('최대 5명 제한에 도달했습니다.', 'error');
-                } else {
-                  setFormError('입력값을 확인해주세요.');
-                  showToast('입력값을 확인해주세요.', 'error');
-                }
-                setSubmitting(false);
-                return;
-              }
-
-              if (response.status === 403) {
-                setFormError('접근 권한이 없습니다.');
-                showToast('접근 권한이 없습니다.', 'error');
-                setSubmitting(false);
-                return;
-              }
-
-              if (response.status === 422) {
+              if (!response.ok) {
                 const message = data?.error ?? '사용자 발급에 실패했습니다.';
                 setFormError(message);
                 showToast(message, 'error');
-                setSubmitting(false);
-                return;
-              }
-
-              if (!response.ok) {
-                setFormError('사용자 발급에 실패했습니다.');
-                showToast('사용자 발급에 실패했습니다.', 'error');
                 setSubmitting(false);
                 return;
               }
