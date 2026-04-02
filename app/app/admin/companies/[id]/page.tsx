@@ -804,6 +804,7 @@ export default function CompanyUsersPage({
                 </div>
               </div>
             </div>
+            </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
               <button
