@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, ShieldAlert, Mail, User, AlertCircle } from 'lucide-react';
+import { UserPlus, ShieldAlert, Mail, User, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ToastContainer } from '@/components/toast';
@@ -68,8 +68,53 @@ const mapUser = (me: any): AppUser => ({
 
 const contractStatusOptions = ['계약전', '진행중', '완료'];
 const leadSourceOptions = ['지인소개', 'SNS', '광고', '콜드아웃리치', '기타'];
-const interestCategoryOptions = ['뷰티', '식품', '전자', '생활용품', '패션', '스포츠', '기타'];
-const channelOptions = ['스마트스토어', '쿠팡', '자사몰', '해외', '오프라인', '없음'];
+const interestCategoryOptions = [
+  '뷰티/화장품',
+  '스킨케어',
+  '메이크업',
+  '헤어/바디',
+  '향수/프래그런스',
+  '건강/영양제',
+  '식품/음료',
+  '유아/베이비',
+  '패션/의류',
+  '패션잡화 (가방/지갑/벨트)',
+  '신발',
+  '주얼리/액세서리',
+  '스포츠/레저',
+  '아웃도어',
+  '반려동물',
+  '가전/디지털',
+  '생활/주방',
+  '인테리어/가구',
+  '문구/오피스',
+  '자동차/공구',
+  '도서/음반',
+  '완구/취미',
+  '기타',
+];
+const channelOptions = [
+  '스마트스토어',
+  '쿠팡',
+  '11번가',
+  'G마켓/옥션',
+  '위메프/티몬',
+  '인터파크',
+  'SSG',
+  '롯데온',
+  '카카오쇼핑',
+  '네이버쇼핑',
+  '자사몰',
+  '인스타그램',
+  '틱톡샵',
+  '유튜브 쇼핑',
+  '라이브커머스',
+  '오프라인 매장',
+  '아마존',
+  '라자다/쇼피 (동남아)',
+  '없음',
+  '기타',
+];
 const clientTierOptions = ['일반', 'VIP', '파트너'];
 
 const emptyValue = <p className="text-sm text-gray-400 italic">-</p>;
@@ -152,6 +197,12 @@ export default function CompanyUsersPage({
   const [issuedCredentials, setIssuedCredentials] = useState<{ email: string; password: string } | null>(null);
   const [createCopyStatus, setCreateCopyStatus] = useState(false);
   const [copyStatusByUser, setCopyStatusByUser] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState({
+    contract: false,
+    sales: false,
+    business: false,
+    internal: false,
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const loadUsers = async () => {
@@ -411,6 +462,10 @@ export default function CompanyUsersPage({
     }
   };
 
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const handleCopyCredentials = async (emailValue: string, passwordValue: string, key: string) => {
     try {
       await navigator.clipboard.writeText(`이메일: ${emailValue}\n임시 비밀번호: ${passwordValue}`);
@@ -602,324 +657,408 @@ export default function CompanyUsersPage({
             </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">계약 & 정산</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 상태</label>
-                  {isEditingProfile ? (
-                    <select
-                      value={profileDraft.contract_status ?? ''}
-                      onChange={(e) => updateProfileField('contract_status', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">선택</option>
-                      {contractStatusOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="mt-1">
-                      {renderBadgeValue(profile.contract_status ?? null, contractStatusStyles)}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">스타터 패키지</label>
-                  {isEditingProfile ? (
-                    <label className="inline-flex items-center gap-3 mt-1">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={Boolean(profileDraft.starter_package)}
-                        onChange={(e) => updateProfileField('starter_package', e.target.checked)}
-                      />
-                      <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
-                        <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+              <button
+                type="button"
+                onClick={() => toggleSection('contract')}
+                className="w-full flex items-center justify-between text-sm font-semibold text-gray-900 uppercase tracking-wide pb-2 border-b border-gray-100"
+              >
+                <span>계약 & 정산</span>
+                {openSections.contract ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  openSections.contract ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                    openSections.contract ? 'pt-4' : 'pt-0'
+                  }`}
+                >
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 상태</label>
+                    {isEditingProfile ? (
+                      <select
+                        value={profileDraft.contract_status ?? ''}
+                        onChange={(e) => updateProfileField('contract_status', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">선택</option>
+                        {contractStatusOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="mt-1">
+                        {renderBadgeValue(profile.contract_status ?? null, contractStatusStyles)}
                       </div>
-                      <span className="text-sm text-gray-600">
-                        {profileDraft.starter_package ? 'ON' : 'OFF'}
-                      </span>
-                    </label>
-                  ) : (
-                    <div className="mt-1">{renderBooleanBadge(profile.starter_package)}</div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">프로젝트 전체 금액 (원)</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="number"
-                      value={profileDraft.total_amount ?? ''}
-                      onChange={(e) => updateProfileField('total_amount', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderAmountValue(profile.total_amount)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약금 30% 입금</label>
-                  {isEditingProfile ? (
-                    <label className="inline-flex items-center gap-3 mt-1">
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">스타터 패키지</label>
+                    {isEditingProfile ? (
+                      <label className="inline-flex items-center gap-3 mt-1">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={Boolean(profileDraft.starter_package)}
+                          onChange={(e) => updateProfileField('starter_package', e.target.checked)}
+                        />
+                        <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
+                          <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {profileDraft.starter_package ? 'ON' : 'OFF'}
+                        </span>
+                      </label>
+                    ) : (
+                      <div className="mt-1">{renderBooleanBadge(profile.starter_package)}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">프로젝트 전체 금액 (원)</label>
+                    {isEditingProfile ? (
                       <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={Boolean(profileDraft.deposit_paid)}
-                        onChange={(e) => updateProfileField('deposit_paid', e.target.checked)}
+                        type="number"
+                        value={profileDraft.total_amount ?? ''}
+                        onChange={(e) => updateProfileField('total_amount', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                      <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
-                        <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        {profileDraft.deposit_paid ? 'ON' : 'OFF'}
-                      </span>
-                    </label>
-                  ) : (
-                    <div className="mt-1">{renderBooleanBadge(profile.deposit_paid)}</div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">잔금 70% 입금</label>
-                  {isEditingProfile ? (
-                    <label className="inline-flex items-center gap-3 mt-1">
+                    ) : (
+                      renderAmountValue(profile.total_amount)
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약금 30% 입금</label>
+                    {isEditingProfile ? (
+                      <label className="inline-flex items-center gap-3 mt-1">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={Boolean(profileDraft.deposit_paid)}
+                          onChange={(e) => updateProfileField('deposit_paid', e.target.checked)}
+                        />
+                        <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
+                          <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {profileDraft.deposit_paid ? 'ON' : 'OFF'}
+                        </span>
+                      </label>
+                    ) : (
+                      <div className="mt-1">{renderBooleanBadge(profile.deposit_paid)}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">잔금 70% 입금</label>
+                    {isEditingProfile ? (
+                      <label className="inline-flex items-center gap-3 mt-1">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={Boolean(profileDraft.balance_paid)}
+                          onChange={(e) => updateProfileField('balance_paid', e.target.checked)}
+                        />
+                        <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
+                          <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {profileDraft.balance_paid ? 'ON' : 'OFF'}
+                        </span>
+                      </label>
+                    ) : (
+                      <div className="mt-1">{renderBooleanBadge(profile.balance_paid)}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 시작일</label>
+                    {isEditingProfile ? (
                       <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={Boolean(profileDraft.balance_paid)}
-                        onChange={(e) => updateProfileField('balance_paid', e.target.checked)}
+                        type="date"
+                        value={profileDraft.contract_start ?? ''}
+                        onChange={(e) => updateProfileField('contract_start', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                      <div className="w-10 h-6 bg-gray-200 peer-checked:bg-primary rounded-full relative transition-colors">
-                        <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        {profileDraft.balance_paid ? 'ON' : 'OFF'}
-                      </span>
-                    </label>
-                  ) : (
-                    <div className="mt-1">{renderBooleanBadge(profile.balance_paid)}</div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 시작일</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="date"
-                      value={profileDraft.contract_start ?? ''}
-                      onChange={(e) => updateProfileField('contract_start', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.contract_start)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 종료일</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="date"
-                      value={profileDraft.contract_end ?? ''}
-                      onChange={(e) => updateProfileField('contract_end', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.contract_end)
-                  )}
+                    ) : (
+                      renderTextValue(profile.contract_start)
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">계약 종료일</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="date"
+                        value={profileDraft.contract_end ?? ''}
+                        onChange={(e) => updateProfileField('contract_end', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.contract_end)
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">영업 & 유입</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Lead Source</label>
-                  {isEditingProfile ? (
-                    <select
-                      value={profileDraft.lead_source ?? ''}
-                      onChange={(e) => updateProfileField('lead_source', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">선택</option>
-                      {leadSourceOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    renderTextValue(profile.lead_source ?? null)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">첫 상담일</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="date"
-                      value={profileDraft.first_contact ?? ''}
-                      onChange={(e) => updateProfileField('first_contact', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.first_contact)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">목표 런칭 시기</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="date"
-                      value={profileDraft.target_launch ?? ''}
-                      onChange={(e) => updateProfileField('target_launch', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.target_launch)
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">상품 & 비즈니스</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">관심 카테고리</label>
-                  {isEditingProfile ? (
-                    <div className="flex flex-wrap gap-3 mt-1">
-                      {interestCategoryOptions.map((option) => (
-                        <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
-                          <input
-                            type="checkbox"
-                            checked={interestCategories.includes(option)}
-                            onChange={() => toggleProfileArrayValue('interest_category', option)}
-                            className="accent-primary"
-                          />
-                          {option}
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
-                    renderArrayValue(interestCategories)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">현재 운영 채널</label>
-                  {isEditingProfile ? (
-                    <div className="flex flex-wrap gap-3 mt-1">
-                      {channelOptions.map((option) => (
-                        <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
-                          <input
-                            type="checkbox"
-                            checked={currentChannels.includes(option)}
-                            onChange={() => toggleProfileArrayValue('current_channel', option)}
-                            className="accent-primary"
-                          />
-                          {option}
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
-                    renderArrayValue(currentChannels)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">목표 판매 채널</label>
-                  {isEditingProfile ? (
-                    <div className="flex flex-wrap gap-3 mt-1">
-                      {channelOptions.map((option) => (
-                        <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
-                          <input
-                            type="checkbox"
-                            checked={targetChannels.includes(option)}
-                            onChange={() => toggleProfileArrayValue('target_channel', option)}
-                            className="accent-primary"
-                          />
-                          {option}
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
-                    renderArrayValue(targetChannels)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">예상 발주 수량</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="text"
-                      value={profileDraft.est_order_qty ?? ''}
-                      onChange={(e) => updateProfileField('est_order_qty', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.est_order_qty)
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Pain Point</label>
-                  {isEditingProfile ? (
-                    <textarea
-                      value={profileDraft.pain_point ?? ''}
-                      onChange={(e) => updateProfileField('pain_point', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
-                    />
-                  ) : (
-                    renderTextValue(profile.pain_point)
-                  )}
+              <button
+                type="button"
+                onClick={() => toggleSection('sales')}
+                className="w-full flex items-center justify-between text-sm font-semibold text-gray-900 uppercase tracking-wide pb-2 border-b border-gray-100"
+              >
+                <span>영업 & 유입</span>
+                {openSections.sales ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  openSections.sales ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                    openSections.sales ? 'pt-4' : 'pt-0'
+                  }`}
+                >
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Lead Source</label>
+                    {isEditingProfile ? (
+                      <select
+                        value={profileDraft.lead_source ?? ''}
+                        onChange={(e) => updateProfileField('lead_source', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">선택</option>
+                        {leadSourceOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      renderTextValue(profile.lead_source ?? null)
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">첫 상담일</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="date"
+                        value={profileDraft.first_contact ?? ''}
+                        onChange={(e) => updateProfileField('first_contact', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.first_contact)
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">목표 런칭 시기</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="date"
+                        value={profileDraft.target_launch ?? ''}
+                        onChange={(e) => updateProfileField('target_launch', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.target_launch)
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">내부 관리 (어드민 전용)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Client Tier</label>
-                  {isEditingProfile ? (
-                    <select
-                      value={profileDraft.client_tier ?? ''}
-                      onChange={(e) => updateProfileField('client_tier', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">선택</option>
-                      {clientTierOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="mt-1">
-                      {renderBadgeValue(profile.client_tier ?? null, clientTierStyles)}
-                    </div>
-                  )}
+              <button
+                type="button"
+                onClick={() => toggleSection('business')}
+                className="w-full flex items-center justify-between text-sm font-semibold text-gray-900 uppercase tracking-wide pb-2 border-b border-gray-100"
+              >
+                <span>상품 & 비즈니스</span>
+                {openSections.business ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  openSections.business ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                    openSections.business ? 'pt-4' : 'pt-0'
+                  }`}
+                >
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">관심 카테고리</label>
+                    {isEditingProfile ? (
+                      <div className="flex flex-wrap gap-3 mt-1">
+                        {interestCategoryOptions.map((option) => (
+                          <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={interestCategories.includes(option)}
+                              onChange={() => toggleProfileArrayValue('interest_category', option)}
+                              className="accent-primary"
+                            />
+                            {option}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      renderArrayValue(interestCategories)
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">현재 운영 채널</label>
+                    {isEditingProfile ? (
+                      <div className="flex flex-wrap gap-3 mt-1">
+                        {channelOptions.map((option) => (
+                          <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={currentChannels.includes(option)}
+                              onChange={() => toggleProfileArrayValue('current_channel', option)}
+                              className="accent-primary"
+                            />
+                            {option}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      renderArrayValue(currentChannels)
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">목표 판매 채널</label>
+                    {isEditingProfile ? (
+                      <div className="flex flex-wrap gap-3 mt-1">
+                        {channelOptions.map((option) => (
+                          <label key={option} className="flex items-center gap-2 text-sm text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={targetChannels.includes(option)}
+                              onChange={() => toggleProfileArrayValue('target_channel', option)}
+                              className="accent-primary"
+                            />
+                            {option}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      renderArrayValue(targetChannels)
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">예상 발주 수량</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="text"
+                        value={profileDraft.est_order_qty ?? ''}
+                        onChange={(e) => updateProfileField('est_order_qty', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.est_order_qty)
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Pain Point</label>
+                    {isEditingProfile ? (
+                      <textarea
+                        value={profileDraft.pain_point ?? ''}
+                        onChange={(e) => updateProfileField('pain_point', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
+                      />
+                    ) : (
+                      renderTextValue(profile.pain_point)
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">마지막 컨택일</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="date"
-                      value={profileDraft.last_contact ?? ''}
-                      onChange={(e) => updateProfileField('last_contact', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.last_contact)
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Internal Notes</label>
-                  {isEditingProfile ? (
-                    <textarea
-                      value={profileDraft.internal_notes ?? ''}
-                      onChange={(e) => updateProfileField('internal_notes', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
-                    />
-                  ) : (
-                    renderTextValue(profile.internal_notes)
-                  )}
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+              <button
+                type="button"
+                onClick={() => toggleSection('internal')}
+                className="w-full flex items-center justify-between text-sm font-semibold text-gray-900 uppercase tracking-wide pb-2 border-b border-gray-100"
+              >
+                <span>내부 관리 (어드민 전용)</span>
+                {openSections.internal ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  openSections.internal ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+                    openSections.internal ? 'pt-4' : 'pt-0'
+                  }`}
+                >
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Client Tier</label>
+                    {isEditingProfile ? (
+                      <select
+                        value={profileDraft.client_tier ?? ''}
+                        onChange={(e) => updateProfileField('client_tier', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">선택</option>
+                        {clientTierOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="mt-1">
+                        {renderBadgeValue(profile.client_tier ?? null, clientTierStyles)}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">마지막 컨택일</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="date"
+                        value={profileDraft.last_contact ?? ''}
+                        onChange={(e) => updateProfileField('last_contact', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.last_contact)
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Internal Notes</label>
+                    {isEditingProfile ? (
+                      <textarea
+                        value={profileDraft.internal_notes ?? ''}
+                        onChange={(e) => updateProfileField('internal_notes', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
+                      />
+                    ) : (
+                      renderTextValue(profile.internal_notes)
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
