@@ -15,6 +15,8 @@ type ApiUser = {
   email: string;
   name: string | null;
   role: UserRole;
+  phone?: string | null;
+  job_title?: string | null;
   company_id: string | null;
   status: 'active' | 'inactive';
   must_change_password: boolean;
@@ -170,6 +172,8 @@ export default function CompanyUsersPage({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
   const [profileData, setProfileData] = useState<CompanyMetadata>({});
   const [profileDraft, setProfileDraft] = useState<CompanyMetadata>({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -657,8 +661,8 @@ export default function CompanyUsersPage({
               <div
                 className={`${
                   openSections.contract
-                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
-                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-300 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden'
                 }`}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -818,8 +822,8 @@ export default function CompanyUsersPage({
               <div
                 className={`${
                   openSections.sales
-                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
-                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-300 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden'
                 }`}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -888,8 +892,8 @@ export default function CompanyUsersPage({
               <div
                 className={`${
                   openSections.business
-                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
-                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-300 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden'
                 }`}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -1012,8 +1016,8 @@ export default function CompanyUsersPage({
               <div
                 className={`${
                   openSections.internal
-                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-500 ease-in-out'
-                    : 'max-h-0 opacity-0 overflow-hidden transition-all duration-300 ease-in-out'
+                    ? 'max-h-[9999px] opacity-100 overflow-hidden transition-all duration-300 ease-in-out'
+                    : 'max-h-0 opacity-0 overflow-hidden'
                 }`}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -1131,7 +1135,7 @@ export default function CompanyUsersPage({
               const response = await fetch(`/api/admin/companies/${resolvedParams.id}/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, name, role: 'client_admin' }),
+                body: JSON.stringify({ email, name, phone, job_title: jobTitle, role: 'client_admin' }),
               });
 
               if (response.status === 401) {
@@ -1156,6 +1160,8 @@ export default function CompanyUsersPage({
               }
               setName('');
               setEmail('');
+              setPhone('');
+              setJobTitle('');
               setSubmitting(false);
               showToast('사용자가 발급되었습니다.', 'success');
               await loadUsers();
@@ -1199,6 +1205,34 @@ export default function CompanyUsersPage({
               </div>
             </div>
 
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  연락처 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={!canAddUser || submitting}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  placeholder="010-0000-0000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  직급 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  disabled={!canAddUser || submitting}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  placeholder="예: 대표, 팀장, 담당자"
+                />
+              </div>
+            </div>
 
             <button
               type="submit"
@@ -1269,7 +1303,7 @@ export default function CompanyUsersPage({
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {item.name ?? '이름 없음'}
+                            {item.name ? `${item.name}${item.job_title ? ` · ${item.job_title}` : ''}` : '이름 없음'}
                           </p>
                           <p className="text-xs text-gray-500">{item.email}</p>
                         </div>

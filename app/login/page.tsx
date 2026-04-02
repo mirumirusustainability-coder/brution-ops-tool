@@ -12,6 +12,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +75,24 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      setResetError('이메일을 입력해 주세요');
+      return;
+    }
+    setResetLoading(true);
+    setResetError(null);
+    setResetSuccess(null);
+    const { error: resetErrorResponse } = await supabase.auth.resetPasswordForEmail(resetEmail);
+    if (resetErrorResponse) {
+      setResetError(resetErrorResponse.message);
+      setResetLoading(false);
+      return;
+    }
+    setResetSuccess('입력하신 이메일로 재설정 링크를 발송했습니다');
+    setResetLoading(false);
   };
 
   return (
@@ -139,6 +162,21 @@ export default function LoginPage() {
             />
           </div>
 
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => {
+                setResetOpen(true);
+                setResetEmail(email);
+                setResetError(null);
+                setResetSuccess(null);
+              }}
+              className="text-xs text-primary hover:underline"
+            >
+              비밀번호를 잊으셨나요?
+            </button>
+          </div>
+
           <button
             type="submit"
             disabled={isLoading}
@@ -154,6 +192,46 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+
+        {resetOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">비밀번호 재설정</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                가입한 이메일을 입력하시면 재설정 링크를 보내드립니다
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                이메일
+              </label>
+              <input
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="your@email.com"
+              />
+              {resetError && <p className="mt-2 text-sm text-red-600">{resetError}</p>}
+              {resetSuccess && <p className="mt-2 text-sm text-green-600">{resetSuccess}</p>}
+              <div className="mt-4 flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setResetOpen(false)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={resetLoading}
+                  className="px-3 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
+                >
+                  {resetLoading ? '발송 중...' : '재설정 링크 발송'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 회원가입 링크 없음 (SSOT 하드룰) */}
         <div className="mt-6 text-center">

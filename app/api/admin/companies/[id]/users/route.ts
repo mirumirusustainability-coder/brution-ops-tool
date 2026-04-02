@@ -73,7 +73,7 @@ export const GET = async (
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('profiles')
-      .select('user_id, email, name, role, company_id, status, must_change_password, created_at, updated_at')
+      .select('user_id, email, name, role, phone, job_title, company_id, status, must_change_password, created_at, updated_at')
       .eq('company_id', id)
       .order('created_at', { ascending: false })
 
@@ -103,6 +103,8 @@ export const POST = async (
     const body = await request.json().catch(() => null)
     const email = body?.email
     const name = body?.name
+    const phone = typeof body?.phone === 'string' ? body.phone : null
+    const job_title = typeof body?.job_title === 'string' ? body.job_title : null
     const role = 'client_admin'
 
     if (!email || typeof email !== 'string') {
@@ -160,12 +162,14 @@ export const POST = async (
         user_id: createdUser.user.id,
         email,
         name,
+        phone: phone ?? null,
+        job_title: job_title ?? null,
         role,
         company_id: id,
         status: 'active',
         must_change_password: true,
       })
-      .select('user_id, email, name, role, company_id, status, must_change_password, created_at, updated_at')
+      .select('user_id, email, name, role, phone, job_title, company_id, status, must_change_password, created_at, updated_at')
       .single()
 
     if (profileError || !profileData) {
