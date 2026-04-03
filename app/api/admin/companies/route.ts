@@ -5,6 +5,8 @@ import { createServerClient } from '@supabase/ssr'
 import { isStaffAdmin } from '@/lib/supabase/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/server'
 
+const BRUTION_COMPANY_ID = '00000000-0000-0000-0000-000000000001'
+
 const getProfile = async () => {
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -61,6 +63,7 @@ export const GET = async (_request: Request) => {
     const { data, error } = await admin
       .from('companies')
       .select('id, name, created_at, updated_at')
+      .neq('id', BRUTION_COMPANY_ID)
       .order('created_at', { ascending: false })
 
     if (error) {

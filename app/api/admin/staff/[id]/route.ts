@@ -67,8 +67,9 @@ export const PATCH = async (
     const name = typeof body?.name === 'string' ? body.name : undefined
     const phone = typeof body?.phone === 'string' ? body.phone : undefined
     const job_title = typeof body?.job_title === 'string' ? body.job_title : undefined
+    const avatar_url = typeof body?.avatar_url === 'string' ? body.avatar_url : undefined
 
-    if (!role && !status && !name && !phone && !job_title) {
+    if (!role && !status && !name && !phone && !job_title && !avatar_url) {
       return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
     }
 
@@ -87,12 +88,13 @@ export const PATCH = async (
     if (name !== undefined) updatePayload.name = name
     if (phone !== undefined) updatePayload.phone = phone
     if (job_title !== undefined) updatePayload.job_title = job_title
+    if (avatar_url !== undefined) updatePayload.avatar_url = avatar_url
 
     const { data: updated, error: updateError } = await admin
       .from('profiles')
       .update(updatePayload)
       .eq('user_id', id)
-      .select('user_id, email, name, phone, job_title, role, status')
+      .select('user_id, email, name, phone, job_title, avatar_url, role, status')
       .single()
 
     if (updateError || !updated) {

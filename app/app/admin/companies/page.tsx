@@ -22,6 +22,7 @@ type StaffUser = {
   name: string | null;
   phone?: string | null;
   job_title?: string | null;
+  avatar_url?: string | null;
   role: 'staff_admin' | 'staff_member';
   status: 'active' | 'inactive';
 };
@@ -60,6 +61,7 @@ export default function CompaniesAdminPage() {
   const [staffEditRole, setStaffEditRole] = useState<'staff_admin' | 'staff_member'>('staff_member');
   const [staffUpdating, setStaffUpdating] = useState<Record<string, boolean>>({});
   const [staffDeleting, setStaffDeleting] = useState<Record<string, boolean>>({});
+  const [staffAvatarUploading, setStaffAvatarUploading] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newCompanyName, setNewCompanyName] = useState('');
@@ -248,6 +250,62 @@ export default function CompaniesAdminPage() {
     setStaffUpdating((prev) => ({ ...prev, [userId]: false }));
     setStaffEditingId(null);
     showToast('수정되었습니다', 'success');
+  };
+
+  const handleStaffAvatarUpload = async (staff: StaffUser, file: File) => {
+    if (!isStaffAdmin) {
+      showToast('접근 권한이 없습니다', 'error');
+      return;
+    }
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('jpeg/png/webp 파일만 업로드할 수 있습니다', 'error');
+      return;
+    }
+
+    setStaffAvatarUploading((prev) => ({ ...prev, [staff.user_id]: true }));
+
+    try {
+      const supabase = createClient();
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `avatars/${staff.user_id}/${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { contentType: file.type, upsert: true });
+
+      if (uploadError) {
+        showToast('프로필 이미지 업로드에 실패했습니다', 'error');
+        setStaffAvatarUploading((prev) => ({ ...prev, [staff.user_id]: false }));
+        return;
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+      const publicUrl = data?.publicUrl;
+      if (!publicUrl) {
+        showToast('이미지 URL을 생성하지 못했습니다', 'error');
+        setStaffAvatarUploading((prev) => ({ ...prev, [staff.user_id]: false }));
+        return;
+      }
+
+      const response = await fetch(`/api/admin/staff/${staff.user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: publicUrl }),
+      });
+
+      if (!response.ok) {
+        showToast('프로필 이미지 저장에 실패했습니다', 'error');
+        setStaffAvatarUploading((prev) => ({ ...prev, [staff.user_id]: false }));
+        return;
+      }
+
+      await loadStaff();
+      showToast('프로필 이미지가 업데이트되었습니다', 'success');
+    } catch {
+      showToast('프로필 이미지 업로드에 실패했습니다', 'error');
+    } finally {
+      setStaffAvatarUploading((prev) => ({ ...prev, [staff.user_id]: false }));
+    }
   };
 
   const handleDeleteStaff = async (userId: string) => {
@@ -452,6 +510,8 @@ export default function CompaniesAdminPage() {
                   const isEditing = staffEditingId === staff.user_id;
                   const displayName = staff.name ?? staff.email;
                   const initial = (displayName ?? '').trim().charAt(0) || '-';
+                  const avatarUrl = staff.avatar_url ?? null;
+                  const avatarInputId = `staff-avatar-${staff.user_id}`;
 
                   return (
                     <div
@@ -469,7 +529,7 @@ export default function CompaniesAdminPage() {
                             : ''
                       }`}
                     >
-                      {isStaffAdmin && (
+                      {isEditing && isStaffAdmin && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -477,13 +537,53 @@ export default function CompaniesAdminPage() {
                             handleDeleteStaff(staff.user_id);
                           }}
                           disabled={staffDeleting[staff.user_id]}
-                          className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-sm"
+                          className="absolute top-3 right-3 text-red-500 hover:text-red-700 text-sm"
                         >
                           ✕
                         </button>
                       )}
                       {isEditing ? (
                         <div className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (staffAvatarUploading[staff.user_id]) return;
+                                const input = document.getElementById(avatarInputId) as HTMLInputElement | null;
+                                input?.click();
+                              }}
+                              className="w-10 h-10 rounded-full overflow-hidden border border-gray-200"
+                            >
+                              {avatarUrl ? (
+                                <img
+                                  src={avatarUrl}
+                                  alt={`${displayName} avatar`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="w-full h-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">
+                                  {initial}
+                                </span>
+                              )}
+                            </button>
+                            <div className="text-xs text-gray-500">
+                              <p>프로필 이미지</p>
+                              <p className="text-gray-400">jpeg/png/webp</p>
+                            </div>
+                            <input
+                              id={avatarInputId}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                handleStaffAvatarUpload(staff, file);
+                                e.currentTarget.value = '';
+                              }}
+                            />
+                          </div>
                           <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
                             <input
@@ -542,6 +642,17 @@ export default function CompaniesAdminPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                handleDeleteStaff(staff.user_id);
+                              }}
+                              disabled={staffDeleting[staff.user_id]}
+                              className="px-3 py-2 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50"
+                            >
+                              삭제
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handleStaffSave(staff.user_id);
                               }}
                               disabled={staffUpdating[staff.user_id]}
@@ -553,18 +664,26 @@ export default function CompaniesAdminPage() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <div className={`flex items-start justify-between gap-2 ${isStaffAdmin ? 'pr-6' : ''}`}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
-                                {initial}
-                              </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-3">
+                              {avatarUrl ? (
+                                <img
+                                  src={avatarUrl}
+                                  alt={`${displayName} avatar`}
+                                  className="w-10 h-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">
+                                  {initial}
+                                </div>
+                              )}
                               <div>
-                                <p className="text-sm font-semibold text-slate-900">
-                                  {staff.name
-                                    ? `${staff.name}${staff.job_title ? ` · ${staff.job_title}` : ''}`
-                                    : staff.email}
-                                </p>
-                                <p className="text-xs text-slate-500">{staff.email}</p>
+                                <p className="text-sm font-semibold text-slate-900">{staff.name ?? staff.email}</p>
+                                {staff.job_title ? (
+                                  <p className="text-sm text-gray-500">{staff.job_title}</p>
+                                ) : null}
+                                <p className="text-xs text-slate-500 mt-1">{staff.email}</p>
+                                <p className="text-xs text-slate-500">{staff.phone ?? '-'}</p>
                               </div>
                             </div>
                             <span
@@ -575,7 +694,6 @@ export default function CompaniesAdminPage() {
                               {staff.role === 'staff_admin' ? 'ADMIN' : 'MEMBER'}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-600">{staff.phone ?? '-'}</p>
                         </div>
                       )}
                     </div>

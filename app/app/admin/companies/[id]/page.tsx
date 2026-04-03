@@ -17,6 +17,7 @@ type ApiUser = {
   role: UserRole;
   phone?: string | null;
   job_title?: string | null;
+  business_card_url?: string | null;
   company_id: string | null;
   status: 'active' | 'inactive';
   must_change_password: boolean;
@@ -169,6 +170,7 @@ export default function CompanyUsersPage({
   const [userTempPasswords, setUserTempPasswords] = useState<Record<string, string>>({});
   const [resetLoading, setResetLoading] = useState<Record<string, boolean>>({});
   const [removeLoading, setRemoveLoading] = useState<Record<string, boolean>>({});
+  const [businessCardUploading, setBusinessCardUploading] = useState<Record<string, boolean>>({});
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -368,6 +370,58 @@ export default function CompanyUsersPage({
       showToast('사용자가 제거되었습니다', 'success');
     } finally {
       setRemoveLoading((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleBusinessCardUpload = async (user: ApiUser, file: File) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('jpeg/png/webp/pdf 파일만 업로드할 수 있습니다', 'error');
+      return;
+    }
+
+    setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: true }));
+
+    try {
+      const supabase = createClient();
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `business-cards/${resolvedParams.id}/${user.user_id}/${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from('business-cards')
+        .upload(path, file, { contentType: file.type, upsert: true });
+
+      if (uploadError) {
+        showToast('명함 업로드에 실패했습니다', 'error');
+        setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: false }));
+        return;
+      }
+
+      const { data } = supabase.storage.from('business-cards').getPublicUrl(path);
+      const publicUrl = data?.publicUrl;
+      if (!publicUrl) {
+        showToast('명함 URL 생성에 실패했습니다', 'error');
+        setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: false }));
+        return;
+      }
+
+      const response = await fetch(`/api/admin/companies/${resolvedParams.id}/users/${user.user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_card_url: publicUrl }),
+      });
+
+      if (!response.ok) {
+        showToast('명함 저장에 실패했습니다', 'error');
+        setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: false }));
+        return;
+      }
+
+      await loadUsers();
+      showToast('명함이 업로드되었습니다', 'success');
+    } catch {
+      showToast('명함 업로드에 실패했습니다', 'error');
+    } finally {
+      setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: false }));
     }
   };
 
@@ -1293,6 +1347,9 @@ export default function CompanyUsersPage({
             ) : (
               users.map((item) => {
                 const tempPasswordValue = userTempPasswords[item.user_id];
+                const businessCardUrl = item.business_card_url ?? null;
+                const businessCardInputId = `business-card-${item.user_id}`;
+                const isBusinessCardImage = !!businessCardUrl && /\.(png|jpe?g|webp)(\?|$)/i.test(businessCardUrl);
 
                 return (
                   <div key={item.user_id} className="bg-muted rounded-md p-3">
@@ -1327,6 +1384,70 @@ export default function CompanyUsersPage({
                           {removeLoading[item.user_id] ? '제거 중...' : '제거'}
                         </button>
                       </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-3">
+                      {businessCardUrl ? (
+                        <div className="flex items-center gap-3">
+                          {isBusinessCardImage ? (
+                            <button
+                              type="button"
+                              onClick={() => window.open(businessCardUrl, '_blank')}
+                              className="border border-gray-200 rounded-md overflow-hidden"
+                            >
+                              <img
+                                src={businessCardUrl}
+                                alt="business card"
+                                className="w-16 h-16 object-cover"
+                              />
+                            </button>
+                          ) : (
+                            <a
+                              href={businessCardUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-blue-600 underline"
+                            >
+                              PDF 보기
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = document.getElementById(businessCardInputId) as HTMLInputElement | null;
+                              input?.click();
+                            }}
+                            disabled={businessCardUploading[item.user_id]}
+                            className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50"
+                          >
+                            {businessCardUploading[item.user_id] ? '업로드 중...' : '🔄 교체'}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById(businessCardInputId) as HTMLInputElement | null;
+                            input?.click();
+                          }}
+                          disabled={businessCardUploading[item.user_id]}
+                          className="text-xs px-3 py-1.5 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50"
+                        >
+                          {businessCardUploading[item.user_id] ? '업로드 중...' : '📎 명함 업로드'}
+                        </button>
+                      )}
+                      <input
+                        id={businessCardInputId}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          handleBusinessCardUpload(item, file);
+                          e.currentTarget.value = '';
+                        }}
+                      />
                     </div>
 
                     {tempPasswordValue && (

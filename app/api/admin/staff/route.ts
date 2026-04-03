@@ -71,7 +71,7 @@ export const GET = async () => {
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('profiles')
-      .select('user_id, email, name, phone, job_title, role, status')
+      .select('user_id, email, name, phone, job_title, avatar_url, role, status')
       .eq('company_id', BRUTION_COMPANY_ID)
       .in('role', ['staff_admin', 'staff_member'])
       .order('created_at', { ascending: false })
@@ -153,7 +153,7 @@ export const POST = async (request: Request) => {
         status: 'active',
         must_change_password: true,
       })
-      .select('user_id, email, name, phone, job_title, role, status')
+      .select('user_id, email, name, phone, job_title, avatar_url, role, status')
       .single()
 
     if (profileError || !profileData) {
