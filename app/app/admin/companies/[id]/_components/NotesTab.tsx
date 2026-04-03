@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { ApiCompany, CompanyMetadata } from './types';
+import type { ApiCompany, CompanyMetadata, ContactHistoryEntry } from './types';
 
 type NotesTabProps = {
   company: ApiCompany;
@@ -31,15 +31,30 @@ const renderBadgeValue = (value?: string | null, styleMap?: Record<string, strin
   );
 };
 
+const getToday = () => new Date().toISOString().slice(0, 10);
+
 export function NotesTab({ company, onUpdate }: NotesTabProps) {
   const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<CompanyMetadata>(company.metadata ?? {});
   const [saving, setSaving] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newDate, setNewDate] = useState(getToday());
+  const [newContent, setNewContent] = useState('');
+  const [newAuthor, setNewAuthor] = useState('');
 
   useEffect(() => {
     setDraft(company.metadata ?? {});
   }, [company]);
+
+  const contactHistory = Array.isArray(draft.contact_history) ? draft.contact_history : [];
+  const sortedHistory = useMemo(
+    () =>
+      contactHistory
+        .map((entry, index) => ({ entry, index }))
+        .sort((a, b) => (b.entry.date ?? '').localeCompare(a.entry.date ?? '')),
+    [contactHistory]
+  );
 
   const updateField = (key: keyof CompanyMetadata, value: CompanyMetadata[keyof CompanyMetadata]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -63,39 +78,141 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
     setDraft(company.metadata ?? {});
   };
 
+  const handleAddHistory = async () => {
+    if (!newContent.trim()) {
+      showToast('컨택 내용을 입력해 주세요', 'info');
+      return;
+    }
+    const entry: ContactHistoryEntry = {
+      date: newDate || getToday(),
+      content: newContent.trim(),
+      author: newAuthor.trim() || null,
+    };
+    const nextHistory = [...contactHistory, entry];
+    const nextDraft = { ...draft, contact_history: nextHistory };
+    setDraft(nextDraft);
+    try {
+      await onUpdate(nextDraft);
+      showToast('컨택 히스토리가 추가되었습니다', 'success');
+      setNewContent('');
+      setNewAuthor('');
+      setNewDate(getToday());
+      setShowAddForm(false);
+    } catch {
+      showToast('컨택 히스토리 저장에 실패했습니다', 'error');
+    }
+  };
+
+  const handleDeleteHistory = async (index: number) => {
+    const nextHistory = contactHistory.filter((_, idx) => idx !== index);
+    const nextDraft = { ...draft, contact_history: nextHistory };
+    setDraft(nextDraft);
+    try {
+      await onUpdate(nextDraft);
+      showToast('컨택 히스토리가 삭제되었습니다', 'success');
+    } catch {
+      showToast('컨택 히스토리 삭제에 실패했습니다', 'error');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Notes</h2>
+        <h2 className="text-lg font-semibold text-gray-900">히스토리</h2>
         {!isEditing && (
           <button
             type="button"
             onClick={() => setIsEditing(true)}
             className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
           >
-            수정
+            내부 메모 수정
           </button>
         )}
       </div>
 
-      <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
-        <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">
-          Pain Point
-        </h3>
-        {isEditing ? (
-          <textarea
-            value={draft.pain_point ?? ''}
-            onChange={(e) => updateField('pain_point', e.target.value)}
-            className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
-          />
+      <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">컨택 히스토리</h3>
+          <button
+            type="button"
+            onClick={() => setShowAddForm((prev) => !prev)}
+            className="text-sm text-primary font-medium"
+          >
+            + 새 컨택 추가
+          </button>
+        </div>
+
+        {showAddForm && (
+          <div className="space-y-3 rounded-lg border border-dashed border-gray-200 p-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">날짜</label>
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">작성자</label>
+                <input
+                  type="text"
+                  value={newAuthor}
+                  onChange={(e) => setNewAuthor(e.target.value)}
+                  placeholder="홍길동"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">내용</label>
+              <textarea
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm min-h-[90px]"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleAddHistory}
+                className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        )}
+
+        {sortedHistory.length === 0 ? (
+          <p className="text-sm text-gray-500">등록된 컨택 히스토리가 없습니다.</p>
         ) : (
-          renderTextValue(draft.pain_point)
+          <div className="space-y-3">
+            {sortedHistory.map(({ entry, index }) => (
+              <div key={`${entry.date}-${index}`} className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 p-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {entry.date} · {entry.author || '담당자 미지정'}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{entry.content}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteHistory(index)}
+                  className="text-sm text-gray-400 hover:text-red-500"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
       <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
         <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">
-          내부 관리
+          내부 메모
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>

@@ -4,10 +4,10 @@ import { createServerClient } from '@supabase/ssr';
 import { AppLayout } from '@/components/app-layout';
 import { isStaffAdmin } from '@/lib/supabase/auth';
 import { CompanyDetailClient } from './_components/CompanyDetailClient';
-import type { ApiCompany, ApiProject, ApiUser } from './_components/types';
+import type { ApiCompany, ApiProject, ApiUser, ApiDeliverable, PresentationDeliverableItem } from './_components/types';
 import type { User as AppUser } from '@/types';
 
-type PageProps = { params: { id: string } };
+type PageProps = { params: Promise<{ id: string }> };
 
 type ApiMe = {
   userId: string;
@@ -45,6 +45,7 @@ const getCookieHeader = () => {
 };
 
 export default async function CompanyUsersPage({ params }: PageProps) {
+  const { id } = await params;
   const cookieStore = cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -110,7 +111,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
   let users: ApiUser[] = [];
   let error: string | null = null;
 
-  const companyResponse = await fetch(`${baseUrl}/api/admin/companies/${params.id}`, {
+  const companyResponse = await fetch(`${baseUrl}/api/admin/companies/${id}`, {
     cache: 'no-store',
     headers: { cookie: cookieHeader },
   });
@@ -133,7 +134,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     );
   }
 
-  const usersResponse = await fetch(`${baseUrl}/api/admin/companies/${params.id}/users`, {
+  const usersResponse = await fetch(`${baseUrl}/api/admin/companies/${id}/users`, {
     cache: 'no-store',
     headers: { cookie: cookieHeader },
   });
@@ -145,12 +146,46 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     users = Array.isArray(data?.users) ? data.users : [];
   }
 
+  let presentationDeliverables: PresentationDeliverableItem[] = [];
+
+  if (projects.length > 0) {
+    const deliverableResults = await Promise.all(
+      projects.map(async (project) => {
+        const response = await fetch(`${baseUrl}/api/admin/projects/${project.id}`, {
+          cache: 'no-store',
+          headers: { cookie: cookieHeader },
+        });
+
+        if (!response.ok) return [];
+        const data = await response.json().catch(() => null);
+        const deliverables = Array.isArray(data?.deliverables) ? (data.deliverables as ApiDeliverable[]) : [];
+
+        return deliverables
+          .filter((deliverable) => !deliverable.visibility || deliverable.visibility === 'visible')
+          .filter((deliverable) =>
+            Array.isArray(deliverable.versions)
+              ? deliverable.versions.some((version) => version.status === 'in_review')
+              : false
+          )
+          .map((deliverable) => ({
+            projectId: project.id,
+            projectName: project.name ?? null,
+            deliverableType: deliverable.type,
+            deliverableTitle: deliverable.title ?? null,
+          }));
+      })
+    );
+
+    presentationDeliverables = deliverableResults.flat();
+  }
+
   return (
     <CompanyDetailClient
       currentUser={currentUser}
       company={company}
       projects={projects}
       users={users}
+      presentationDeliverables={presentationDeliverables}
       error={error}
     />
   );

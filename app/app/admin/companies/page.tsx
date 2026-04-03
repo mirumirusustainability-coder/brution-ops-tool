@@ -82,9 +82,7 @@ export default function CompaniesAdminPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'paused'>('all');
-  const [deleteTarget, setDeleteTarget] = useState<ApiCompany | null>(null);
-  const [deleteInput, setDeleteInput] = useState('');
-  const [deletingCompany, setDeletingCompany] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadCompanies = async () => {
     const response = await fetch('/api/admin/companies', { cache: 'no-store' });
@@ -160,31 +158,6 @@ export default function CompaniesAdminPage() {
       window.URL.revokeObjectURL(url);
     } finally {
       setExporting(false);
-    }
-  };
-
-  const handleDeleteCompany = async () => {
-    if (!deleteTarget) return;
-    if (deleteInput !== '삭제') return;
-
-    setDeletingCompany(true);
-    try {
-      const response = await fetch(`/api/admin/companies/${deleteTarget.id}`, { method: 'DELETE' });
-      if (response.status === 401) {
-        router.replace('/login');
-        return;
-      }
-      if (!response.ok) {
-        showToast('고객사 삭제에 실패했습니다', 'error');
-        return;
-      }
-
-      showToast('고객사가 삭제되었습니다', 'success');
-      setDeleteTarget(null);
-      setDeleteInput('');
-      await loadCompanies();
-    } finally {
-      setDeletingCompany(false);
     }
   };
 
@@ -469,9 +442,12 @@ export default function CompaniesAdminPage() {
     { all: 0, active: 0, completed: 0, paused: 0 }
   );
 
-  const filteredCompanies = statusFilter === 'all'
-    ? companies
-    : companies.filter((company) => company.latest_project?.status === statusFilter);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredCompanies = companies.filter((company) => {
+    const matchesStatus = statusFilter === 'all' || company.latest_project?.status === statusFilter;
+    const matchesSearch = !normalizedSearch || company.name.toLowerCase().includes(normalizedSearch);
+    return matchesStatus && matchesSearch;
+  });
 
   const statusBadgeStyles: Record<string, string> = {
     active: 'bg-emerald-50 text-emerald-600',
@@ -947,7 +923,7 @@ export default function CompaniesAdminPage() {
         )}
         {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
 
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           {(
             [
               { key: 'all', label: '전체', count: statusCounts.all },
@@ -969,19 +945,31 @@ export default function CompaniesAdminPage() {
               {tab.label} {tab.count}
             </button>
           ))}
+          <div className="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="고객사 검색..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            />
+          </div>
         </div>
 
         {/* Companies List */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {filteredCompanies.map((company) => {
-            const latestProject = company.latest_project ?? null;
-            const statusValue = latestProject?.status ?? null;
-            const statusStyle = statusValue ? statusBadgeStyles[statusValue] : '';
-            const stepValue = typeof latestProject?.step === 'number' ? latestProject.step : null;
-            const stepLabel = stepValue !== null ? STEP_LABELS[stepValue] : null;
-            const managerName = company.client_admin_name ?? '-';
+        {filteredCompanies.length === 0 && !loading ? (
+          <div className="text-sm text-gray-500">검색 결과가 없습니다</div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {filteredCompanies.map((company) => {
+              const latestProject = company.latest_project ?? null;
+              const statusValue = latestProject?.status ?? null;
+              const statusStyle = statusValue ? statusBadgeStyles[statusValue] : '';
+              const stepValue = typeof latestProject?.step === 'number' ? latestProject.step : null;
+              const stepLabel = stepValue !== null ? STEP_LABELS[stepValue] : null;
+              const managerName = company.client_admin_name ?? '-';
 
-            return (
+              return (
               <div
                 key={company.id}
                 onClick={() => router.push(`/app/admin/companies/${company.id}`)}
@@ -997,24 +985,13 @@ export default function CompaniesAdminPage() {
                         <h3 className="font-semibold text-gray-900">{company.name}</h3>
                         {statusValue && (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle}`}>
-                            {statusValue.toUpperCase()}
+                            {statusValue === 'active' ? '진행중' : statusValue === 'completed' ? '완료' : '일시정지'}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">담당자: {managerName}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setDeleteTarget(company);
-                      setDeleteInput('');
-                    }}
-                    className="text-xs text-red-500 hover:text-red-600"
-                  >
-                    삭제
-                  </button>
                 </div>
 
                 {stepValue !== null && stepLabel ? (
@@ -1036,7 +1013,8 @@ export default function CompaniesAdminPage() {
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
 
         {/* Seat 5 하드 제한 안내 */}
         <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-md p-4">
@@ -1045,44 +1023,6 @@ export default function CompaniesAdminPage() {
           </p>
         </div>
       </div>
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">고객사를 삭제하시겠습니까?</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {deleteTarget.name}의 모든 데이터가 삭제됩니다. 되돌릴 수 없습니다.
-            </p>
-            <input
-              type="text"
-              value={deleteInput}
-              onChange={(event) => setDeleteInput(event.target.value)}
-              placeholder="삭제 를 입력해주세요"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteTarget(null);
-                  setDeleteInput('');
-                }}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-md"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteCompany}
-                disabled={deleteInput !== '삭제' || deletingCompany}
-                className="px-4 py-2 text-sm text-white bg-red-600 rounded-md disabled:opacity-50"
-              >
-                {deletingCompany ? '삭제 중...' : '확인'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {staffDeleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

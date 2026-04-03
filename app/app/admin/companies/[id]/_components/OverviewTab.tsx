@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { StepProgress } from '@/components/step-progress';
-import { STEP_LABELS } from '@/lib/constants';
+import { DELIVERABLE_TYPE_LABELS, STEP_LABELS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import type { ApiCompany, ApiProject, CompanyMetadata } from './types';
+import type { ApiCompany, ApiProject, CompanyMetadata, PresentationDeliverableItem } from './types';
 
 type OverviewTabProps = {
   company: ApiCompany;
   projects: ApiProject[];
   presentationMode: boolean;
+  presentationDeliverables?: PresentationDeliverableItem[];
   onUpdate?: (metadata: CompanyMetadata) => Promise<void>;
 };
 
@@ -18,7 +19,13 @@ const emptyValue = <p className="text-sm text-gray-400 italic">-</p>;
 const renderTextValue = (value?: string | null) =>
   value ? <p className="text-sm text-gray-900">{value}</p> : emptyValue;
 
-export function OverviewTab({ company, projects, presentationMode, onUpdate }: OverviewTabProps) {
+export function OverviewTab({
+  company,
+  projects,
+  presentationMode,
+  presentationDeliverables = [],
+  onUpdate,
+}: OverviewTabProps) {
   const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [profileDraft, setProfileDraft] = useState<CompanyMetadata>(company.metadata ?? {});
@@ -103,6 +110,26 @@ export function OverviewTab({ company, projects, presentationMode, onUpdate }: O
                 <p className="text-sm text-gray-600">{latestProject.description}</p>
               )}
             </div>
+          </div>
+          <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">검토 중 드롭</h3>
+            {presentationDeliverables.length === 0 ? (
+              <p className="text-sm text-gray-500">검토 중인 드롭이 없습니다.</p>
+            ) : (
+              <div className="space-y-2">
+                {presentationDeliverables.map((item, index) => (
+                  <div key={`${item.projectId}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
+                    <div className="text-sm text-gray-700">
+                      <span className="font-medium text-gray-900">{item.projectName ?? '프로젝트'}</span>
+                      <span className="mx-2 text-gray-300">/</span>
+                      <span>{DELIVERABLE_TYPE_LABELS[item.deliverableType as keyof typeof DELIVERABLE_TYPE_LABELS] ?? item.deliverableType}</span>
+                      <span className="text-gray-500"> · {item.deliverableTitle ?? '제목 없음'}</span>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700">in_review</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

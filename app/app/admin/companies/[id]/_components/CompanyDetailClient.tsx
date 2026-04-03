@@ -11,7 +11,7 @@ import { UsersTab } from './UsersTab';
 import { ContractsTab } from './ContractsTab';
 import { NotesTab } from './NotesTab';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
-import type { ApiCompany, ApiProject, ApiUser, CompanyMetadata } from './types';
+import type { ApiCompany, ApiProject, ApiUser, CompanyMetadata, PresentationDeliverableItem } from './types';
 import type { User as AppUser } from '@/types';
 
 type TabKey = 'overview' | 'users' | 'contracts' | 'notes';
@@ -21,6 +21,7 @@ type CompanyDetailClientProps = {
   company: ApiCompany;
   projects: ApiProject[];
   users: ApiUser[];
+  presentationDeliverables: PresentationDeliverableItem[];
   error?: string | null;
 };
 
@@ -29,6 +30,7 @@ export function CompanyDetailClient({
   company,
   projects,
   users,
+  presentationDeliverables,
   error,
 }: CompanyDetailClientProps) {
   const router = useRouter();
@@ -88,17 +90,25 @@ export function CompanyDetailClient({
   const latestStatusLabel = latestProject?.status ? statusLabels[latestProject.status] : null;
   const activeUserCount = users.filter((item) => item.status === 'active').length;
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'users', label: 'Users' },
-    { key: 'contracts', label: 'Contracts · Settlements' },
-    { key: 'notes', label: 'Notes' },
+    { key: 'overview', label: '현황' },
+    { key: 'users', label: '팀 · 멤버' },
+    { key: 'contracts', label: '계약 · 정산' },
+    { key: 'notes', label: '히스토리' },
   ];
 
   const tabContent = (() => {
     if (activeTab === 'users') return <UsersTab company={company} users={users} onRefresh={refresh} />;
     if (activeTab === 'contracts') return <ContractsTab company={company} onUpdate={handleCompanyUpdate} />;
     if (activeTab === 'notes') return <NotesTab company={company} onUpdate={handleCompanyUpdate} />;
-    return <OverviewTab company={company} projects={projects} presentationMode={presentationMode} onUpdate={handleCompanyUpdate} />;
+    return (
+      <OverviewTab
+        company={company}
+        projects={projects}
+        presentationMode={presentationMode}
+        presentationDeliverables={presentationDeliverables}
+        onUpdate={handleCompanyUpdate}
+      />
+    );
   })();
 
   const pageContent = (
@@ -160,7 +170,16 @@ export function CompanyDetailClient({
         </div>
       )}
 
-      {presentationMode ? <OverviewTab company={company} projects={projects} presentationMode /> : tabContent}
+      {presentationMode ? (
+        <OverviewTab
+          company={company}
+          projects={projects}
+          presentationMode
+          presentationDeliverables={presentationDeliverables}
+        />
+      ) : (
+        tabContent
+      )}
       {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
     </div>
   );

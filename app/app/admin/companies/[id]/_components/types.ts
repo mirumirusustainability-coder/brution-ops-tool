@@ -1,3 +1,9 @@
+export type ContactHistoryEntry = {
+  date: string;
+  content: string;
+  author?: string | null;
+};
+
 export type CompanyMetadata = {
   biz_no?: string | null;
   address?: string | null;
@@ -25,6 +31,7 @@ export type CompanyMetadata = {
   client_tier?: '일반' | 'VIP' | '파트너' | string | null;
   internal_notes?: string | null;
   last_contact?: string | null;
+  contact_history?: ContactHistoryEntry[] | null;
 };
 
 export type ApiCompany = {
@@ -44,6 +51,30 @@ export type ApiProject = {
   status?: 'active' | 'completed' | 'paused' | null;
   created_at: string;
   updated_at: string;
+};
+
+export type ApiDeliverableVersion = {
+  id: string;
+  deliverable_id: string;
+  status?: string | null;
+  title?: string | null;
+};
+
+export type ApiDeliverable = {
+  id: string;
+  project_id: string;
+  company_id: string;
+  type: string;
+  visibility?: string | null;
+  title?: string | null;
+  versions?: ApiDeliverableVersion[];
+};
+
+export type PresentationDeliverableItem = {
+  projectId: string;
+  projectName: string | null;
+  deliverableType: string;
+  deliverableTitle: string | null;
 };
 
 export type ApiUser = {
