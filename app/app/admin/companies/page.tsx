@@ -53,6 +53,11 @@ export default function CompaniesAdminPage() {
   const [staffSubmitting, setStaffSubmitting] = useState(false);
   const [issuedStaffCredentials, setIssuedStaffCredentials] = useState<{ email: string; password: string } | null>(null);
   const [staffCopyStatus, setStaffCopyStatus] = useState(false);
+  const [staffEditingId, setStaffEditingId] = useState<string | null>(null);
+  const [staffEditName, setStaffEditName] = useState('');
+  const [staffEditPhone, setStaffEditPhone] = useState('');
+  const [staffEditJobTitle, setStaffEditJobTitle] = useState('');
+  const [staffEditRole, setStaffEditRole] = useState<'staff_admin' | 'staff_member'>('staff_member');
   const [staffUpdating, setStaffUpdating] = useState<Record<string, boolean>>({});
   const [staffDeleting, setStaffDeleting] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -195,12 +200,33 @@ export default function CompaniesAdminPage() {
     await loadStaff();
   };
 
-  const handleStaffRoleChange = async (userId: string, role: 'staff_admin' | 'staff_member') => {
+  const handleStaffEditStart = (staff: StaffUser) => {
+    setStaffEditingId(staff.user_id);
+    setStaffEditName(staff.name ?? '');
+    setStaffEditPhone(staff.phone ?? '');
+    setStaffEditJobTitle(staff.job_title ?? '');
+    setStaffEditRole(staff.role);
+  };
+
+  const handleStaffEditCancel = () => {
+    setStaffEditingId(null);
+    setStaffEditName('');
+    setStaffEditPhone('');
+    setStaffEditJobTitle('');
+    setStaffEditRole('staff_member');
+  };
+
+  const handleStaffSave = async (userId: string) => {
     setStaffUpdating((prev) => ({ ...prev, [userId]: true }));
     const response = await fetch(`/api/admin/staff/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role }),
+      body: JSON.stringify({
+        name: staffEditName.trim(),
+        phone: staffEditPhone.trim() || null,
+        job_title: staffEditJobTitle.trim() || null,
+        role: staffEditRole,
+      }),
     });
 
     if (response.status === 401) {
@@ -209,14 +235,15 @@ export default function CompaniesAdminPage() {
     }
 
     if (!response.ok) {
-      showToast('권한 변경에 실패했습니다', 'error');
+      showToast('수정에 실패했습니다', 'error');
       setStaffUpdating((prev) => ({ ...prev, [userId]: false }));
       return;
     }
 
     await loadStaff();
     setStaffUpdating((prev) => ({ ...prev, [userId]: false }));
-    showToast('권한이 변경되었습니다', 'success');
+    setStaffEditingId(null);
+    showToast('수정되었습니다', 'success');
   };
 
   const handleDeleteStaff = async (userId: string) => {
@@ -235,7 +262,8 @@ export default function CompaniesAdminPage() {
     }
     await loadStaff();
     setStaffDeleting((prev) => ({ ...prev, [userId]: false }));
-    showToast('직원이 삭제되었습니다', 'success');
+    setStaffEditingId(null);
+    showToast('삭제되었습니다', 'success');
   };
 
   useEffect(() => {
@@ -383,11 +411,11 @@ export default function CompaniesAdminPage() {
         <div className="mb-6 bg-slate-900/5 border border-slate-200 rounded-xl p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">🏢 브루션 팀</h2>
+              <h2 className="text-lg font-semibold text-slate-900">브루션 팀</h2>
               <p className="text-sm text-slate-600">내부 스태프 관리</p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-700">{staffCount}/20명</span>
+              <span className="text-sm text-slate-700">{staffCount} / 20명</span>
               <button
                 type="button"
                 onClick={() => {
@@ -408,49 +436,138 @@ export default function CompaniesAdminPage() {
           {staffLoading ? (
             <p className="mt-4 text-sm text-slate-600">직원 목록을 불러오는 중...</p>
           ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {staffUsers.length === 0 ? (
                 <div className="col-span-full text-sm text-slate-500">등록된 직원이 없습니다</div>
               ) : (
-                staffUsers.map((staff) => (
-                  <div key={staff.user_id} className="bg-white border border-slate-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {staff.name ? `${staff.name}${staff.job_title ? ` · ${staff.job_title}` : ''}` : staff.email}
-                        </p>
-                        <p className="text-xs text-slate-500">{staff.email}</p>
-                      </div>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          staff.role === 'staff_admin' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {staff.role === 'staff_admin' ? 'ADMIN' : 'MEMBER'}
-                      </span>
+                staffUsers.map((staff) => {
+                  const isEditing = staffEditingId === staff.user_id;
+                  const displayName = staff.name ?? staff.email;
+                  const initial = (displayName ?? '').trim().charAt(0) || '-';
+
+                  return (
+                    <div
+                      key={staff.user_id}
+                      onClick={() => {
+                        if (!isEditing) {
+                          handleStaffEditStart(staff);
+                        }
+                      }}
+                      className={`bg-white border border-gray-200 rounded-2xl p-4 transition-shadow ${
+                        isEditing
+                          ? 'ring-2 ring-blue-400'
+                          : 'cursor-pointer hover:shadow-md hover:border-blue-200'
+                      }`}
+                    >
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">이름</label>
+                            <input
+                              type="text"
+                              value={staffEditName}
+                              onChange={(e) => setStaffEditName(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">직급</label>
+                            <input
+                              type="text"
+                              value={staffEditJobTitle}
+                              onChange={(e) => setStaffEditJobTitle(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">연락처</label>
+                            <input
+                              type="text"
+                              value={staffEditPhone}
+                              onChange={(e) => setStaffEditPhone(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">권한</label>
+                            <select
+                              value={staffEditRole}
+                              onChange={(e) => setStaffEditRole(e.target.value as 'staff_admin' | 'staff_member')}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                            >
+                              <option value="staff_admin">ADMIN</option>
+                              <option value="staff_member">MEMBER</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">이메일</label>
+                            <p className="text-sm text-gray-700">{staff.email}</p>
+                          </div>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStaffEditCancel();
+                              }}
+                              className="px-3 py-2 text-sm border border-gray-300 rounded-md"
+                            >
+                              취소
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteStaff(staff.user_id);
+                              }}
+                              disabled={staffDeleting[staff.user_id]}
+                              className="px-3 py-2 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
+                            >
+                              삭제
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStaffSave(staff.user_id);
+                              }}
+                              disabled={staffUpdating[staff.user_id]}
+                              className="px-3 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
+                            >
+                              저장
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
+                                {initial}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {staff.name
+                                    ? `${staff.name}${staff.job_title ? ` · ${staff.job_title}` : ''}`
+                                    : staff.email}
+                                </p>
+                                <p className="text-xs text-slate-500">{staff.email}</p>
+                              </div>
+                            </div>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                staff.role === 'staff_admin' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {staff.role === 'staff_admin' ? 'ADMIN' : 'MEMBER'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600">{staff.phone ?? '-'}</p>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-600 mt-2">{staff.phone ?? '-'}</p>
-                    <div className="mt-3 flex items-center gap-2">
-                      <select
-                        value={staff.role}
-                        onChange={(e) => handleStaffRoleChange(staff.user_id, e.target.value as 'staff_admin' | 'staff_member')}
-                        disabled={staffUpdating[staff.user_id]}
-                        className="flex-1 text-xs border border-gray-300 rounded-md px-2 py-1"
-                      >
-                        <option value="staff_admin">ADMIN</option>
-                        <option value="staff_member">MEMBER</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStaff(staff.user_id)}
-                        disabled={staffDeleting[staff.user_id]}
-                        className="text-xs px-2 py-1 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}

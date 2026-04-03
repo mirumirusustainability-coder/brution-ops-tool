@@ -64,8 +64,11 @@ export const PATCH = async (
     const body = await request.json().catch(() => null)
     const role = body?.role
     const status = body?.status
+    const name = typeof body?.name === 'string' ? body.name : undefined
+    const phone = typeof body?.phone === 'string' ? body.phone : undefined
+    const job_title = typeof body?.job_title === 'string' ? body.job_title : undefined
 
-    if (!role && !status) {
+    if (!role && !status && !name && !phone && !job_title) {
       return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
     }
 
@@ -81,6 +84,9 @@ export const PATCH = async (
     const updatePayload: Record<string, any> = {}
     if (role) updatePayload.role = role
     if (status) updatePayload.status = status
+    if (name !== undefined) updatePayload.name = name
+    if (phone !== undefined) updatePayload.phone = phone
+    if (job_title !== undefined) updatePayload.job_title = job_title
 
     const { data: updated, error: updateError } = await admin
       .from('profiles')
