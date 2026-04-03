@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { UserPlus, ShieldAlert, Mail, User, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
+import { StepProgress } from '@/components/step-progress';
+import { STEP_LABELS } from '@/lib/constants';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ToastContainer } from '@/components/toast';
 import { createClient } from '@/lib/supabase/client';
@@ -58,6 +60,17 @@ type ApiCompany = {
   id: string;
   name: string;
   metadata?: CompanyMetadata | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ApiProject = {
+  id: string;
+  company_id: string;
+  name: string | null;
+  description?: string | null;
+  step?: number | null;
+  status?: 'active' | 'completed' | 'paused' | null;
   created_at: string;
   updated_at: string;
 };
@@ -160,9 +173,21 @@ export default function CompanyUsersPage({
 }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
+  const presentationMode = searchParams.get('mode') === 'presentation';
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+
+  useEffect(() => {
+    if (presentationMode) {
+      setIsEditingProfile(false);
+      setProfileDraft(profileData);
+      setProfileError(null);
+    }
+  }, [presentationMode, profileData]);
   const [company, setCompany] = useState<ApiCompany | null>(null);
+  const [projects, setProjects] = useState<ApiProject[]>([]);
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +197,10 @@ export default function CompanyUsersPage({
   const [removeLoading, setRemoveLoading] = useState<Record<string, boolean>>({});
   const [businessCardUploading, setBusinessCardUploading] = useState<Record<string, boolean>>({});
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showCompanyDeleteModal, setShowCompanyDeleteModal] = useState(false);
+  const [companyDeleteInput, setCompanyDeleteInput] = useState('');
+  const [userDeleteTarget, setUserDeleteTarget] = useState<ApiUser | null>(null);
+  const [userDeleteInput, setUserDeleteInput] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -293,6 +322,7 @@ export default function CompanyUsersPage({
         const nextMetadata = (foundCompany?.metadata ?? {}) as CompanyMetadata;
         setProfileData(nextMetadata);
         setProfileDraft(nextMetadata);
+        setProjects(Array.isArray(companyData?.projects) ? companyData.projects : []);
       }
 
       if (!foundCompany) {
@@ -346,9 +376,15 @@ export default function CompanyUsersPage({
     }
   };
 
-  const handleRemoveUser = async (userId: string, nameLabel: string) => {
-    const confirmed = window.confirm(`정말 ${nameLabel}을 제거하시겠습니까?`);
-    if (!confirmed) return;
+  const handleRemoveUser = (user: ApiUser) => {
+    setUserDeleteTarget(user);
+    setUserDeleteInput('');
+  };
+
+  const handleConfirmUserDelete = async () => {
+    if (!userDeleteTarget) return;
+    if (userDeleteInput !== '삭제') return;
+    const userId = userDeleteTarget.user_id;
 
     setRemoveLoading((prev) => ({ ...prev, [userId]: true }));
     try {
@@ -368,6 +404,8 @@ export default function CompanyUsersPage({
 
       await loadUsers();
       showToast('사용자가 제거되었습니다', 'success');
+      setUserDeleteTarget(null);
+      setUserDeleteInput('');
     } finally {
       setRemoveLoading((prev) => ({ ...prev, [userId]: false }));
     }
@@ -427,10 +465,7 @@ export default function CompanyUsersPage({
 
   const handleDeleteCompany = async () => {
     if (!company) return;
-    const confirmed = window.confirm(
-      `정말 ${company.name}을 삭제하시겠습니까? 모든 데이터가 삭제됩니다.`
-    );
-    if (!confirmed) return;
+    if (companyDeleteInput !== '삭제') return;
 
     setDeleteLoading(true);
     try {
@@ -450,6 +485,8 @@ export default function CompanyUsersPage({
       }
 
       showToast('고객사가 삭제되었습니다', 'success');
+      setShowCompanyDeleteModal(false);
+      setCompanyDeleteInput('');
       router.replace('/app/admin/companies');
     } finally {
       setDeleteLoading(false);
@@ -572,44 +609,116 @@ export default function CompanyUsersPage({
   const interestCategoryDisplay = formatArrayWithOther(interestCategories, profile.interest_category_other ?? null);
   const currentChannelDisplay = formatArrayWithOther(currentChannels, profile.current_channel_other ?? null);
   const targetChannelDisplay = formatArrayWithOther(targetChannels, profile.target_channel_other ?? null);
+  const latestProject = projects.length > 0 ? projects[0] : null;
+  const latestProjectStep = typeof latestProject?.step === 'number' ? latestProject.step : null;
+  const latestStepLabel = latestProjectStep !== null ? STEP_LABELS[latestProjectStep] : null;
+  const statusLabels: Record<string, string> = {
+    active: '진행중',
+    completed: '완료',
+    paused: '일시정지',
+  };
+  const latestStatusLabel = latestProject?.status ? statusLabels[latestProject.status] : null;
 
-  return (
-    <AppLayout
-      user={currentUser}
-    >
+  const pageContent = (
       <div className="max-w-4xl">
-        <Breadcrumb
-          items={[
-            { label: '브루션 관리자', href: '/app/admin' },
-            { label: '고객사 관리', href: '/app/admin/companies' },
-            { label: company.name },
-          ]}
-        />
+        {presentationMode && (
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+            <span>📊 상담 모드 · 민감 정보가 숨겨져 있습니다</span>
+            <button
+              type="button"
+              onClick={() => router.replace(pathname)}
+              className="text-orange-700 underline underline-offset-2"
+            >
+              모드 종료
+            </button>
+          </div>
+        )}
+        {!presentationMode && (
+          <Breadcrumb
+            items={[
+              { label: '브루션 관리자', href: '/app/admin' },
+              { label: '고객사 관리', href: '/app/admin/companies' },
+              { label: company.name },
+            ]}
+          />
+        )}
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">
-              {company.name} - 사용자 관리
+              {company.name}{!presentationMode && ' - 사용자 관리'}
             </h1>
             <p className="text-sm text-gray-600">
-              사용자를 발급하고 관리합니다 ({activeUserCount}/5명)
+              {presentationMode
+                ? latestStatusLabel
+                  ? `진행 상태: ${latestStatusLabel}`
+                  : '진행 중인 프로젝트 없음'
+                : `사용자를 발급하고 관리합니다 (${activeUserCount}/5명)`}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleDeleteCompany}
-            disabled={deleteLoading}
-            className="px-4 py-2 rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
-          >
-            {deleteLoading ? '삭제 중...' : '고객사 삭제'}
-          </button>
+          <div className="flex items-center gap-2">
+            {!presentationMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCompanyDeleteModal(true);
+                    setCompanyDeleteInput('');
+                  }}
+                  disabled={deleteLoading}
+                  className="px-4 py-2 rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {deleteLoading ? '삭제 중...' : '고객사 삭제'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.replace(`${pathname}?mode=presentation`)}
+                  className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  📊 상담 모드
+                </button>
+              </>
+            )}
+          </div>
         </div>
+
+        {presentationMode && (
+          <div className="mb-6 grid gap-4">
+            {latestProjectStep !== null && latestStepLabel && (
+              <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-900">STEP 진행도</h3>
+                  <span className="text-xs text-gray-500">
+                    STEP {latestProjectStep} · {latestStepLabel}
+                  </span>
+                </div>
+                <StepProgress currentStep={latestProjectStep} readonly />
+              </div>
+            )}
+            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">진행중인 프로젝트</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 w-24">프로젝트</span>
+                  <span className="font-medium text-gray-900">{latestProject?.name ?? '-'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 w-24">진행 상태</span>
+                  <span className="text-gray-700">{latestStatusLabel ?? '-'}</span>
+                </div>
+                {latestProject?.description && (
+                  <p className="text-sm text-gray-600">{latestProject.description}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 고객사 프로필 */}
         <div className="mb-6">
           <div className="flex items-start justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">고객사 프로필</h2>
-            {!isEditingProfile && (
+            {!presentationMode && !isEditingProfile && (
               <button
                 type="button"
                 onClick={() => {
@@ -643,32 +752,36 @@ export default function CompanyUsersPage({
                     renderTextValue(profile.biz_no)
                   )}
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">주소</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="text"
-                      value={profileDraft.address ?? ''}
-                      onChange={(e) => updateProfileField('address', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.address)
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">대표 연락처</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="text"
-                      value={profileDraft.phone ?? ''}
-                      onChange={(e) => updateProfileField('phone', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.phone)
-                  )}
-                </div>
+                {!presentationMode && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">주소</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="text"
+                        value={profileDraft.address ?? ''}
+                        onChange={(e) => updateProfileField('address', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.address)
+                    )}
+                  </div>
+                )}
+                {!presentationMode && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">대표 연락처</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="text"
+                        value={profileDraft.phone ?? ''}
+                        onChange={(e) => updateProfileField('phone', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.phone)
+                    )}
+                  </div>
+                )}
                 <div>
                   <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">대표자 이름</label>
                   {isEditingProfile ? (
@@ -683,23 +796,27 @@ export default function CompanyUsersPage({
                     renderTextValue(profile.representative_name)
                   )}
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">담당자 이메일</label>
-                  {isEditingProfile ? (
-                    <input
-                      type="email"
-                      value={profileDraft.contact_email ?? ''}
-                      onChange={(e) => updateProfileField('contact_email', e.target.value)}
-                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  ) : (
-                    renderTextValue(profile.contact_email)
-                  )}
-                </div>
+                {!presentationMode && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">담당자 이메일</label>
+                    {isEditingProfile ? (
+                      <input
+                        type="email"
+                        value={profileDraft.contact_email ?? ''}
+                        onChange={(e) => updateProfileField('contact_email', e.target.value)}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      renderTextValue(profile.contact_email)
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+            {!presentationMode && (
+              <>
+                <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
               <button
                 type="button"
                 onClick={() => toggleSection('contract')}
@@ -1149,32 +1266,36 @@ export default function CompanyUsersPage({
               </button>
             </div>
           )}
+        </>
+      )}
         </div>
 
-        {/* Seat 제한 경고 */}
-        {!canAddUser && (
-          <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-md p-4">
-            <div className="flex gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-red-900 mb-1">
-                  최대 사용자 수 도달
-                </p>
-                <p className="text-xs text-red-700">
-                  MVP 하드 제한으로 고객사당 최대 5명까지만 사용자를 발급할 수 있습니다.
-                </p>
+        {!presentationMode && (
+          <>
+            {/* Seat 제한 경고 */}
+            {!canAddUser && (
+              <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-md p-4">
+                <div className="flex gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-900 mb-1">
+                      최대 사용자 수 도달
+                    </p>
+                    <p className="text-xs text-red-700">
+                      MVP 하드 제한으로 고객사당 최대 5명까지만 사용자를 발급할 수 있습니다.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Add User Form */}
-        <div className="bg-white border border-border rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            새 사용자 발급
-          </h2>
+            {/* Add User Form */}
+            <div className="bg-white border border-border rounded-lg p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                새 사용자 발급
+              </h2>
 
-          <form
+              <form
             className="space-y-4"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -1377,7 +1498,7 @@ export default function CompanyUsersPage({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleRemoveUser(item.user_id, item.name ?? item.email)}
+                          onClick={() => handleRemoveUser(item)}
                           disabled={removeLoading[item.user_id]}
                           className="text-xs px-3 py-1.5 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
                         >
@@ -1472,7 +1593,103 @@ export default function CompanyUsersPage({
             )}
           </div>
         </div>
+      </>
+    )}
       </div>
+  );
+
+  if (presentationMode) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 py-6">{pageContent}</div>
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  return (
+    <AppLayout user={currentUser}>
+      {pageContent}
+
+      {showCompanyDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">정말 삭제하시겠습니까?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {company.name} 계정이 영구 삭제됩니다.
+            </p>
+            <input
+              type="text"
+              value={companyDeleteInput}
+              onChange={(event) => setCompanyDeleteInput(event.target.value)}
+              placeholder="삭제 를 입력해주세요"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCompanyDeleteModal(false);
+                  setCompanyDeleteInput('');
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCompany}
+                disabled={companyDeleteInput !== '삭제' || deleteLoading}
+                className="px-4 py-2 text-sm text-white bg-red-600 rounded-md disabled:opacity-50"
+              >
+                {deleteLoading ? '삭제 중...' : '확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {userDeleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">정말 삭제하시겠습니까?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {(userDeleteTarget.name ?? userDeleteTarget.email)} 계정이 영구 삭제됩니다.
+            </p>
+            <input
+              type="text"
+              value={userDeleteInput}
+              onChange={(event) => setUserDeleteInput(event.target.value)}
+              placeholder="삭제 를 입력해주세요"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setUserDeleteTarget(null);
+                  setUserDeleteInput('');
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmUserDelete}
+                disabled={
+                  userDeleteInput !== '삭제' ||
+                  removeLoading[userDeleteTarget.user_id]
+                }
+                className="px-4 py-2 text-sm text-white bg-red-600 rounded-md disabled:opacity-50"
+              >
+                {removeLoading[userDeleteTarget.user_id] ? '삭제 중...' : '확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ToastContainer />
     </AppLayout>
   );

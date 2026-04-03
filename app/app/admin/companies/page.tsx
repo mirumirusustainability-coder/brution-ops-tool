@@ -72,6 +72,8 @@ export default function CompaniesAdminPage() {
   const [staffEditRole, setStaffEditRole] = useState<'staff_admin' | 'staff_member'>('staff_member');
   const [staffUpdating, setStaffUpdating] = useState<Record<string, boolean>>({});
   const [staffDeleting, setStaffDeleting] = useState<Record<string, boolean>>({});
+  const [staffDeleteTarget, setStaffDeleteTarget] = useState<StaffUser | null>(null);
+  const [staffDeleteInput, setStaffDeleteInput] = useState('');
   const [staffAvatarUploading, setStaffAvatarUploading] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -348,24 +350,30 @@ export default function CompaniesAdminPage() {
     }
   };
 
-  const handleDeleteStaff = async (userId: string) => {
-    const confirmed = window.confirm('정말 삭제하시겠습니까?');
-    if (!confirmed) return;
+  const handleDeleteStaff = async () => {
+    if (!staffDeleteTarget) return;
+    if (staffDeleteInput !== '삭제') return;
+    const userId = staffDeleteTarget.user_id;
+
     setStaffDeleting((prev) => ({ ...prev, [userId]: true }));
-    const response = await fetch(`/api/admin/staff/${userId}`, { method: 'DELETE' });
-    if (response.status === 401) {
-      router.replace('/login');
-      return;
-    }
-    if (!response.ok) {
-      showToast('직원 삭제에 실패했습니다', 'error');
+    try {
+      const response = await fetch(`/api/admin/staff/${userId}`, { method: 'DELETE' });
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      if (!response.ok) {
+        showToast('직원 삭제에 실패했습니다', 'error');
+        return;
+      }
+      await loadStaff();
+      setStaffEditingId(null);
+      setStaffDeleteTarget(null);
+      setStaffDeleteInput('');
+      showToast('삭제되었습니다', 'success');
+    } finally {
       setStaffDeleting((prev) => ({ ...prev, [userId]: false }));
-      return;
     }
-    await loadStaff();
-    setStaffDeleting((prev) => ({ ...prev, [userId]: false }));
-    setStaffEditingId(null);
-    showToast('삭제되었습니다', 'success');
   };
 
   useEffect(() => {
@@ -596,7 +604,8 @@ export default function CompaniesAdminPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteStaff(staff.user_id);
+                            setStaffDeleteTarget(staff);
+                            setStaffDeleteInput('');
                           }}
                           disabled={staffDeleting[staff.user_id]}
                           className="absolute top-3 right-3 text-red-500 hover:text-red-700 text-sm"
@@ -1069,6 +1078,47 @@ export default function CompaniesAdminPage() {
                 className="px-4 py-2 text-sm text-white bg-red-600 rounded-md disabled:opacity-50"
               >
                 {deletingCompany ? '삭제 중...' : '확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {staffDeleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">정말 삭제하시겠습니까?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {(staffDeleteTarget.name ?? staffDeleteTarget.email)} 계정이 영구 삭제됩니다.
+            </p>
+            <input
+              type="text"
+              value={staffDeleteInput}
+              onChange={(event) => setStaffDeleteInput(event.target.value)}
+              placeholder="삭제 를 입력해주세요"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStaffDeleteTarget(null);
+                  setStaffDeleteInput('');
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteStaff}
+                disabled={
+                  staffDeleteInput !== '삭제' ||
+                  staffDeleting[staffDeleteTarget.user_id]
+                }
+                className="px-4 py-2 text-sm text-white bg-red-600 rounded-md disabled:opacity-50"
+              >
+                {staffDeleting[staffDeleteTarget.user_id] ? '삭제 중...' : '확인'}
               </button>
             </div>
           </div>
