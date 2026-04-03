@@ -1241,7 +1241,6 @@ export default function CompanyUsersPage({
                 </div>
               </div>
             </div>
-          </div>
 
           {isEditingProfile && (
             <div className="flex justify-end gap-2 mt-6">
@@ -1296,8 +1295,8 @@ export default function CompanyUsersPage({
               </h2>
 
               <form
-            className="space-y-4"
-            onSubmit={async (e) => {
+                className="space-y-4"
+                onSubmit={async (e) => {
               e.preventDefault();
               if (!canAddUser) {
                 setFormError('최대 5명 제한에 도달했습니다.');
@@ -1340,8 +1339,8 @@ export default function CompanyUsersPage({
               setSubmitting(false);
               showToast('사용자가 발급되었습니다.', 'success');
               await loadUsers();
-            }}
-          >
+                }}
+              >
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
