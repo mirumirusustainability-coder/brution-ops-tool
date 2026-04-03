@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { UserPlus, ShieldAlert, Mail, User, AlertCircle, Pencil, Trash2, Presentation } from 'lucide-react';
+import { UserPlus, ShieldAlert, Mail, User, AlertCircle, Pencil, Trash2, MonitorPlay } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { StepProgress } from '@/components/step-progress';
 import { STEP_LABELS } from '@/lib/constants';
@@ -217,7 +217,7 @@ const renderTagList = (items: string[]) => {
               onClick={() => router.replace(`${pathname}?mode=presentation`)}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
             >
-              <Presentation className="w-4 h-4" />
+              <MonitorPlay className="w-4 h-4" />
               상담 모드
             </button>
           )}
