@@ -75,7 +75,7 @@ export const GET = async (
 
     const { data: projects, error: projectsError } = await admin
       .from('projects')
-      .select('id, company_id, name, description, created_at, updated_at')
+      .select('id, company_id, name, description, step, status, created_at, updated_at')
       .eq('company_id', id)
       .order('created_at', { ascending: false })
 
@@ -85,7 +85,7 @@ export const GET = async (
 
     const { data: members, error: membersError } = await admin
       .from('profiles')
-      .select('user_id, email, name, role, company_id, status, must_change_password, created_at, updated_at')
+      .select('user_id, email, name, role, phone, job_title, avatar_url, business_card_url, company_id, status, must_change_password, created_at, updated_at')
       .eq('company_id', id)
       .order('created_at', { ascending: false })
 

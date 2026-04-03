@@ -60,7 +60,7 @@ export const GET = async (_request: Request) => {
     }
 
     const admin = createSupabaseAdmin()
-    const { data, error } = await admin
+    const { data: companies, error } = await admin
       .from('companies')
       .select('id, name, created_at, updated_at')
       .neq('id', BRUTION_COMPANY_ID)
@@ -70,7 +70,45 @@ export const GET = async (_request: Request) => {
       return NextResponse.json({ error: 'COMPANIES_FETCH_FAILED' }, { status: 500 })
     }
 
-    return NextResponse.json({ companies: data ?? [] })
+    const companyIds = (companies ?? []).map((company) => company.id)
+    if (companyIds.length === 0) {
+      return NextResponse.json({ companies: [] })
+    }
+
+    const { data: projects } = await admin
+      .from('projects')
+      .select('id, company_id, name, step, status, created_at, updated_at')
+      .in('company_id', companyIds)
+      .order('created_at', { ascending: false })
+
+    const latestProjectMap = new Map<string, any>()
+    ;(projects ?? []).forEach((project) => {
+      if (!latestProjectMap.has(project.company_id)) {
+        latestProjectMap.set(project.company_id, project)
+      }
+    })
+
+    const { data: clientAdmins } = await admin
+      .from('profiles')
+      .select('company_id, name')
+      .in('company_id', companyIds)
+      .eq('role', 'client_admin')
+      .order('created_at', { ascending: true })
+
+    const adminNameMap = new Map<string, string | null>()
+    ;(clientAdmins ?? []).forEach((adminProfile) => {
+      if (!adminNameMap.has(adminProfile.company_id)) {
+        adminNameMap.set(adminProfile.company_id, adminProfile.name ?? null)
+      }
+    })
+
+    const enriched = (companies ?? []).map((company) => ({
+      ...company,
+      latest_project: latestProjectMap.get(company.id) ?? null,
+      client_admin_name: adminNameMap.get(company.id) ?? null,
+    }))
+
+    return NextResponse.json({ companies: enriched })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500

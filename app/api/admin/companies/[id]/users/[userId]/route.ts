@@ -62,19 +62,40 @@ export const PATCH = async (
 
     const { id, userId } = await params
     const body = await request.json().catch(() => null)
-    const business_card_url = typeof body?.business_card_url === 'string' ? body.business_card_url : null
+    const name = typeof body?.name === 'string' ? body.name : undefined
+    const phone = typeof body?.phone === 'string' ? body.phone : undefined
+    const job_title = typeof body?.job_title === 'string' ? body.job_title : undefined
+    const role = typeof body?.role === 'string' ? body.role : undefined
+    const avatar_url =
+      typeof body?.avatar_url === 'string' || body?.avatar_url === null ? body.avatar_url : undefined
+    const business_card_url =
+      typeof body?.business_card_url === 'string' || body?.business_card_url === null
+        ? body.business_card_url
+        : undefined
 
-    if (!business_card_url) {
+    if (!name && !phone && !job_title && !role && !avatar_url && !business_card_url) {
       return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
     }
 
+    if (role && role !== 'client_admin' && role !== 'client_member') {
+      return NextResponse.json({ error: 'INVALID_ROLE' }, { status: 400 })
+    }
+
     const admin = createSupabaseAdmin()
+    const updatePayload: Record<string, any> = {}
+    if (name !== undefined) updatePayload.name = name
+    if (phone !== undefined) updatePayload.phone = phone
+    if (job_title !== undefined) updatePayload.job_title = job_title
+    if (role !== undefined) updatePayload.role = role
+    if (avatar_url !== undefined) updatePayload.avatar_url = avatar_url
+    if (business_card_url !== undefined) updatePayload.business_card_url = business_card_url
+
     const { data: updated, error: updateError } = await admin
       .from('profiles')
-      .update({ business_card_url })
+      .update(updatePayload)
       .eq('user_id', userId)
       .eq('company_id', id)
-      .select('user_id, email, name, role, phone, job_title, business_card_url, company_id, status, must_change_password, created_at, updated_at')
+      .select('user_id, email, name, role, phone, job_title, avatar_url, business_card_url, company_id, status, must_change_password, created_at, updated_at')
       .single()
 
     if (updateError || !updated) {

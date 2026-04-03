@@ -7,6 +7,8 @@ import { AppLayout } from '@/components/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { StepProgress } from '@/components/step-progress';
+import { STEP_LABELS } from '@/lib/constants';
 import { User } from '@/types';
 
 type ApiCompany = {
@@ -14,6 +16,15 @@ type ApiCompany = {
   name: string;
   created_at: string;
   updated_at: string;
+  latest_project?: {
+    id: string;
+    name: string | null;
+    step: number | null;
+    status?: 'active' | 'completed' | 'paused' | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  } | null;
+  client_admin_name?: string | null;
 };
 
 type StaffUser = {
@@ -68,6 +79,10 @@ export default function CompaniesAdminPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'paused'>('all');
+  const [deleteTarget, setDeleteTarget] = useState<ApiCompany | null>(null);
+  const [deleteInput, setDeleteInput] = useState('');
+  const [deletingCompany, setDeletingCompany] = useState(false);
 
   const loadCompanies = async () => {
     const response = await fetch('/api/admin/companies', { cache: 'no-store' });
@@ -143,6 +158,31 @@ export default function CompaniesAdminPage() {
       window.URL.revokeObjectURL(url);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!deleteTarget) return;
+    if (deleteInput !== '삭제') return;
+
+    setDeletingCompany(true);
+    try {
+      const response = await fetch(`/api/admin/companies/${deleteTarget.id}`, { method: 'DELETE' });
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      if (!response.ok) {
+        showToast('고객사 삭제에 실패했습니다', 'error');
+        return;
+      }
+
+      showToast('고객사가 삭제되었습니다', 'success');
+      setDeleteTarget(null);
+      setDeleteInput('');
+      await loadCompanies();
+    } finally {
+      setDeletingCompany(false);
     }
   };
 
@@ -408,6 +448,28 @@ export default function CompaniesAdminPage() {
   const isStaff = isStaffAdmin || isStaffMember;
   const staffCount = staffUsers.length;
   const canAddStaff = staffCount < 30;
+
+  const statusCounts = companies.reduce(
+    (acc, company) => {
+      const status = company.latest_project?.status ?? null;
+      acc.all += 1;
+      if (status === 'active') acc.active += 1;
+      if (status === 'completed') acc.completed += 1;
+      if (status === 'paused') acc.paused += 1;
+      return acc;
+    },
+    { all: 0, active: 0, completed: 0, paused: 0 }
+  );
+
+  const filteredCompanies = statusFilter === 'all'
+    ? companies
+    : companies.filter((company) => company.latest_project?.status === statusFilter);
+
+  const statusBadgeStyles: Record<string, string> = {
+    active: 'bg-emerald-50 text-emerald-600',
+    completed: 'bg-blue-50 text-blue-600',
+    paused: 'bg-gray-100 text-gray-600',
+  };
 
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>;
@@ -876,35 +938,95 @@ export default function CompaniesAdminPage() {
         )}
         {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
 
+        <div className="flex flex-wrap gap-2 mb-4">
+          {(
+            [
+              { key: 'all', label: '전체', count: statusCounts.all },
+              { key: 'active', label: '진행중', count: statusCounts.active },
+              { key: 'completed', label: '완료', count: statusCounts.completed },
+              { key: 'paused', label: '일시정지', count: statusCounts.paused },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatusFilter(tab.key)}
+              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                statusFilter === tab.key
+                  ? 'bg-primary text-white border-primary'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {tab.label} {tab.count}
+            </button>
+          ))}
+        </div>
+
         {/* Companies List */}
         <div className="grid gap-4 md:grid-cols-2">
-          {companies.map((company) => (
-            <div
-              key={company.id}
-              onClick={() => router.push(`/app/admin/companies/${company.id}`)}
-              className="bg-white border border-border rounded-lg p-5 hover:shadow-md transition-shadow cursor-pointer"
-            >
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-primary/10 rounded-md">
-                  <Building2 className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    {company.name}
-                  </h3>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      <span>최대 5명</span>
+          {filteredCompanies.map((company) => {
+            const latestProject = company.latest_project ?? null;
+            const statusValue = latestProject?.status ?? null;
+            const statusStyle = statusValue ? statusBadgeStyles[statusValue] : '';
+            const stepValue = typeof latestProject?.step === 'number' ? latestProject.step : null;
+            const stepLabel = stepValue !== null ? STEP_LABELS[stepValue] : null;
+            const managerName = company.client_admin_name ?? '-';
+
+            return (
+              <div
+                key={company.id}
+                onClick={() => router.push(`/app/admin/companies/${company.id}`)}
+                className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md hover:border-blue-200 transition-shadow cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-primary/10 rounded-md">
+                      <Building2 className="w-5 h-5 text-primary" />
                     </div>
-                    <span className="text-xs">
-                      {new Date(company.created_at).toLocaleDateString('ko-KR')}
-                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">{company.name}</h3>
+                        {statusValue && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle}`}>
+                            {statusValue.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">담당자: {managerName}</p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDeleteTarget(company);
+                      setDeleteInput('');
+                    }}
+                    className="text-xs text-red-500 hover:text-red-600"
+                  >
+                    삭제
+                  </button>
+                </div>
+
+                {stepValue !== null && stepLabel ? (
+                  <div className="mt-4 space-y-2">
+                    <div className="text-sm font-medium text-gray-700">
+                      STEP {stepValue} · {stepLabel}
+                    </div>
+                    <StepProgress currentStep={stepValue} readonly />
+                  </div>
+                ) : null}
+
+                <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    <span>최대 5명</span>
+                  </div>
+                  <span>마지막 수정일: {new Date(company.updated_at).toLocaleDateString('ko-KR')}</span>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Seat 5 하드 제한 안내 */}
@@ -914,6 +1036,45 @@ export default function CompaniesAdminPage() {
           </p>
         </div>
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">고객사를 삭제하시겠습니까?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {deleteTarget.name}의 모든 데이터가 삭제됩니다. 되돌릴 수 없습니다.
+            </p>
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={(event) => setDeleteInput(event.target.value)}
+              placeholder="삭제 를 입력해주세요"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteInput('');
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCompany}
+                disabled={deleteInput !== '삭제' || deletingCompany}
+                className="px-4 py-2 text-sm text-white bg-red-600 rounded-md disabled:opacity-50"
+              >
+                {deletingCompany ? '삭제 중...' : '확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ToastContainer />
     </AppLayout>
   );

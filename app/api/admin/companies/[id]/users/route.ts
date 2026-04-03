@@ -73,7 +73,7 @@ export const GET = async (
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('profiles')
-      .select('user_id, email, name, role, phone, job_title, business_card_url, company_id, status, must_change_password, created_at, updated_at')
+      .select('user_id, email, name, role, phone, job_title, avatar_url, business_card_url, company_id, status, must_change_password, created_at, updated_at')
       .eq('company_id', id)
       .order('created_at', { ascending: false })
 
@@ -169,7 +169,7 @@ export const POST = async (
         status: 'active',
         must_change_password: true,
       })
-      .select('user_id, email, name, role, phone, job_title, business_card_url, company_id, status, must_change_password, created_at, updated_at')
+      .select('user_id, email, name, role, phone, job_title, avatar_url, business_card_url, company_id, status, must_change_password, created_at, updated_at')
       .single()
 
     if (profileError || !profileData) {
