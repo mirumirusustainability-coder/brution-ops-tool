@@ -125,7 +125,7 @@ export const POST = async (request: Request) => {
       return NextResponse.json({ error: 'STAFF_COUNT_FAILED' }, { status: 500 })
     }
 
-    if ((count ?? 0) >= 20) {
+    if ((count ?? 0) >= 30) {
       return NextResponse.json({ error: 'STAFF_LIMIT_REACHED' }, { status: 400 })
     }
 

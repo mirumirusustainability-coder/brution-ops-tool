@@ -146,11 +146,15 @@ export default function CompaniesAdminPage() {
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isStaffAdmin) {
+      showToast('접근 권한이 없습니다', 'error');
+      return;
+    }
     if (!staffName.trim() || !staffEmail.trim()) {
       setStaffError('이름과 이메일을 입력해 주세요');
       return;
     }
-    if (staffUsers.length >= 20) {
+    if (staffUsers.length >= 30) {
       setStaffError('최대 인원에 도달했습니다');
       return;
     }
@@ -342,8 +346,10 @@ export default function CompaniesAdminPage() {
 
   // SSOT 하드룰: StaffAdmin만 접근 가능
   const isStaffAdmin = currentUser?.role === 'staff_admin';
+  const isStaffMember = currentUser?.role === 'staff_member';
+  const isStaff = isStaffAdmin || isStaffMember;
   const staffCount = staffUsers.length;
-  const canAddStaff = staffCount < 20;
+  const canAddStaff = staffCount < 30;
 
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>;
@@ -353,7 +359,7 @@ export default function CompaniesAdminPage() {
     return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
   }
 
-  if (!isStaffAdmin) {
+  if (!isStaff) {
     return (
       <AppLayout
         user={currentUser}
@@ -415,20 +421,22 @@ export default function CompaniesAdminPage() {
               <p className="text-sm text-slate-600">내부 스태프 관리</p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-700">{staffCount} / 20명</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowStaffModal(true);
-                  setStaffError(null);
-                  setIssuedStaffCredentials(null);
-                }}
-                disabled={!canAddStaff}
-                className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-800 transition-colors disabled:opacity-50"
-              >
-                <UserPlus className="w-4 h-4" />
-                직원 추가
-              </button>
+              <span className="text-sm text-slate-700">{staffCount} / 30명</span>
+              {isStaffAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStaffModal(true);
+                    setStaffError(null);
+                    setIssuedStaffCredentials(null);
+                  }}
+                  disabled={!canAddStaff}
+                  className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  직원 추가
+                </button>
+              )}
             </div>
           </div>
 
@@ -449,16 +457,31 @@ export default function CompaniesAdminPage() {
                     <div
                       key={staff.user_id}
                       onClick={() => {
-                        if (!isEditing) {
+                        if (isStaffAdmin && !isEditing) {
                           handleStaffEditStart(staff);
                         }
                       }}
-                      className={`bg-white border border-gray-200 rounded-2xl p-4 transition-shadow ${
+                      className={`bg-white border border-gray-200 rounded-2xl p-4 transition-shadow relative ${
                         isEditing
                           ? 'ring-2 ring-blue-400'
-                          : 'cursor-pointer hover:shadow-md hover:border-blue-200'
+                          : isStaffAdmin
+                            ? 'cursor-pointer hover:shadow-md hover:border-blue-200'
+                            : ''
                       }`}
                     >
+                      {isStaffAdmin && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteStaff(staff.user_id);
+                          }}
+                          disabled={staffDeleting[staff.user_id]}
+                          className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-sm"
+                        >
+                          ✕
+                        </button>
+                      )}
                       {isEditing ? (
                         <div className="space-y-3">
                           <div>
@@ -471,11 +494,12 @@ export default function CompaniesAdminPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">직급</label>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">부서/직급</label>
                             <input
                               type="text"
                               value={staffEditJobTitle}
                               onChange={(e) => setStaffEditJobTitle(e.target.value)}
+                              placeholder="예: 개발팀 · 팀장, 디자인팀 · 담당자"
                               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
                             />
                           </div>
@@ -518,17 +542,6 @@ export default function CompaniesAdminPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteStaff(staff.user_id);
-                              }}
-                              disabled={staffDeleting[staff.user_id]}
-                              className="px-3 py-2 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
-                            >
-                              삭제
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
                                 handleStaffSave(staff.user_id);
                               }}
                               disabled={staffUpdating[staff.user_id]}
@@ -540,7 +553,7 @@ export default function CompaniesAdminPage() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <div className="flex items-start justify-between gap-2">
+                          <div className={`flex items-start justify-between gap-2 ${isStaffAdmin ? 'pr-6' : ''}`}>
                             <div className="flex items-center gap-2">
                               <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
                                 {initial}
@@ -571,7 +584,7 @@ export default function CompaniesAdminPage() {
               )}
             </div>
           )}
-          {!canAddStaff && (
+          {isStaffAdmin && !canAddStaff && (
             <p className="mt-3 text-xs text-red-600">최대 인원에 도달했습니다</p>
           )}
         </div>
@@ -626,12 +639,12 @@ export default function CompaniesAdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">직급 (선택)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">부서/직급 (선택)</label>
                     <input
                       type="text"
                       value={staffJobTitle}
                       onChange={(e) => setStaffJobTitle(e.target.value)}
-                      placeholder="예: 대표, 팀장, 담당자"
+                      placeholder="예: 개발팀 · 팀장, 디자인팀 · 담당자"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
