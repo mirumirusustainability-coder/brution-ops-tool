@@ -268,7 +268,7 @@ export default function CompaniesAdminPage() {
     try {
       const supabase = createClient();
       const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = `avatars/${staff.user_id}/${Date.now()}.${extension}`;
+      const path = `${staff.user_id}.${extension}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, file, { contentType: file.type, upsert: true });
@@ -642,17 +642,6 @@ export default function CompaniesAdminPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteStaff(staff.user_id);
-                              }}
-                              disabled={staffDeleting[staff.user_id]}
-                              className="px-3 py-2 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50"
-                            >
-                              삭제
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
                                 handleStaffSave(staff.user_id);
                               }}
                               disabled={staffUpdating[staff.user_id]}
@@ -664,8 +653,8 @@ export default function CompaniesAdminPage() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-start gap-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
                               {avatarUrl ? (
                                 <img
                                   src={avatarUrl}
@@ -677,17 +666,17 @@ export default function CompaniesAdminPage() {
                                   {initial}
                                 </div>
                               )}
-                              <div>
-                                <p className="text-sm font-semibold text-slate-900">{staff.name ?? staff.email}</p>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-900 truncate">{staff.name ?? staff.email}</p>
                                 {staff.job_title ? (
-                                  <p className="text-sm text-gray-500">{staff.job_title}</p>
+                                  <p className="text-sm text-gray-500 truncate">{staff.job_title}</p>
                                 ) : null}
-                                <p className="text-xs text-slate-500 mt-1">{staff.email}</p>
-                                <p className="text-xs text-slate-500">{staff.phone ?? '-'}</p>
+                                <p className="text-xs text-slate-500 mt-1 truncate">{staff.email}</p>
+                                <p className="text-xs text-slate-500 truncate">{staff.phone ?? '-'}</p>
                               </div>
                             </div>
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ml-2 ${
                                 staff.role === 'staff_admin' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'
                               }`}
                             >

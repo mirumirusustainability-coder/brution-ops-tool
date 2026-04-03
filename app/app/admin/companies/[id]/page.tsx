@@ -385,7 +385,7 @@ export default function CompanyUsersPage({
     try {
       const supabase = createClient();
       const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = `business-cards/${resolvedParams.id}/${user.user_id}/${Date.now()}.${extension}`;
+      const path = `${resolvedParams.id}/${user.user_id}.${extension}`;
       const { error: uploadError } = await supabase.storage
         .from('business-cards')
         .upload(path, file, { contentType: file.type, upsert: true });
