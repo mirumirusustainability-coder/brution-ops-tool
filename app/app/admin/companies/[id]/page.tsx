@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { UserPlus, ShieldAlert, Mail, User, AlertCircle, Pencil, Trash2, MonitorPlay } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { StepProgress } from '@/components/step-progress';
