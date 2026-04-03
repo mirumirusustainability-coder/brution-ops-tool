@@ -164,7 +164,7 @@ const renderTagList = (items: string[]) => {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-bold text-gray-900">{company.name}</h1>
             {latestStatusLabel && (
-              <span className={\`text-xs px-2 py-0.5 rounded-full font-medium ${latestStatusStyle}\`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${latestStatusStyle}`}>
                 {latestStatusLabel}
               </span>
             )}
@@ -240,11 +240,11 @@ const renderTagList = (items: string[]) => {
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={\`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                 activeTab === tab.key
                   ? 'bg-primary text-white border-primary'
                   : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-              }\`}
+              }`}
             >
               {tab.label}
             </button>
@@ -351,7 +351,7 @@ const renderTagList = (items: string[]) => {
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500 w-24">진행 상태</span>
                 {latestStatusLabel ? (
-                  <span className={\`text-xs px-2 py-0.5 rounded-full font-medium ${latestStatusStyle}\`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${latestStatusStyle}`}>
                     {latestStatusLabel}
                   </span>
                 ) : (
@@ -651,9 +651,9 @@ const renderTagList = (items: string[]) => {
                         handleUserEditStart(item);
                       }
                     }}
-                    className={\`bg-white border border-gray-200 rounded-xl p-4 transition-shadow relative ${
+                    className={`bg-white border border-gray-200 rounded-xl p-4 transition-shadow relative ${
                       isEditing ? 'ring-2 ring-blue-400' : 'cursor-pointer hover:shadow-sm'
-                    }\`}
+                    }`}
                   >
                     {isEditing && (
                       <button
@@ -879,9 +879,9 @@ const renderTagList = (items: string[]) => {
                             </div>
                           </div>
                           <span
-                            className={\`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                               item.role === 'client_admin' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'
-                            }\`}
+                            }`}
                           >
                             {item.role === 'client_admin' ? 'ADMIN' : 'MEMBER'}
                           </span>
