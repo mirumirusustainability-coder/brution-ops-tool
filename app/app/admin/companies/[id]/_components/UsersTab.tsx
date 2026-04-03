@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Mail, User, UserPlus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import type { ApiCompany, ApiUser } from './types';
@@ -174,7 +174,7 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
     setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: true }));
 
     try {
-      const supabase = createClient();
+      const supabase = createClientComponentClient();
       const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const path = `${company.id}/${user.user_id}.${extension}`;
       const { error: uploadError } = await supabase.storage
