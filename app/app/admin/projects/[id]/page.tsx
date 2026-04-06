@@ -744,18 +744,20 @@ export default function AdminProjectDetailPage({
               </button>
               <div>
                 <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  고객사: {project.company?.name ?? '미지정'}
-                  {!project.company?.name && (
+                {project.company_id ? (
+                  <span className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</span>
+                ) : (
+                  <span className="text-xs text-gray-400 mt-1 flex items-center gap-2">
+                    <span>고객사: 미지정</span>
                     <button
                       type="button"
                       onClick={openEditModal}
-                      className="ml-2 text-xs text-primary underline"
+                      className="text-xs text-blue-500 hover:text-blue-700 underline cursor-pointer"
                     >
                       지정하기
                     </button>
-                  )}
-                </p>
+                  </span>
+                )}
               </div>
             </div>
           </div>
