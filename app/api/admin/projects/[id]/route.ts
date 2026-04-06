@@ -77,9 +77,16 @@ export const GET = async (
     const assets = deliverables.flatMap((deliverable: any) =>
       (deliverable.deliverable_versions ?? []).flatMap((version: any) => version.assets ?? [])
     )
+    const company = Array.isArray(project.companies)
+      ? project.companies[0] ?? null
+      : project.companies ?? null
 
     return NextResponse.json({
-      project,
+      project: {
+        ...project,
+        company,
+      },
+      company,
       deliverables,
       assets,
     })
@@ -116,6 +123,10 @@ export const PATCH = async (
       updates.company_id = body.companyId
     }
 
+    if (typeof body?.company_id === 'string' && body.company_id.trim()) {
+      updates.company_id = body.company_id
+    }
+
     if (typeof body?.step === 'number') {
       if (body.step < 0 || body.step > 4) {
         return NextResponse.json({ error: 'INVALID_STEP' }, { status: 400 })
@@ -140,7 +151,8 @@ export const PATCH = async (
         .single()
 
       if (metaError) {
-        return NextResponse.json({ error: 'PROJECT_METADATA_FETCH_FAILED' }, { status: 500 })
+        console.error('PATCH error:', metaError)
+        return NextResponse.json({ error: metaError.message }, { status: 500 })
       }
 
       updates.metadata = {
@@ -162,10 +174,11 @@ export const PATCH = async (
       .single()
 
     if (error || !data) {
-      return NextResponse.json({ error: 'PROJECT_UPDATE_FAILED' }, { status: 500 })
+      console.error('PATCH error:', error)
+      return NextResponse.json({ error: error?.message ?? 'PROJECT_UPDATE_FAILED' }, { status: 500 })
     }
 
-    return NextResponse.json({ project: data })
+    return NextResponse.json({ success: true, project: data })
   } catch (error) {
     console.error('PATCH error:', error)
     const message = error instanceof Error ? error.message : 'UNKNOWN'

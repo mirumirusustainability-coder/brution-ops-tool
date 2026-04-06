@@ -184,7 +184,8 @@ export default function AdminProjectDetailPage({
     }
     const data = await response.json()
     const projectData = data?.project ?? null
-    setProject(projectData)
+    const companyData = data?.company ?? projectData?.company ?? null
+    setProject(projectData ? { ...projectData, company: companyData } : projectData)
 
     const deliverableItems = Array.isArray(data?.deliverables)
       ? data.deliverables
@@ -452,7 +453,7 @@ export default function AdminProjectDetailPage({
     if (!project) return
     setEditName(project.name)
     setEditDescription(project.description ?? '')
-    setEditCompanyId(project.company_id)
+    setEditCompanyId(project.company_id ?? '')
     setEditError(null)
     setShowEditModal(true)
   }
@@ -541,8 +542,11 @@ export default function AdminProjectDetailPage({
       if (companiesResponse.ok) {
         const companyData = await companiesResponse.json()
         const items = Array.isArray(companyData?.companies) ? companyData.companies : []
+        const filteredItems = items.filter(
+          (item: { id?: string }) => item.id !== '00000000-0000-0000-0000-000000000001'
+        )
         if (active) {
-          setCompanies(items)
+          setCompanies(filteredItems)
         }
       }
 
@@ -622,14 +626,22 @@ export default function AdminProjectDetailPage({
     const nextNotes = [...projectNotes, nextNote]
     setMemoSaving(true)
 
-    const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes: nextNotes }),
-    })
+    let response: Response
+    try {
+      response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: nextNotes }),
+      })
+    } catch (error) {
+      console.error('컨택 히스토리 저장 요청 실패', error)
+      showToast('컨택 히스토리 저장에 실패했습니다', 'error')
+      setMemoSaving(false)
+      return
+    }
 
     if (!response.ok) {
-      showToast('메모 저장에 실패했습니다', 'error')
+      showToast('컨택 히스토리 저장에 실패했습니다', 'error')
       setMemoSaving(false)
       return
     }
@@ -732,7 +744,18 @@ export default function AdminProjectDetailPage({
               </button>
               <div>
                 <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
-                <p className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  고객사: {project.company?.name ?? '미지정'}
+                  {!project.company?.name && (
+                    <button
+                      type="button"
+                      onClick={openEditModal}
+                      className="ml-2 text-xs text-primary underline"
+                    >
+                      지정하기
+                    </button>
+                  )}
+                </p>
               </div>
             </div>
           </div>
