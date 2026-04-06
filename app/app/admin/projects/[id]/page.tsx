@@ -173,9 +173,23 @@ export default function AdminProjectDetailPage({
       return
     }
     const data = await response.json()
-    setProject(data?.project ?? null)
-    setDeliverables(Array.isArray(data?.deliverables) ? data.deliverables : [])
-    const assets = Array.isArray(data?.assets) ? data.assets : []
+    const projectData = data?.project ?? null
+    setProject(projectData)
+
+    const deliverableItems = Array.isArray(data?.deliverables)
+      ? data.deliverables
+      : Array.isArray(projectData?.deliverables)
+        ? projectData.deliverables
+        : []
+    setDeliverables(deliverableItems)
+
+    const assets = Array.isArray(data?.assets)
+      ? data.assets
+      : deliverableItems.flatMap((deliverable: any) =>
+          (deliverable.deliverable_versions ?? deliverable.versions ?? []).flatMap(
+            (version: any) => version.assets ?? []
+          )
+        )
     setAssetsByVersion(buildAssetsByVersion(assets))
   }
 

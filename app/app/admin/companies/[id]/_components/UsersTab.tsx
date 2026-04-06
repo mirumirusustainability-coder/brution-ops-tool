@@ -198,13 +198,20 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ business_card_url: publicUrl })
-        .eq('user_id', user.user_id);
+      console.log('명함 업로드 완료', { userId: user.user_id, publicUrl });
 
-      if (updateError) {
-        console.error('프로필 업데이트 에러:', updateError);
+      const response = await fetch(`/api/admin/companies/${company.id}/users/${user.user_id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_card_url: publicUrl }),
+      });
+
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!response.ok) {
         showToast('명함 저장에 실패했습니다', 'error');
         return;
       }
@@ -222,13 +229,18 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
   const handleBusinessCardDelete = async (user: ApiUser) => {
     setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: true }));
     try {
-      const { error: deleteError } = await supabase
-        .from('profiles')
-        .update({ business_card_url: null })
-        .eq('user_id', user.user_id);
+      const response = await fetch(`/api/admin/companies/${company.id}/users/${user.user_id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_card_url: null }),
+      });
 
-      if (deleteError) {
-        console.error('명함 삭제 실패', deleteError);
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!response.ok) {
         showToast('명함 삭제에 실패했습니다', 'error');
         return;
       }

@@ -172,6 +172,8 @@ export default async function CompanyUsersPage({ params }: PageProps) {
 
   const projectsWithDrops = Array.isArray(projectsData) ? (projectsData as ApiProjectWithDrops[]) : [];
 
+  console.log('projectsWithDrops:', projectsWithDrops);
+
   return (
     <CompanyDetailClient
       currentUser={currentUser}

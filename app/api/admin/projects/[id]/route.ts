@@ -65,7 +65,7 @@ export const GET = async (
 
     const { data: project, error: projectError } = await admin
       .from('projects')
-      .select('id, name, description, notes, created_at, company_id, step, status, companies(name)')
+      .select('*, deliverables(*, deliverable_versions(*, assets(*)))')
       .eq('id', id)
       .single()
 
@@ -73,76 +73,14 @@ export const GET = async (
       return NextResponse.json({ error: 'PROJECT_NOT_FOUND' }, { status: 404 })
     }
 
-    const { data: deliverables, error: deliverableError } = await admin
-      .from('deliverables')
-      .select('id, project_id, company_id, type, visibility, title, created_by, created_at, updated_at')
-      .eq('project_id', id)
-      .order('created_at', { ascending: false })
-
-    if (deliverableError) {
-      return NextResponse.json({ error: 'DELIVERABLES_FETCH_FAILED' }, { status: 500 })
-    }
-
-    const deliverableList = deliverables ?? []
-    const deliverableIds = deliverableList.map((item) => item.id)
-
-    let versions: any[] = []
-    if (deliverableIds.length > 0) {
-      const { data: versionsData, error: versionsError } = await admin
-        .from('deliverable_versions')
-        .select('id, deliverable_id, company_id, version_no, status, title, created_by, created_at, updated_at')
-        .in('deliverable_id', deliverableIds)
-        .order('version_no', { ascending: false })
-
-      if (versionsError) {
-        return NextResponse.json({ error: 'DELIVERABLE_VERSIONS_FETCH_FAILED' }, { status: 500 })
-      }
-
-      versions = versionsData ?? []
-    }
-
-    const versionIds = versions.map((version) => version.id)
-    let assets: any[] = []
-    if (versionIds.length > 0) {
-      const { data: assetsData, error: assetsError } = await admin
-        .from('assets')
-        .select('id, deliverable_version_id, path, original_name, created_at')
-        .in('deliverable_version_id', versionIds)
-        .order('created_at', { ascending: false })
-
-      if (assetsError) {
-        return NextResponse.json({ error: 'ASSETS_FETCH_FAILED' }, { status: 500 })
-      }
-
-      assets = assetsData ?? []
-    }
-
-    const versionsByDeliverable: Record<string, any[]> = {}
-    versions.forEach((version) => {
-      if (!versionsByDeliverable[version.deliverable_id]) {
-        versionsByDeliverable[version.deliverable_id] = []
-      }
-      versionsByDeliverable[version.deliverable_id].push(version)
-    })
-
-    const responseDeliverables = deliverableList.map((deliverable) => ({
-      ...deliverable,
-      versions: versionsByDeliverable[deliverable.id] ?? [],
-    }))
-
-    const companies = project.companies as { name?: string } | { name?: string }[] | null
-    const companyName = Array.isArray(companies)
-      ? companies[0]?.name ?? null
-      : companies?.name ?? null
+    const deliverables = Array.isArray(project.deliverables) ? project.deliverables : []
+    const assets = deliverables.flatMap((deliverable: any) =>
+      (deliverable.deliverable_versions ?? []).flatMap((version: any) => version.assets ?? [])
+    )
 
     return NextResponse.json({
-      project: {
-        ...project,
-        company: {
-          name: companyName,
-        },
-      },
-      deliverables: responseDeliverables,
+      project,
+      deliverables,
       assets,
     })
   } catch (error) {

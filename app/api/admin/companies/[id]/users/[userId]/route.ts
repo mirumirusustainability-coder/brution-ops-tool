@@ -110,6 +110,48 @@ export const PATCH = async (
   }
 }
 
+export const POST = async (
+  request: Request,
+  { params }: { params: Promise<{ id: string; userId: string }> }
+) => {
+  try {
+    const profile = await getProfile()
+    if (!isStaffAdmin(profile.role)) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+    }
+
+    const { id, userId } = await params
+    const body = await request.json().catch(() => null)
+    const business_card_url =
+      typeof body?.business_card_url === 'string' || body?.business_card_url === null
+        ? body.business_card_url
+        : undefined
+
+    if (business_card_url === undefined) {
+      return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
+    }
+
+    const admin = createSupabaseAdmin()
+    const { data: updated, error: updateError } = await admin
+      .from('profiles')
+      .update({ business_card_url })
+      .eq('user_id', userId)
+      .eq('company_id', id)
+      .select('user_id, email, name, role, phone, job_title, avatar_url, business_card_url, company_id, status, must_change_password, created_at, updated_at')
+      .single()
+
+    if (updateError || !updated) {
+      return NextResponse.json({ error: 'PROFILE_UPDATE_FAILED' }, { status: 500 })
+    }
+
+    return NextResponse.json({ user: updated })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'UNKNOWN'
+    const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
+    return NextResponse.json({ error: message }, { status })
+  }
+}
+
 export const DELETE = async (
   _request: Request,
   { params }: { params: Promise<{ id: string; userId: string }> }

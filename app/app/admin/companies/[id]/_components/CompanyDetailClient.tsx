@@ -45,6 +45,12 @@ export function CompanyDetailClient({
     if (presentationMode) setActiveTab('overview');
   }, [presentationMode]);
 
+  useEffect(() => {
+    if (presentationMode) {
+      console.log('presentationMode projectsWithDrops', projectsWithDrops);
+    }
+  }, [presentationMode, projectsWithDrops]);
+
   const refresh = async () => {
     router.refresh();
   };

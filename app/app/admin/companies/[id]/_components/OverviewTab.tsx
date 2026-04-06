@@ -40,6 +40,12 @@ export function OverviewTab({
     }
   }, [company, presentationMode]);
 
+  useEffect(() => {
+    if (presentationMode) {
+      console.log('OverviewTab projectsWithDrops', projectsWithDrops);
+    }
+  }, [presentationMode, projectsWithDrops]);
+
   const latestProject = useMemo(() => (projects.length ? projects[0] : null), [projects]);
   const latestProjectStep = typeof latestProject?.step === 'number' ? latestProject.step : null;
   const latestStepLabel = latestProjectStep !== null ? STEP_LABELS[latestProjectStep] : null;

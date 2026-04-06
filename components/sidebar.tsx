@@ -97,7 +97,7 @@ export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
       case '/app/admin':
         return pathname === '/app/admin';
       case '/app/admin/projects':
-        return pathname.startsWith('/app/admin/projects');
+        return pathname.startsWith('/app/admin/projects') || pathname.startsWith('/admin/projects');
       case '/app/admin/companies':
         return pathname.startsWith('/app/admin/companies');
       case '/app/projects':
