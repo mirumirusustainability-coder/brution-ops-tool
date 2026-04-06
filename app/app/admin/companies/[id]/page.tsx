@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { AppLayout } from '@/components/app-layout';
 import { isStaffAdmin } from '@/lib/supabase/auth';
+import { createSupabaseAdmin } from '@/lib/supabase/server';
 import { CompanyDetailClient } from './_components/CompanyDetailClient';
 import type { ApiCompany, ApiProject, ApiUser, ApiDeliverable, PresentationDeliverableItem } from './_components/types';
 import type { User as AppUser } from '@/types';
@@ -59,34 +60,47 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect('/login');
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) redirect('/login');
 
   const baseUrl = getBaseUrl();
   const cookieHeader = getCookieHeader();
   let currentUser: AppUser | null = null;
 
-  const sessionRole = session.user.user_metadata?.role ?? null;
+  const sessionRole = user.user_metadata?.role ?? null;
   if (sessionRole) {
     currentUser = mapUser({
-      userId: session.user.id,
-      email: session.user.email ?? '',
+      userId: user.id,
+      email: user.email ?? '',
       role: sessionRole,
-      companyId: session.user.user_metadata?.company_id ?? null,
+      companyId: user.user_metadata?.company_id ?? null,
       mustChangePassword: false,
       status: 'active',
     });
   } else {
-    const meResponse = await fetch(`${baseUrl}/api/auth/me`, {
-      cache: 'no-store',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (meResponse.status === 401) redirect('/login');
-    if (!meResponse.ok) {
+    const admin = createSupabaseAdmin();
+    const { data: profile, error: profileError } = await admin
+      .from('profiles')
+      .select('user_id, email, role, company_id, status, must_change_password')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError || !profile) {
       return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
     }
-    const me = (await meResponse.json()) as ApiMe;
-    currentUser = mapUser(me);
+
+    if (profile.status !== 'active') {
+      return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>;
+    }
+
+    currentUser = mapUser({
+      userId: profile.user_id,
+      email: profile.email ?? user.email ?? '',
+      role: profile.role,
+      companyId: profile.company_id,
+      mustChangePassword: profile.must_change_password ?? false,
+      status: profile.status,
+    });
   }
 
   if (!currentUser) {
@@ -148,35 +162,31 @@ export default async function CompanyUsersPage({ params }: PageProps) {
 
   let presentationDeliverables: PresentationDeliverableItem[] = [];
 
-  if (projects.length > 0) {
-    const deliverableResults = await Promise.all(
-      projects.map(async (project) => {
-        const response = await fetch(`${baseUrl}/api/admin/projects/${project.id}`, {
-          cache: 'no-store',
-          headers: { cookie: cookieHeader },
-        });
+  const statusTargets = new Set(['in_review', 'draft']);
+  const { data: presentationProjects } = await supabase
+    .from('projects')
+    .select(
+      'id, name, deliverables ( id, title, type, deliverable_versions ( id, title, status ) )'
+    )
+    .eq('company_id', id);
 
-        if (!response.ok) return [];
-        const data = await response.json().catch(() => null);
-        const deliverables = Array.isArray(data?.deliverables) ? (data.deliverables as ApiDeliverable[]) : [];
-
-        return deliverables
-          .filter((deliverable) => !deliverable.visibility || deliverable.visibility === 'visible')
-          .filter((deliverable) =>
-            Array.isArray(deliverable.versions)
-              ? deliverable.versions.some((version) => version.status === 'in_review')
-              : false
-          )
-          .map((deliverable) => ({
+  if (presentationProjects) {
+    presentationDeliverables = presentationProjects.flatMap((project) => {
+      const deliverables = (project as any).deliverables ?? [];
+      return deliverables.flatMap((deliverable: ApiDeliverable) => {
+        const versions = deliverable.deliverable_versions ?? deliverable.versions ?? [];
+        return versions
+          .filter((version) => version.status && statusTargets.has(version.status))
+          .map((version) => ({
             projectId: project.id,
             projectName: project.name ?? null,
             deliverableType: deliverable.type,
             deliverableTitle: deliverable.title ?? null,
+            versionTitle: version.title ?? null,
+            versionStatus: version.status ?? null,
           }));
-      })
-    );
-
-    presentationDeliverables = deliverableResults.flat();
+      });
+    });
   }
 
   return (

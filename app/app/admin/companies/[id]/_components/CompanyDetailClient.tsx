@@ -114,8 +114,7 @@ export function CompanyDetailClient({
   const pageContent = (
     <div className="max-w-4xl">
       {presentationMode && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
-          <span>📊 상담 모드 · 민감 정보가 숨겨져 있습니다</span>
+        <div className="mb-4 flex items-center justify-end rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
           <button type="button" onClick={() => router.replace(pathname)} className="text-orange-700 underline underline-offset-2">
             모드 종료
           </button>

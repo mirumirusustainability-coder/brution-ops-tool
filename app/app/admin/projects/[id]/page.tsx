@@ -1092,13 +1092,25 @@ export default function AdminProjectDetailPage({
               </button>
             </div>
 
-            <input
-              value={versionTitle}
-              onChange={(e) => setVersionTitle(e.target.value)}
-              placeholder="버전 제목"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-800">버전 제목</label>
+              <input
+                value={versionTitle}
+                onChange={(e) => setVersionTitle(e.target.value)}
+                placeholder="버전 제목을 입력하세요"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-lg font-semibold"
+              />
+            </div>
             {versionError && <p className="text-sm text-red-600">{versionError}</p>}
+            <div className="space-y-1">
+              <label className="text-xs text-gray-500 uppercase tracking-wide">버전 번호</label>
+              <input
+                type="text"
+                value="자동 생성 · draft"
+                disabled
+                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-500 bg-gray-50"
+              />
+            </div>
 
             <div className="flex gap-2 justify-end">
               <button

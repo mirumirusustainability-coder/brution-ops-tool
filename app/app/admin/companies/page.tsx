@@ -78,6 +78,19 @@ export default function CompaniesAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newCompanyName, setNewCompanyName] = useState('');
+  const [newBizNo, setNewBizNo] = useState('');
+  const [newRepresentativeName, setNewRepresentativeName] = useState('');
+  const [newAddress, setNewAddress] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newContactEmail, setNewContactEmail] = useState('');
+  const [newContractStatus, setNewContractStatus] = useState('');
+  const [newStarterPackage, setNewStarterPackage] = useState('');
+  const [newContractStart, setNewContractStart] = useState('');
+  const [newContractEnd, setNewContractEnd] = useState('');
+  const [newTotalAmount, setNewTotalAmount] = useState('');
+  const [newLeadSource, setNewLeadSource] = useState('');
+  const [newFirstContact, setNewFirstContact] = useState('');
+  const [newTargetLaunch, setNewTargetLaunch] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -454,6 +467,8 @@ export default function CompaniesAdminPage() {
     completed: 'bg-blue-50 text-blue-600',
     paused: 'bg-gray-100 text-gray-600',
   };
+
+  const contractStatusOptions = ['상담중', '계약완료', '진행중', '완료', '보류'];
 
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>;
@@ -852,20 +867,40 @@ export default function CompaniesAdminPage() {
         )}
 
         {showCreateForm && (
-          <div className="mb-6 bg-white border border-border rounded-lg p-4">
+          <div className="mb-6 bg-white border border-border rounded-lg p-6">
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!newCompanyName.trim()) {
+                const trimmedName = newCompanyName.trim();
+                if (!trimmedName) {
                   setError('고객사명을 입력하세요');
                   return;
                 }
+
+                const metadata: Record<string, any> = {};
+                if (newBizNo.trim()) metadata.biz_no = newBizNo.trim();
+                if (newRepresentativeName.trim()) metadata.representative_name = newRepresentativeName.trim();
+                if (newAddress.trim()) metadata.address = newAddress.trim();
+                if (newPhone.trim()) metadata.phone = newPhone.trim();
+                if (newContactEmail.trim()) metadata.contact_email = newContactEmail.trim();
+                if (newContractStatus) metadata.contract_status = newContractStatus;
+                if (newStarterPackage.trim()) metadata.starter_package = newStarterPackage.trim();
+                if (newContractStart) metadata.contract_start = newContractStart;
+                if (newContractEnd) metadata.contract_end = newContractEnd;
+                if (newTotalAmount) metadata.total_amount = Number(newTotalAmount);
+                if (newLeadSource.trim()) metadata.lead_source = newLeadSource.trim();
+                if (newFirstContact) metadata.first_contact = newFirstContact;
+                if (newTargetLaunch) metadata.target_launch = newTargetLaunch;
+
                 setIsCreating(true);
                 setError(null);
                 const response = await fetch('/api/admin/companies', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name: newCompanyName.trim() }),
+                  body: JSON.stringify({
+                    name: trimmedName,
+                    metadata: Object.keys(metadata).length ? metadata : null,
+                  }),
                 });
                 if (response.status === 401) {
                   router.replace('/login');
@@ -882,36 +917,207 @@ export default function CompaniesAdminPage() {
                   return;
                 }
                 setNewCompanyName('');
+                setNewBizNo('');
+                setNewRepresentativeName('');
+                setNewAddress('');
+                setNewPhone('');
+                setNewContactEmail('');
+                setNewContractStatus('');
+                setNewStarterPackage('');
+                setNewContractStart('');
+                setNewContractEnd('');
+                setNewTotalAmount('');
+                setNewLeadSource('');
+                setNewFirstContact('');
+                setNewTargetLaunch('');
                 setShowCreateForm(false);
                 setIsCreating(false);
+                showToast('고객사가 추가되었습니다', 'success');
                 await loadCompanies();
               }}
-              className="flex flex-col gap-3 md:flex-row md:items-center"
+              className="space-y-6"
             >
-              <input
-                type="text"
-                value={newCompanyName}
-                onChange={(e) => setNewCompanyName(e.target.value)}
-                placeholder="고객사명 입력"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-              />
-              <div className="flex gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">기본 정보</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">회사명 *</label>
+                    <input
+                      type="text"
+                      value={newCompanyName}
+                      onChange={(e) => setNewCompanyName(e.target.value)}
+                      placeholder="고객사명 입력"
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">사업자번호</label>
+                    <input
+                      type="text"
+                      value={newBizNo}
+                      onChange={(e) => setNewBizNo(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">대표자명</label>
+                    <input
+                      type="text"
+                      value={newRepresentativeName}
+                      onChange={(e) => setNewRepresentativeName(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">주소</label>
+                    <input
+                      type="text"
+                      value={newAddress}
+                      onChange={(e) => setNewAddress(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">연락처</label>
+                    <input
+                      type="text"
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">이메일</label>
+                    <input
+                      type="email"
+                      value={newContactEmail}
+                      onChange={(e) => setNewContactEmail(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">계약 정보</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">계약 상태</label>
+                    <select
+                      value={newContractStatus}
+                      onChange={(e) => setNewContractStatus(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">선택</option>
+                      {contractStatusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">스타터 패키지</label>
+                    <input
+                      type="text"
+                      value={newStarterPackage}
+                      onChange={(e) => setNewStarterPackage(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">계약 시작일</label>
+                    <input
+                      type="date"
+                      value={newContractStart}
+                      onChange={(e) => setNewContractStart(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">계약 종료일</label>
+                    <input
+                      type="date"
+                      value={newContractEnd}
+                      onChange={(e) => setNewContractEnd(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">총 계약금액</label>
+                    <input
+                      type="number"
+                      value={newTotalAmount}
+                      onChange={(e) => setNewTotalAmount(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">영업 정보</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">유입 경로</label>
+                    <input
+                      type="text"
+                      value={newLeadSource}
+                      onChange={(e) => setNewLeadSource(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">첫 컨택일</label>
+                    <input
+                      type="date"
+                      value={newFirstContact}
+                      onChange={(e) => setNewFirstContact(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">목표 출시일</label>
+                    <input
+                      type="date"
+                      value={newTargetLaunch}
+                      onChange={(e) => setNewTargetLaunch(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setNewCompanyName('');
+                    setNewBizNo('');
+                    setNewRepresentativeName('');
+                    setNewAddress('');
+                    setNewPhone('');
+                    setNewContactEmail('');
+                    setNewContractStatus('');
+                    setNewStarterPackage('');
+                    setNewContractStart('');
+                    setNewContractEnd('');
+                    setNewTotalAmount('');
+                    setNewLeadSource('');
+                    setNewFirstContact('');
+                    setNewTargetLaunch('');
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md"
+                >
+                  취소
+                </button>
                 <button
                   type="submit"
                   disabled={isCreating}
                   className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
                 >
                   {isCreating ? '생성 중...' : '생성'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setNewCompanyName('');
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md"
-                >
-                  취소
                 </button>
               </div>
             </form>

@@ -11,7 +11,7 @@ export type CompanyMetadata = {
   representative_name?: string | null;
   contact_email?: string | null;
   contract_status?: '계약전' | '진행중' | '완료' | string | null;
-  starter_package?: boolean | null;
+  starter_package?: boolean | string | null;
   total_amount?: number | string | null;
   deposit_paid?: boolean | null;
   balance_paid?: boolean | null;
@@ -68,6 +68,7 @@ export type ApiDeliverable = {
   visibility?: string | null;
   title?: string | null;
   versions?: ApiDeliverableVersion[];
+  deliverable_versions?: ApiDeliverableVersion[];
 };
 
 export type PresentationDeliverableItem = {
@@ -75,6 +76,8 @@ export type PresentationDeliverableItem = {
   projectName: string | null;
   deliverableType: string;
   deliverableTitle: string | null;
+  versionTitle: string | null;
+  versionStatus: string | null;
 };
 
 export type ApiUser = {

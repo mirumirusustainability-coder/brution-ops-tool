@@ -112,22 +112,33 @@ export function OverviewTab({
             </div>
           </div>
           <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">검토 중 드롭</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">드롭 현황</h3>
             {presentationDeliverables.length === 0 ? (
-              <p className="text-sm text-gray-500">검토 중인 드롭이 없습니다.</p>
+              <p className="text-sm text-gray-500">등록된 산출물이 없습니다.</p>
             ) : (
               <div className="space-y-2">
-                {presentationDeliverables.map((item, index) => (
-                  <div key={`${item.projectId}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
-                    <div className="text-sm text-gray-700">
-                      <span className="font-medium text-gray-900">{item.projectName ?? '프로젝트'}</span>
-                      <span className="mx-2 text-gray-300">/</span>
-                      <span>{DELIVERABLE_TYPE_LABELS[item.deliverableType as keyof typeof DELIVERABLE_TYPE_LABELS] ?? item.deliverableType}</span>
-                      <span className="text-gray-500"> · {item.deliverableTitle ?? '제목 없음'}</span>
+                {presentationDeliverables.map((item, index) => {
+                  const statusLabel = item.versionStatus ?? '-';
+                  const badgeStyle =
+                    item.versionStatus === 'in_review'
+                      ? 'bg-orange-50 text-orange-700'
+                      : 'bg-gray-100 text-gray-600';
+
+                  return (
+                    <div key={`${item.projectId}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
+                      <div className="text-sm text-gray-700">
+                        <span className="font-medium text-gray-900">{item.projectName ?? '프로젝트'}</span>
+                        <span className="mx-2 text-gray-300">/</span>
+                        <span className="font-medium">[{DELIVERABLE_TYPE_LABELS[item.deliverableType as keyof typeof DELIVERABLE_TYPE_LABELS] ?? item.deliverableType}]</span>
+                        <span className="text-gray-700"> {item.deliverableTitle ?? '제목 없음'}</span>
+                        <span className="text-gray-500"> · {item.versionTitle ?? '버전 제목 없음'}</span>
+                      </div>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}>
+                        {statusLabel}
+                      </span>
                     </div>
-                    <span className="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700">in_review</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

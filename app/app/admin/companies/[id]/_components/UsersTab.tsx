@@ -182,6 +182,7 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
         .upload(path, file, { contentType: file.type, upsert: true });
 
       if (uploadError) {
+        console.error('명함 업로드 실패', uploadError);
         showToast('명함 업로드에 실패했습니다', 'error');
         return;
       }
@@ -189,6 +190,7 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
       const { data } = supabase.storage.from('business-cards').getPublicUrl(path);
       const publicUrl = data?.publicUrl;
       if (!publicUrl) {
+        console.error('명함 URL 생성 실패', { path });
         showToast('명함 URL 생성에 실패했습니다', 'error');
         return;
       }
@@ -200,13 +202,15 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
       });
 
       if (!response.ok) {
+        console.error('명함 저장 실패', await response.text().catch(() => null));
         showToast('명함 저장에 실패했습니다', 'error');
         return;
       }
 
       await onRefresh();
       showToast('명함이 업로드되었습니다', 'success');
-    } catch {
+    } catch (error) {
+      console.error('명함 업로드 예외', error);
       showToast('명함 업로드에 실패했습니다', 'error');
     } finally {
       setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: false }));

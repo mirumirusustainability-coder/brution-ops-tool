@@ -125,6 +125,7 @@ export const POST = async (request: Request) => {
 
     const body = await request.json().catch(() => null)
     const name = body?.name
+    const metadata = body?.metadata
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'INVALID_NAME' }, { status: 400 })
@@ -133,7 +134,7 @@ export const POST = async (request: Request) => {
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('companies')
-      .insert({ name })
+      .insert({ name, metadata: metadata ?? null })
       .select('id, name, created_at, updated_at')
       .single()
 
