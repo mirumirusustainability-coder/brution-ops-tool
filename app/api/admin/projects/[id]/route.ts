@@ -65,7 +65,7 @@ export const GET = async (
 
     const { data: project, error: projectError } = await admin
       .from('projects')
-      .select('*, deliverables(*, deliverable_versions(*, assets(*)))')
+      .select('*, companies(id, name, metadata), deliverables(*, deliverable_versions(*, assets(*)))')
       .eq('id', id)
       .single()
 
@@ -100,6 +100,7 @@ export const PATCH = async (
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
     }
 
+    const { id } = await params
     const body = await request.json().catch(() => null)
     const updates: Record<string, any> = {}
 
@@ -131,20 +132,33 @@ export const PATCH = async (
     }
 
     if (Array.isArray(body?.notes)) {
-      updates.notes = body.notes
+      const admin = createSupabaseAdmin()
+      const { data: projectMeta, error: metaError } = await admin
+        .from('projects')
+        .select('metadata')
+        .eq('id', id)
+        .single()
+
+      if (metaError) {
+        return NextResponse.json({ error: 'PROJECT_METADATA_FETCH_FAILED' }, { status: 500 })
+      }
+
+      updates.metadata = {
+        ...(projectMeta?.metadata ?? {}),
+        notes: body.notes,
+      }
     }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'NO_UPDATES' }, { status: 400 })
     }
 
-    const { id } = await params
     const admin = createSupabaseAdmin()
     const { data, error } = await admin
       .from('projects')
       .update(updates)
       .eq('id', id)
-      .select('id, name, description, created_at, company_id, step, status')
+      .select('id, name, description, created_at, company_id, step, status, metadata')
       .single()
 
     if (error || !data) {
@@ -153,6 +167,7 @@ export const PATCH = async (
 
     return NextResponse.json({ project: data })
   } catch (error) {
+    console.error('PATCH error:', error)
     const message = error instanceof Error ? error.message : 'UNKNOWN'
     const status = message === 'UNAUTHORIZED' ? 401 : message === 'INACTIVE' ? 403 : 500
     return NextResponse.json({ error: message }, { status })

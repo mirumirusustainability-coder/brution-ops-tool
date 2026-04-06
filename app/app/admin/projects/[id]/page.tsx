@@ -23,6 +23,14 @@ type ProjectNote = {
   content: string
 }
 
+type ProjectMetadata = {
+  notes?: ProjectNote[] | null
+}
+
+type CompanyMetadata = {
+  contact_history?: ProjectNote[] | null
+}
+
 type AdminProject = {
   id: string
   name: string
@@ -31,7 +39,8 @@ type AdminProject = {
   step: number
   status?: 'active' | 'completed' | 'paused'
   notes?: ProjectNote[] | null
-  company?: { name?: string | null } | null
+  metadata?: ProjectMetadata | null
+  company?: { name?: string | null; metadata?: CompanyMetadata | null } | null
 }
 
 type AdminCompany = {
@@ -576,8 +585,27 @@ export default function AdminProjectDetailPage({
     ...DELIVERABLE_STEP_ORDER.filter((step) => step !== currentStep),
   ]
 
-  const projectNotes = Array.isArray(project.notes) ? project.notes : []
-  const sortedNotes = projectNotes
+  const projectNotes = Array.isArray(project.metadata?.notes)
+    ? project.metadata?.notes
+    : Array.isArray(project.notes)
+      ? project.notes
+      : []
+  const companyNotes = Array.isArray(project.company?.metadata?.contact_history)
+    ? project.company?.metadata?.contact_history
+    : []
+  const combinedNotes = [
+    ...companyNotes.map((note) => ({
+      ...note,
+      source: 'company' as const,
+      sourceLabel: project.company?.name ?? '고객사',
+    })),
+    ...projectNotes.map((note) => ({
+      ...note,
+      source: 'project' as const,
+      sourceLabel: project.name,
+    })),
+  ]
+  const sortedNotes = combinedNotes
     .slice()
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
 
@@ -606,7 +634,11 @@ export default function AdminProjectDetailPage({
       return
     }
 
-    setProject((prev) => (prev ? { ...prev, notes: nextNotes } : prev))
+    setProject((prev) =>
+      prev
+        ? { ...prev, metadata: { ...(prev.metadata ?? {}), notes: nextNotes } }
+        : prev
+    )
     setContactContent('')
     setContactDate(new Date().toISOString().slice(0, 10))
     setShowContactForm(false)
@@ -696,7 +728,7 @@ export default function AdminProjectDetailPage({
                 }}
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
-                🕐 컨택 히스토리 ({projectNotes.length}개)
+                🕐 컨택 히스토리 ({combinedNotes.length}개)
               </button>
               <div>
                 <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
@@ -1260,14 +1292,26 @@ export default function AdminProjectDetailPage({
 
             <div className="max-h-72 overflow-y-auto space-y-3">
               {sortedNotes.length === 0 ? (
-                <p className="text-sm text-gray-500">등록된 메모가 없습니다.</p>
+                <p className="text-sm text-gray-500">등록된 컨택 히스토리가 없습니다.</p>
               ) : (
-                sortedNotes.map((note, index) => (
-                  <div key={`${note.date}-${index}`} className="border-b border-gray-100 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
-                    <p className="text-sm font-semibold text-gray-700">{note.date}</p>
-                    <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{note.content}</p>
-                  </div>
-                ))
+                sortedNotes.map((note, index) => {
+                  const badgeStyle =
+                    note.source === 'company'
+                      ? 'bg-gray-100 text-gray-600'
+                      : 'bg-blue-50 text-blue-600'
+
+                  return (
+                    <div key={`${note.date}-${index}`} className="border-b border-gray-100 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-700">{note.date}</p>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}>
+                          {note.sourceLabel}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{note.content}</p>
+                    </div>
+                  )
+                })
               )}
             </div>
 
