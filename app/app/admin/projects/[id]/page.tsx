@@ -145,8 +145,9 @@ export default function AdminProjectDetailPage({
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [showMemoModal, setShowMemoModal] = useState(false)
-  const [memoContent, setMemoContent] = useState('')
-  const [memoAuthor, setMemoAuthor] = useState('')
+  const [showContactForm, setShowContactForm] = useState(false)
+  const [contactDate, setContactDate] = useState(new Date().toISOString().slice(0, 10))
+  const [contactContent, setContactContent] = useState('')
   const [memoSaving, setMemoSaving] = useState(false)
 
   const buildAssetsByVersion = (assets: AdminAsset[]) =>
@@ -581,15 +582,14 @@ export default function AdminProjectDetailPage({
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
 
   const handleAddMemo = async () => {
-    if (!memoContent.trim()) {
-      showToast('메모 내용을 입력해 주세요', 'info')
+    if (!contactContent.trim()) {
+      showToast('컨택 내용을 입력해 주세요', 'info')
       return
     }
 
     const nextNote: ProjectNote = {
-      date: new Date().toISOString().slice(0, 10),
-      author: memoAuthor.trim() || null,
-      content: memoContent.trim(),
+      date: contactDate,
+      content: contactContent.trim(),
     }
     const nextNotes = [...projectNotes, nextNote]
     setMemoSaving(true)
@@ -607,10 +607,11 @@ export default function AdminProjectDetailPage({
     }
 
     setProject((prev) => (prev ? { ...prev, notes: nextNotes } : prev))
-    setMemoContent('')
-    setMemoAuthor('')
+    setContactContent('')
+    setContactDate(new Date().toISOString().slice(0, 10))
+    setShowContactForm(false)
     setMemoSaving(false)
-    showToast('메모가 저장되었습니다', 'success')
+    showToast('컨택 히스토리가 저장되었습니다', 'success')
   }
 
   return (
@@ -687,10 +688,15 @@ export default function AdminProjectDetailPage({
             <div className="text-right space-y-2">
               <button
                 type="button"
-                onClick={() => setShowMemoModal(true)}
+                onClick={() => {
+                  setShowMemoModal(true)
+                  setShowContactForm(false)
+                  setContactContent('')
+                  setContactDate(new Date().toISOString().slice(0, 10))
+                }}
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
-                📝 메모 보기 ({projectNotes.length}개)
+                🕐 컨택 히스토리 ({projectNotes.length}개)
               </button>
               <div>
                 <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
@@ -1241,8 +1247,13 @@ export default function AdminProjectDetailPage({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-lg rounded-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">프로젝트 메모</h3>
-              <button onClick={() => setShowMemoModal(false)}>
+              <h3 className="text-lg font-semibold">컨택 히스토리</h3>
+              <button
+                onClick={() => {
+                  setShowMemoModal(false)
+                  setShowContactForm(false)
+                }}
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1252,48 +1263,63 @@ export default function AdminProjectDetailPage({
                 <p className="text-sm text-gray-500">등록된 메모가 없습니다.</p>
               ) : (
                 sortedNotes.map((note, index) => (
-                  <div key={`${note.date}-${index}`} className="border-b border-gray-100 pb-3">
-                    <p className="text-sm font-medium text-gray-800">
-                      {note.date} · {note.author || '작성자 미지정'}
-                    </p>
+                  <div key={`${note.date}-${index}`} className="border-b border-gray-100 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
+                    <p className="text-sm font-semibold text-gray-700">{note.date}</p>
                     <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{note.content}</p>
                   </div>
                 ))
               )}
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">+ 메모 추가</p>
-              <input
-                type="text"
-                value={memoAuthor}
-                onChange={(e) => setMemoAuthor(e.target.value)}
-                placeholder="작성자"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              />
-              <textarea
-                value={memoContent}
-                onChange={(e) => setMemoContent(e.target.value)}
-                placeholder="메모 내용을 입력하세요"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm min-h-[90px]"
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
+            <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => setShowMemoModal(false)}
+                onClick={() => {
+                  setShowContactForm((prev) => !prev)
+                  setContactDate(new Date().toISOString().slice(0, 10))
+                }}
+                className="text-sm font-medium text-primary"
+              >
+                + 새 컨택 추가
+              </button>
+              {showContactForm && (
+                <div className="space-y-2">
+                  <input
+                    type="date"
+                    value={contactDate}
+                    onChange={(e) => setContactDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  />
+                  <textarea
+                    value={contactContent}
+                    onChange={(e) => setContactContent(e.target.value)}
+                    placeholder="컨택 내용을 입력하세요"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm min-h-[90px]"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleAddMemo}
+                      disabled={memoSaving}
+                      className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
+                    >
+                      {memoSaving ? '저장 중...' : '저장'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMemoModal(false)
+                  setShowContactForm(false)
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-md"
               >
                 닫기
-              </button>
-              <button
-                type="button"
-                onClick={handleAddMemo}
-                disabled={memoSaving}
-                className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
-              >
-                {memoSaving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>

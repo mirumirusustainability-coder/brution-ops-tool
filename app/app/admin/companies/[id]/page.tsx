@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/app-layout';
 import { isStaffAdmin } from '@/lib/supabase/auth';
 import { createSupabaseAdmin } from '@/lib/supabase/server';
 import { CompanyDetailClient } from './_components/CompanyDetailClient';
-import type { ApiCompany, ApiProject, ApiProjectWithDrops, ApiUser } from './_components/types';
+import type { ApiCompany, ApiProject, ApiUser } from './_components/types';
 import type { User as AppUser } from '@/types';
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -29,16 +29,16 @@ const mapUser = (me: ApiMe): AppUser => ({
   status: me.status as AppUser['status'],
 });
 
-const getBaseUrl = () => {
-  const headerStore = headers();
+const getBaseUrl = async () => {
+  const headerStore = await headers();
   const protocol = headerStore.get('x-forwarded-proto') ?? 'http';
   const host = headerStore.get('host');
   if (!host) return '';
   return `${protocol}://${host}`;
 };
 
-const getCookieHeader = () => {
-  const cookieStore = cookies();
+const getCookieHeader = async () => {
+  const cookieStore = await cookies();
   return cookieStore
     .getAll()
     .map((cookie) => `${cookie.name}=${cookie.value}`)
@@ -47,7 +47,7 @@ const getCookieHeader = () => {
 
 export default async function CompanyUsersPage({ params }: PageProps) {
   const { id } = await params;
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -63,8 +63,8 @@ export default async function CompanyUsersPage({ params }: PageProps) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect('/login');
 
-  const baseUrl = getBaseUrl();
-  const cookieHeader = getCookieHeader();
+  const baseUrl = await getBaseUrl();
+  const cookieHeader = await getCookieHeader();
   let currentUser: AppUser | null = null;
 
   const sessionRole = user.user_metadata?.role ?? null;
@@ -160,27 +160,12 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     users = Array.isArray(data?.users) ? data.users : [];
   }
 
-  const { data: projectsData, error: projectsError } = await supabase
-    .from('projects')
-    .select(
-      'id, name, step, status, deliverables ( id, title, type, deliverable_versions ( id, title, status ) )'
-    )
-    .eq('company_id', id);
-
-  console.log('projectsData:', projectsData);
-  console.log('projectsError:', projectsError);
-
-  const projectsWithDrops = Array.isArray(projectsData) ? (projectsData as ApiProjectWithDrops[]) : [];
-
-  console.log('projectsWithDrops:', projectsWithDrops);
-
   return (
     <CompanyDetailClient
       currentUser={currentUser}
       company={company}
       projects={projects}
       users={users}
-      projectsWithDrops={projectsWithDrops}
       error={error}
     />
   );
