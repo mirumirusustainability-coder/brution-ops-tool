@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Building2, Plus, ShieldAlert, Users, Download, UserPlus } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { ToastContainer } from '@/components/toast';
-import { createClient } from '@/lib/supabase/client';
+import { createBrowserClient } from '@supabase/ssr';
 import { useToast } from '@/hooks/use-toast';
 import { StepProgress } from '@/components/step-progress';
 import { STEP_LABELS } from '@/lib/constants';
@@ -294,9 +294,12 @@ export default function CompaniesAdminPage() {
     setStaffAvatarUploading((prev) => ({ ...prev, [staff.user_id]: true }));
 
     try {
-      const supabase = createClient();
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
       const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = `${staff.user_id}.${extension}`;
+      const path = `avatars/${staff.user_id}.${extension}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, file, { contentType: file.type, upsert: true });
@@ -369,7 +372,10 @@ export default function CompaniesAdminPage() {
       setLoading(true);
       setError(null);
 
-      const supabase = createClient();
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {

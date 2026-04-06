@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Mail, User, UserPlus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import type { ApiCompany, ApiUser } from './types';
@@ -23,6 +23,10 @@ type EditDraft = {
 export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -174,24 +178,23 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
     setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: true }));
 
     try {
-      const supabase = createClientComponentClient();
-      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = `${company.id}/${user.user_id}.${extension}`;
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const filePath = `${company.id}/${user.user_id}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('business-cards')
-        .upload(path, file, { contentType: file.type, upsert: true });
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
-        console.error('명함 업로드 실패', uploadError);
+        console.error('업로드 에러:', uploadError);
         showToast('명함 업로드에 실패했습니다', 'error');
         return;
       }
 
-      const { data } = supabase.storage.from('business-cards').getPublicUrl(path);
+      const { data } = supabase.storage.from('business-cards').getPublicUrl(filePath);
       const publicUrl = data?.publicUrl;
       if (!publicUrl) {
-        console.error('명함 URL 생성 실패', { path });
-        showToast('명함 URL 생성에 실패했습니다', 'error');
+        console.error('명함 URL 생성 실패', { filePath });
+        showToast('명함 업로드에 실패했습니다', 'error');
         return;
       }
 
@@ -201,7 +204,7 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
         .eq('user_id', user.user_id);
 
       if (updateError) {
-        console.error('명함 저장 실패', updateError);
+        console.error('프로필 업데이트 에러:', updateError);
         showToast('명함 저장에 실패했습니다', 'error');
         return;
       }
@@ -219,7 +222,6 @@ export function UsersTab({ company, users, onRefresh }: UsersTabProps) {
   const handleBusinessCardDelete = async (user: ApiUser) => {
     setBusinessCardUploading((prev) => ({ ...prev, [user.user_id]: true }));
     try {
-      const supabase = createClientComponentClient();
       const { error: deleteError } = await supabase
         .from('profiles')
         .update({ business_card_url: null })

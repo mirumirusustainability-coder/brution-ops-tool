@@ -11,7 +11,7 @@ import { UsersTab } from './UsersTab';
 import { ContractsTab } from './ContractsTab';
 import { NotesTab } from './NotesTab';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
-import type { ApiCompany, ApiProject, ApiUser, CompanyMetadata, PresentationDeliverableItem } from './types';
+import type { ApiCompany, ApiProject, ApiProjectWithDrops, ApiUser, CompanyMetadata } from './types';
 import type { User as AppUser } from '@/types';
 
 type TabKey = 'overview' | 'users' | 'contracts' | 'notes';
@@ -21,7 +21,7 @@ type CompanyDetailClientProps = {
   company: ApiCompany;
   projects: ApiProject[];
   users: ApiUser[];
-  presentationDeliverables: PresentationDeliverableItem[];
+  projectsWithDrops: ApiProjectWithDrops[];
   error?: string | null;
 };
 
@@ -30,7 +30,7 @@ export function CompanyDetailClient({
   company,
   projects,
   users,
-  presentationDeliverables,
+  projectsWithDrops,
   error,
 }: CompanyDetailClientProps) {
   const router = useRouter();
@@ -105,7 +105,7 @@ export function CompanyDetailClient({
         company={company}
         projects={projects}
         presentationMode={presentationMode}
-        presentationDeliverables={presentationDeliverables}
+        projectsWithDrops={projectsWithDrops}
         onUpdate={handleCompanyUpdate}
       />
     );
@@ -179,7 +179,7 @@ export function CompanyDetailClient({
           company={company}
           projects={projects}
           presentationMode
-          presentationDeliverables={presentationDeliverables}
+          projectsWithDrops={projectsWithDrops}
         />
       ) : (
         tabContent

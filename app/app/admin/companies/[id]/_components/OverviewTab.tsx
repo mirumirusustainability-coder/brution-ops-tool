@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { StepProgress } from '@/components/step-progress';
 import { DELIVERABLE_TYPE_LABELS, STEP_LABELS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import type { ApiCompany, ApiProject, CompanyMetadata, PresentationDeliverableItem } from './types';
+import type { ApiCompany, ApiProject, ApiProjectWithDrops, CompanyMetadata } from './types';
 
 type OverviewTabProps = {
   company: ApiCompany;
   projects: ApiProject[];
   presentationMode: boolean;
-  presentationDeliverables?: PresentationDeliverableItem[];
+  projectsWithDrops?: ApiProjectWithDrops[];
   onUpdate?: (metadata: CompanyMetadata) => Promise<void>;
 };
 
@@ -23,7 +23,7 @@ export function OverviewTab({
   company,
   projects,
   presentationMode,
-  presentationDeliverables = [],
+  projectsWithDrops = [],
   onUpdate,
 }: OverviewTabProps) {
   const { showToast } = useToast();
@@ -113,33 +113,74 @@ export function OverviewTab({
           </div>
           <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">드롭 현황</h3>
-            {presentationDeliverables.length === 0 ? (
+            {projectsWithDrops.length === 0 ? (
               <p className="text-sm text-gray-500">등록된 산출물이 없습니다.</p>
             ) : (
-              <div className="space-y-2">
-                {presentationDeliverables.map((item, index) => {
-                  const statusLabel = item.versionStatus ?? '-';
-                  const badgeStyle =
-                    item.versionStatus === 'in_review'
-                      ? 'bg-orange-50 text-orange-700'
-                      : 'bg-gray-100 text-gray-600';
+              (() => {
+                const dropBlocks = projectsWithDrops.map((project) => {
+                  const deliverables = project.deliverables ?? [];
+                  const filtered = deliverables.flatMap((deliverable) =>
+                    (deliverable.deliverable_versions ?? [])
+                      .filter((version) => version.status === 'draft' || version.status === 'in_review')
+                      .map((version) => ({ deliverable, version }))
+                  );
+
+                  if (filtered.length === 0) return null;
 
                   return (
-                    <div key={`${item.projectId}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
-                      <div className="text-sm text-gray-700">
-                        <span className="font-medium text-gray-900">{item.projectName ?? '프로젝트'}</span>
-                        <span className="mx-2 text-gray-300">/</span>
-                        <span className="font-medium">[{DELIVERABLE_TYPE_LABELS[item.deliverableType as keyof typeof DELIVERABLE_TYPE_LABELS] ?? item.deliverableType}]</span>
-                        <span className="text-gray-700"> {item.deliverableTitle ?? '제목 없음'}</span>
-                        <span className="text-gray-500"> · {item.versionTitle ?? '버전 제목 없음'}</span>
+                    <div key={project.id} className="space-y-2">
+                      <p className="text-sm font-semibold text-gray-800">{project.name ?? '프로젝트'}</p>
+                      <div className="space-y-2">
+                        {filtered.map(({ deliverable, version }) => {
+                          const statusLabel = version.status ?? '-';
+                          const badgeStyle =
+                            version.status === 'in_review'
+                              ? 'bg-orange-50 text-orange-700'
+                              : 'bg-gray-100 text-gray-600';
+
+                          return (
+                            <div key={version.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
+                              <div className="text-sm text-gray-700">
+                                <span className="font-medium">[{DELIVERABLE_TYPE_LABELS[deliverable.type as keyof typeof DELIVERABLE_TYPE_LABELS] ?? deliverable.type}]</span>
+                                <span className="text-gray-700"> {deliverable.title ?? '제목 없음'}</span>
+                                <span className="text-gray-500"> · {version.title ?? '버전 제목 없음'}</span>
+                              </div>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}>
+                                {statusLabel}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}>
-                        {statusLabel}
-                      </span>
                     </div>
                   );
-                })}
+                });
+
+                const visibleBlocks = dropBlocks.filter(Boolean);
+                if (visibleBlocks.length === 0) {
+                  return <p className="text-sm text-gray-500">등록된 산출물이 없습니다.</p>;
+                }
+
+                return <div className="space-y-4">{visibleBlocks}</div>;
+              })()
+            )}
+          </div>
+          <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">컨택 히스토리</h3>
+            {Array.isArray(company.metadata?.contact_history) && company.metadata?.contact_history.length ? (
+              <div className="space-y-3">
+                {company.metadata.contact_history
+                  .slice()
+                  .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+                  .map((entry, index) => (
+                    <div key={`${entry.date}-${index}`} className="border-b border-gray-100 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
+                      <p className="text-sm font-semibold text-gray-700">{entry.date}</p>
+                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{entry.content}</p>
+                    </div>
+                  ))}
               </div>
+            ) : (
+              <p className="text-sm text-gray-500">등록된 컨택 히스토리가 없습니다.</p>
             )}
           </div>
         </div>

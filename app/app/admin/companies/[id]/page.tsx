@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/app-layout';
 import { isStaffAdmin } from '@/lib/supabase/auth';
 import { createSupabaseAdmin } from '@/lib/supabase/server';
 import { CompanyDetailClient } from './_components/CompanyDetailClient';
-import type { ApiCompany, ApiProject, ApiUser, ApiDeliverable, PresentationDeliverableItem } from './_components/types';
+import type { ApiCompany, ApiProject, ApiProjectWithDrops, ApiUser } from './_components/types';
 import type { User as AppUser } from '@/types';
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -160,34 +160,17 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     users = Array.isArray(data?.users) ? data.users : [];
   }
 
-  let presentationDeliverables: PresentationDeliverableItem[] = [];
-
-  const statusTargets = new Set(['in_review', 'draft']);
-  const { data: projectsWithDrops } = await supabase
+  const { data: projectsData, error: projectsError } = await supabase
     .from('projects')
     .select(
-      'id, name, deliverables ( id, title, type, deliverable_versions ( id, title, status ) )'
+      'id, name, step, status, deliverables ( id, title, type, deliverable_versions ( id, title, status ) )'
     )
     .eq('company_id', id);
 
-  if (projectsWithDrops) {
-    presentationDeliverables = projectsWithDrops.flatMap((project) => {
-      const deliverables = (project as any).deliverables ?? [];
-      return deliverables.flatMap((deliverable: ApiDeliverable) => {
-        const versions = deliverable.deliverable_versions ?? [];
-        return versions
-          .filter((version) => version.status && statusTargets.has(version.status))
-          .map((version) => ({
-            projectId: project.id,
-            projectName: project.name ?? null,
-            deliverableType: deliverable.type,
-            deliverableTitle: deliverable.title ?? null,
-            versionTitle: version.title ?? null,
-            versionStatus: version.status ?? null,
-          }));
-      });
-    });
-  }
+  console.log('projectsData:', projectsData);
+  console.log('projectsError:', projectsError);
+
+  const projectsWithDrops = Array.isArray(projectsData) ? (projectsData as ApiProjectWithDrops[]) : [];
 
   return (
     <CompanyDetailClient
@@ -195,7 +178,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
       company={company}
       projects={projects}
       users={users}
-      presentationDeliverables={presentationDeliverables}
+      projectsWithDrops={projectsWithDrops}
       error={error}
     />
   );

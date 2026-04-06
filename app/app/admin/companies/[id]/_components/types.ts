@@ -53,6 +53,14 @@ export type ApiProject = {
   updated_at: string;
 };
 
+export type ApiProjectWithDrops = {
+  id: string;
+  name: string | null;
+  step?: number | null;
+  status?: 'active' | 'completed' | 'paused' | null;
+  deliverables?: ApiDeliverable[];
+};
+
 export type ApiDeliverableVersion = {
   id: string;
   deliverable_id: string;
@@ -69,15 +77,6 @@ export type ApiDeliverable = {
   title?: string | null;
   versions?: ApiDeliverableVersion[];
   deliverable_versions?: ApiDeliverableVersion[];
-};
-
-export type PresentationDeliverableItem = {
-  projectId: string;
-  projectName: string | null;
-  deliverableType: string;
-  deliverableTitle: string | null;
-  versionTitle: string | null;
-  versionStatus: string | null;
 };
 
 export type ApiUser = {
