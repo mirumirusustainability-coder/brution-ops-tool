@@ -17,6 +17,12 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { DeliverableType, User, UserRole, VersionStatus } from '@/types'
 
+type ProjectNote = {
+  date: string
+  author?: string | null
+  content: string
+}
+
 type AdminProject = {
   id: string
   name: string
@@ -24,6 +30,7 @@ type AdminProject = {
   company_id: string
   step: number
   status?: 'active' | 'completed' | 'paused'
+  notes?: ProjectNote[] | null
   company?: { name?: string | null } | null
 }
 
@@ -137,6 +144,10 @@ export default function AdminProjectDetailPage({
   const [editCompanyId, setEditCompanyId] = useState('')
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [showMemoModal, setShowMemoModal] = useState(false)
+  const [memoContent, setMemoContent] = useState('')
+  const [memoAuthor, setMemoAuthor] = useState('')
+  const [memoSaving, setMemoSaving] = useState(false)
 
   const buildAssetsByVersion = (assets: AdminAsset[]) =>
     assets.reduce<Record<string, AdminAsset[]>>((acc, asset) => {
@@ -550,6 +561,44 @@ export default function AdminProjectDetailPage({
     ...DELIVERABLE_STEP_ORDER.filter((step) => step !== currentStep),
   ]
 
+  const projectNotes = Array.isArray(project.notes) ? project.notes : []
+  const sortedNotes = projectNotes
+    .slice()
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+
+  const handleAddMemo = async () => {
+    if (!memoContent.trim()) {
+      showToast('메모 내용을 입력해 주세요', 'info')
+      return
+    }
+
+    const nextNote: ProjectNote = {
+      date: new Date().toISOString().slice(0, 10),
+      author: memoAuthor.trim() || null,
+      content: memoContent.trim(),
+    }
+    const nextNotes = [...projectNotes, nextNote]
+    setMemoSaving(true)
+
+    const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: nextNotes }),
+    })
+
+    if (!response.ok) {
+      showToast('메모 저장에 실패했습니다', 'error')
+      setMemoSaving(false)
+      return
+    }
+
+    setProject((prev) => (prev ? { ...prev, notes: nextNotes } : prev))
+    setMemoContent('')
+    setMemoAuthor('')
+    setMemoSaving(false)
+    showToast('메모가 저장되었습니다', 'success')
+  }
+
   return (
     <AppLayout user={currentUser}>
       <div className="max-w-6xl space-y-6">
@@ -621,9 +670,18 @@ export default function AdminProjectDetailPage({
                 </>
               )}
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
-              <p className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</p>
+            <div className="text-right space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowMemoModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                📝 메모 보기 ({projectNotes.length}개)
+              </button>
+              <div>
+                <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
+                <p className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</p>
+              </div>
             </div>
           </div>
           <div className="mt-4 rounded-lg border border-border bg-white p-4">
@@ -1159,6 +1217,69 @@ export default function AdminProjectDetailPage({
                 className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
               >
                 {creatingVersion ? '생성 중...' : '생성'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMemoModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-lg rounded-lg p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">프로젝트 메모</h3>
+              <button onClick={() => setShowMemoModal(false)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto space-y-3">
+              {sortedNotes.length === 0 ? (
+                <p className="text-sm text-gray-500">등록된 메모가 없습니다.</p>
+              ) : (
+                sortedNotes.map((note, index) => (
+                  <div key={`${note.date}-${index}`} className="border-b border-gray-100 pb-3">
+                    <p className="text-sm font-medium text-gray-800">
+                      {note.date} · {note.author || '작성자 미지정'}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{note.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">+ 메모 추가</p>
+              <input
+                type="text"
+                value={memoAuthor}
+                onChange={(e) => setMemoAuthor(e.target.value)}
+                placeholder="작성자"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              />
+              <textarea
+                value={memoContent}
+                onChange={(e) => setMemoContent(e.target.value)}
+                placeholder="메모 내용을 입력하세요"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm min-h-[90px]"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setShowMemoModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={handleAddMemo}
+                disabled={memoSaving}
+                className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
+              >
+                {memoSaving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>

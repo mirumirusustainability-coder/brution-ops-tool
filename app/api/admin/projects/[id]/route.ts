@@ -65,7 +65,7 @@ export const GET = async (
 
     const { data: project, error: projectError } = await admin
       .from('projects')
-      .select('id, name, description, created_at, company_id, step, status, companies(name)')
+      .select('id, name, description, notes, created_at, company_id, step, status, companies(name)')
       .eq('id', id)
       .single()
 
@@ -190,6 +190,10 @@ export const PATCH = async (
         return NextResponse.json({ error: 'INVALID_STATUS' }, { status: 400 })
       }
       updates.status = body.status
+    }
+
+    if (Array.isArray(body?.notes)) {
+      updates.notes = body.notes
     }
 
     if (Object.keys(updates).length === 0) {
