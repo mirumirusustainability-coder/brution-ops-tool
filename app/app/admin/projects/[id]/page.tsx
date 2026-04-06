@@ -1093,17 +1093,17 @@ export default function AdminProjectDetailPage({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-800">버전 제목</label>
+              <label className="text-base font-semibold text-gray-800">버전 제목</label>
               <input
                 value={versionTitle}
                 onChange={(e) => setVersionTitle(e.target.value)}
                 placeholder="버전 제목을 입력하세요"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-lg font-semibold"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-base font-semibold"
               />
             </div>
             {versionError && <p className="text-sm text-red-600">{versionError}</p>}
             <div className="space-y-1">
-              <label className="text-xs text-gray-500 uppercase tracking-wide">버전 번호</label>
+              <label className="text-sm text-gray-500 uppercase tracking-wide">버전</label>
               <input
                 type="text"
                 value="자동 생성 · draft"

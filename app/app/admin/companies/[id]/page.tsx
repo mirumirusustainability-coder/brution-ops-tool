@@ -163,18 +163,18 @@ export default async function CompanyUsersPage({ params }: PageProps) {
   let presentationDeliverables: PresentationDeliverableItem[] = [];
 
   const statusTargets = new Set(['in_review', 'draft']);
-  const { data: presentationProjects } = await supabase
+  const { data: projectsWithDrops } = await supabase
     .from('projects')
     .select(
       'id, name, deliverables ( id, title, type, deliverable_versions ( id, title, status ) )'
     )
     .eq('company_id', id);
 
-  if (presentationProjects) {
-    presentationDeliverables = presentationProjects.flatMap((project) => {
+  if (projectsWithDrops) {
+    presentationDeliverables = projectsWithDrops.flatMap((project) => {
       const deliverables = (project as any).deliverables ?? [];
       return deliverables.flatMap((deliverable: ApiDeliverable) => {
-        const versions = deliverable.deliverable_versions ?? deliverable.versions ?? [];
+        const versions = deliverable.deliverable_versions ?? [];
         return versions
           .filter((version) => version.status && statusTargets.has(version.status))
           .map((version) => ({
