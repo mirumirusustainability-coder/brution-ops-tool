@@ -49,6 +49,12 @@ type AdminCompany = {
   name: string
 }
 
+type DeleteTarget =
+  | { type: 'asset'; assetId: string; versionId: string }
+  | { type: 'project' }
+  | { type: 'deliverable'; deliverable: AdminDeliverable }
+  | { type: 'version'; versionId: string }
+
 type AdminDeliverable = {
   id: string
   project_id: string
@@ -164,6 +170,14 @@ export default function AdminProjectDetailPage({
   const [contactAuthor, setContactAuthor] = useState('')
   const [contactContent, setContactContent] = useState('')
   const [memoSaving, setMemoSaving] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: 'asset' | 'project' | 'deliverable' | 'version'
+    id: string
+    versionId?: string
+    deliverable?: AdminDeliverable
+    label: string
+  } | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   const buildAssetsByVersion = (assets: AdminAsset[]) =>
     assets.reduce<Record<string, AdminAsset[]>>((acc, asset) => {
@@ -258,10 +272,7 @@ export default function AdminProjectDetailPage({
     setStatusUpdating(false)
   }
 
-  const handleDeleteAsset = async (assetId: string, versionId: string) => {
-    const confirmed = window.confirm('정말 이 파일을 삭제하시겠습니까?')
-    if (!confirmed) return
-
+  const executeDeleteAsset = async (assetId: string, versionId: string) => {
     setDeletingAssetId(assetId)
     setAssetDeleteError(null)
 
@@ -289,12 +300,8 @@ export default function AdminProjectDetailPage({
     setDeletingAssetId(null)
   }
 
-  const handleDeleteProject = async () => {
+  const executeDeleteProject = async () => {
     if (!project) return
-    const confirmed = window.confirm(
-      `정말 ${project.name}을 삭제하시겠습니까? 모든 산출물과 파일이 삭제됩니다.`
-    )
-    if (!confirmed) return
 
     setDeletingProject(true)
     setDeleteProjectError(null)
@@ -312,6 +319,75 @@ export default function AdminProjectDetailPage({
 
     showToast('프로젝트가 삭제되었습니다', 'success')
     router.replace('/app/admin/projects')
+  }
+
+  const executeDeliverableDelete = async (deliverable: AdminDeliverable) => {
+    setDeletingDeliverableId(deliverable.id)
+    setDeliverableDeleteError(null)
+
+    const response = await fetch(`/api/admin/deliverables/${deliverable.id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      setDeliverableDeleteError('드롭 삭제에 실패했습니다')
+      showToast('드롭 삭제에 실패했습니다', 'error')
+      setDeletingDeliverableId(null)
+      return
+    }
+
+    setDeletingDeliverableId(null)
+    showToast('삭제되었습니다', 'success')
+    await fetchProject()
+  }
+
+  const executeVersionDelete = async (versionId: string) => {
+    setDeletingVersionId(versionId)
+    setVersionDeleteError(null)
+
+    const response = await fetch(`/api/admin/deliverable-versions/${versionId}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      setVersionDeleteError('버전 삭제에 실패했습니다')
+      showToast('버전 삭제에 실패했습니다', 'error')
+      setDeletingVersionId(null)
+      return
+    }
+
+    await fetchProject()
+    showToast('삭제되었습니다', 'success')
+    setDeletingVersionId(null)
+  }
+
+  const performDelete = async () => {
+    if (!deleteConfirm) return
+    if (deleteConfirmText !== '삭제') return
+
+    if (deleteConfirm.type === 'asset' && deleteConfirm.versionId) {
+      await executeDeleteAsset(deleteConfirm.id, deleteConfirm.versionId)
+    } else if (deleteConfirm.type === 'project') {
+      await executeDeleteProject()
+    } else if (deleteConfirm.type === 'deliverable' && deleteConfirm.deliverable) {
+      await executeDeliverableDelete(deleteConfirm.deliverable)
+    } else if (deleteConfirm.type === 'version') {
+      await executeVersionDelete(deleteConfirm.id)
+    }
+
+    setDeleteConfirm(null)
+    setDeleteConfirmText('')
+  }
+
+  const handleDeleteAsset = (assetId: string, versionId: string) => {
+    setDeleteConfirm({ type: 'asset', id: assetId, versionId, label: '파일' })
+    setDeleteConfirmText('')
+  }
+
+  const handleDeleteProject = () => {
+    if (!project) return
+    setDeleteConfirm({ type: 'project', id: resolvedParams.id, label: project.name })
+    setDeleteConfirmText('')
   }
 
   const openDeliverableEditModal = (deliverable: AdminDeliverable) => {
@@ -356,29 +432,14 @@ export default function AdminProjectDetailPage({
     await fetchProject()
   }
 
-  const handleDeliverableDelete = async (deliverable: AdminDeliverable) => {
-    const confirmed = window.confirm(
-      `정말 ${deliverable.title || '드롭'}을 삭제하시겠습니까? 모든 버전과 파일이 삭제됩니다.`
-    )
-    if (!confirmed) return
-
-    setDeletingDeliverableId(deliverable.id)
-    setDeliverableDeleteError(null)
-
-    const response = await fetch(`/api/admin/deliverables/${deliverable.id}`, {
-      method: 'DELETE',
+  const handleDeliverableDelete = (deliverable: AdminDeliverable) => {
+    setDeleteConfirm({
+      type: 'deliverable',
+      id: deliverable.id,
+      deliverable,
+      label: deliverable.title || '드롭',
     })
-
-    if (!response.ok) {
-      setDeliverableDeleteError('드롭 삭제에 실패했습니다')
-      showToast('드롭 삭제에 실패했습니다', 'error')
-      setDeletingDeliverableId(null)
-      return
-    }
-
-    setDeletingDeliverableId(null)
-    showToast('삭제되었습니다', 'success')
-    await fetchProject()
+    setDeleteConfirmText('')
   }
 
   const handleVersionStatusChange = async (versionId: string, nextStatus: string) => {
@@ -403,27 +464,9 @@ export default function AdminProjectDetailPage({
     setVersionUpdatingId(null)
   }
 
-  const handleVersionDelete = async (versionId: string) => {
-    const confirmed = window.confirm('정말 이 버전을 삭제하시겠습니까? 모든 파일이 삭제됩니다.')
-    if (!confirmed) return
-
-    setDeletingVersionId(versionId)
-    setVersionDeleteError(null)
-
-    const response = await fetch(`/api/admin/deliverable-versions/${versionId}`, {
-      method: 'DELETE',
-    })
-
-    if (!response.ok) {
-      setVersionDeleteError('버전 삭제에 실패했습니다')
-      showToast('버전 삭제에 실패했습니다', 'error')
-      setDeletingVersionId(null)
-      return
-    }
-
-    await fetchProject()
-    showToast('삭제되었습니다', 'success')
-    setDeletingVersionId(null)
+  const handleVersionDelete = (versionId: string) => {
+    setDeleteConfirm({ type: 'version', id: versionId, label: '버전' })
+    setDeleteConfirmText('')
   }
 
   const handleAdminUpload = async (versionId: string, file: File) => {
@@ -568,6 +611,12 @@ export default function AdminProjectDetailPage({
     }
   }, [resolvedParams.id, router])
 
+  useEffect(() => {
+    if (currentUser?.name && !contactAuthor) {
+      setContactAuthor(currentUser.name)
+    }
+  }, [currentUser, contactAuthor])
+
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
   }
@@ -625,12 +674,6 @@ export default function AdminProjectDetailPage({
   const sortedNotes = combinedNotes
     .slice()
     .sort((a, b) => getNoteTimestamp(b) - getNoteTimestamp(a))
-
-  useEffect(() => {
-    if (currentUser?.name && !contactAuthor) {
-      setContactAuthor(currentUser.name)
-    }
-  }, [currentUser, contactAuthor])
 
   const handleAddMemo = async () => {
     if (!contactContent.trim()) {
@@ -1434,6 +1477,43 @@ export default function AdminProjectDetailPage({
                 className="px-4 py-2 border border-gray-300 rounded-md"
               >
                 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-sm rounded-lg p-6 space-y-4">
+            <h3 className="text-lg font-semibold">삭제 확인</h3>
+            <p className="text-sm text-gray-600">
+              <strong>{deleteConfirm.label}</strong>을(를) 삭제하려면
+              <br />
+              아래에 <strong>삭제</strong>를 입력하세요.
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              placeholder="삭제"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setDeleteConfirm(null)
+                  setDeleteConfirmText('')
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                취소
+              </button>
+              <button
+                disabled={deleteConfirmText !== '삭제'}
+                onClick={performDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm disabled:opacity-50"
+              >
+                삭제
               </button>
             </div>
           </div>
