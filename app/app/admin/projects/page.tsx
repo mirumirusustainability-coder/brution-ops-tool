@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronRight, Plus, Search, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
@@ -77,6 +77,10 @@ export default function AdminProjectsPage() {
   const [formStep, setFormStep] = useState(0)
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<{ id: string; name: string } | null>(null)
+  const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const filterParam = searchParams.get('filter')
@@ -196,9 +200,6 @@ export default function AdminProjectsPage() {
         const items = Array.isArray(data?.companies) ? data.companies : []
         if (active) {
           setCompanies(items)
-          if (!formCompanyId && items.length > 0) {
-            setFormCompanyId(items[0].id)
-          }
         }
         return true
       }
@@ -217,6 +218,39 @@ export default function AdminProjectsPage() {
       active = false
     }
   }, [router])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!formCompanyId) {
+      setSelectedCompany(null)
+      return
+    }
+    const matched = companies.find((company) => company.id === formCompanyId)
+    if (matched) {
+      setSelectedCompany(matched)
+    }
+  }, [companies, formCompanyId])
+
+  const filteredCompanies = useMemo(() => {
+    const keyword = searchQuery.trim().toLowerCase()
+    const availableCompanies = companies.filter(
+      (company) => company.id !== '00000000-0000-0000-0000-000000000001'
+    )
+    if (!keyword) return availableCompanies
+    return availableCompanies.filter((company) => company.name.toLowerCase().includes(keyword))
+  }, [companies, searchQuery])
 
   const filteredProjects = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -325,17 +359,76 @@ export default function AdminProjectsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   rows={3}
                 />
-                <select
-                  value={formCompanyId}
-                  onChange={(event) => setFormCompanyId(event.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen((prev) => !prev)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md flex items-center justify-between"
+                  >
+                    <span className={selectedCompany ? 'text-gray-900' : 'text-gray-400'}>
+                      {selectedCompany ? selectedCompany.name : '고객사를 선택하세요'}
+                    </span>
+                    {selectedCompany ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setSelectedCompany(null)
+                          setFormCompanyId('')
+                          setSearchQuery('')
+                          setIsOpen(false)
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            setSelectedCompany(null)
+                            setFormCompanyId('')
+                            setSearchQuery('')
+                            setIsOpen(false)
+                          }
+                        }}
+                        className="ml-2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </span>
+                    ) : null}
+                  </button>
+                  {isOpen && (
+                    <div className="absolute z-50 mt-2 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+                      <div className="p-2">
+                        <input
+                          autoFocus
+                          value={searchQuery}
+                          onChange={(event) => setSearchQuery(event.target.value)}
+                          placeholder="고객사 검색"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto py-1">
+                        {filteredCompanies.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-gray-500">검색 결과가 없습니다</div>
+                        ) : (
+                          filteredCompanies.map((company) => (
+                            <button
+                              key={company.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCompany(company)
+                                setFormCompanyId(company.id)
+                                setSearchQuery('')
+                                setIsOpen(false)
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                            >
+                              {company.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <select
                   value={formStep}
                   onChange={(event) => setFormStep(Number(event.target.value))}
@@ -398,6 +491,10 @@ export default function AdminProjectsPage() {
                     setFormName('')
                     setFormDescription('')
                     setFormStep(0)
+                    setFormCompanyId('')
+                    setSelectedCompany(null)
+                    setSearchQuery('')
+                    setIsOpen(false)
                     setShowCreateModal(false)
                     setCreating(false)
                     showToast('프로젝트가 생성되었습니다', 'success')

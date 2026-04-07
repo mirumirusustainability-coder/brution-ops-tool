@@ -19,6 +19,7 @@ import { DeliverableType, User, UserRole, VersionStatus } from '@/types'
 
 type ProjectNote = {
   date: string
+  time?: string | null
   author?: string | null
   content: string
 }
@@ -155,7 +156,12 @@ export default function AdminProjectDetailPage({
   const [editError, setEditError] = useState<string | null>(null)
   const [showMemoModal, setShowMemoModal] = useState(false)
   const [showContactForm, setShowContactForm] = useState(false)
-  const [contactDate, setContactDate] = useState(new Date().toISOString().slice(0, 10))
+  const getTodayDate = () => new Date().toISOString().slice(0, 10)
+  const getCurrentTime = () => new Date().toTimeString().slice(0, 5)
+
+  const [contactDate, setContactDate] = useState(getTodayDate())
+  const [contactTime, setContactTime] = useState(getCurrentTime())
+  const [contactAuthor, setContactAuthor] = useState('')
   const [contactContent, setContactContent] = useState('')
   const [memoSaving, setMemoSaving] = useState(false)
 
@@ -609,9 +615,22 @@ export default function AdminProjectDetailPage({
       sourceLabel: project.name,
     })),
   ]
+  const getNoteTimestamp = (note: { date?: string; time?: string | null }) => {
+    if (!note?.date) return 0
+    const timeValue = note.time && note.time.trim() ? note.time : '00:00'
+    const timestamp = new Date(`${note.date}T${timeValue}:00`)
+    return Number.isNaN(timestamp.getTime()) ? 0 : timestamp.getTime()
+  }
+
   const sortedNotes = combinedNotes
     .slice()
-    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+    .sort((a, b) => getNoteTimestamp(b) - getNoteTimestamp(a))
+
+  useEffect(() => {
+    if (currentUser?.name && !contactAuthor) {
+      setContactAuthor(currentUser.name)
+    }
+  }, [currentUser, contactAuthor])
 
   const handleAddMemo = async () => {
     if (!contactContent.trim()) {
@@ -621,6 +640,8 @@ export default function AdminProjectDetailPage({
 
     const nextNote: ProjectNote = {
       date: contactDate,
+      time: contactTime || null,
+      author: contactAuthor.trim() || null,
       content: contactContent.trim(),
     }
     const nextNotes = [...projectNotes, nextNote]
@@ -652,7 +673,9 @@ export default function AdminProjectDetailPage({
         : prev
     )
     setContactContent('')
-    setContactDate(new Date().toISOString().slice(0, 10))
+    setContactDate(getTodayDate())
+    setContactTime(getCurrentTime())
+    setContactAuthor(currentUser?.name ?? '')
     setShowContactForm(false)
     setMemoSaving(false)
     showToast('컨택 히스토리가 저장되었습니다', 'success')
@@ -1328,12 +1351,17 @@ export default function AdminProjectDetailPage({
                   return (
                     <div key={`${note.date}-${index}`} className="border-b border-gray-100 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-gray-700">{note.date}</p>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}>
+                        <p className="text-xs text-gray-500">
+                          {[note.date?.replace(/-/g, '.'), note.time].filter(Boolean).join(' ')}
+                          {note.author ? ` · ${note.author}` : ''}
+                        </p>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}
+                        >
                           {note.sourceLabel}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{note.content}</p>
+                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-line">{note.content}</p>
                     </div>
                   )
                 })
@@ -1345,7 +1373,9 @@ export default function AdminProjectDetailPage({
                 type="button"
                 onClick={() => {
                   setShowContactForm((prev) => !prev)
-                  setContactDate(new Date().toISOString().slice(0, 10))
+                  setContactDate(getTodayDate())
+                  setContactTime(getCurrentTime())
+                  setContactAuthor(currentUser?.name ?? '')
                 }}
                 className="text-sm font-medium text-primary"
               >
@@ -1353,10 +1383,25 @@ export default function AdminProjectDetailPage({
               </button>
               {showContactForm && (
                 <div className="space-y-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <input
+                      type="date"
+                      value={contactDate}
+                      onChange={(e) => setContactDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                    <input
+                      type="time"
+                      value={contactTime}
+                      onChange={(e) => setContactTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
                   <input
-                    type="date"
-                    value={contactDate}
-                    onChange={(e) => setContactDate(e.target.value)}
+                    type="text"
+                    value={contactAuthor}
+                    onChange={(e) => setContactAuthor(e.target.value)}
+                    placeholder="작성자"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                   />
                   <textarea
