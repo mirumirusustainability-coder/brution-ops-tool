@@ -529,6 +529,7 @@ export default function AdminProjectDetailPage({
       let me: {
         userId: string
         email: string
+        name?: string | null
         role: string | null
         companyId: string | null
         mustChangePassword: boolean
@@ -569,7 +570,7 @@ export default function AdminProjectDetailPage({
       const user: User = {
         id: me?.userId ?? '',
         email: me?.email ?? '',
-        name: me?.email ?? '',
+        name: me?.name ?? me?.email ?? '',
         role: (me?.role ?? 'staff') as UserRole,
         companyId: me?.companyId ?? '',
         mustChangePassword: me?.mustChangePassword ?? false,

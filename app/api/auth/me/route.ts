@@ -39,11 +39,12 @@ export const GET = async (request: Request) => {
   }
 
   return NextResponse.json({
-    id: user.id,
-    email: user.email,
+    userId: profile.user_id,
+    email: profile.email,
     name: profile.name,
     role: profile.role,
     companyId: profile.company_id,
     mustChangePassword: profile.must_change_password,
+    status: profile.status,
   })
 }
