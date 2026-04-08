@@ -47,6 +47,8 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
   const [editContent, setEditContent] = useState('');
   const [editAuthor, setEditAuthor] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [deleteTargetIndex, setDeleteTargetIndex] = useState<number | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useEffect(() => {
     setDraft(company.metadata ?? {});
@@ -115,6 +117,8 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
     try {
       await onUpdate(nextDraft);
       showToast('컨택 히스토리가 삭제되었습니다', 'success');
+      setDeleteTargetIndex(null);
+      setDeleteConfirmText('');
     } catch {
       showToast('컨택 히스토리 삭제에 실패했습니다', 'error');
     }
@@ -243,7 +247,7 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
               <div key={`${entry.date}-${index}`} className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 p-3">
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {entry.date?.replace(/-/g, '.')} · {entry.author || '담당자 미지정'}
+                    {entry.date} · {entry.author || '담당자 미지정'}
                   </p>
                   <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{entry.content}</p>
                 </div>
@@ -257,7 +261,10 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeleteHistory(index)}
+                    onClick={() => {
+                      setDeleteTargetIndex(index);
+                      setDeleteConfirmText('');
+                    }}
                     className="text-xs text-red-500 hover:text-red-600 underline"
                   >
                     삭제
@@ -391,6 +398,41 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
           >
             {saving ? '저장 중...' : '저장'}
           </button>
+        </div>
+      )}
+
+      {deleteTargetIndex !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-sm rounded-lg p-6 space-y-4">
+            <h3 className="text-lg font-semibold">삭제 확인</h3>
+            <p className="text-sm text-gray-600">
+              삭제하려면 아래에 <strong>삭제</strong>를 입력하세요.
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="삭제"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setDeleteTargetIndex(null);
+                  setDeleteConfirmText('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                취소
+              </button>
+              <button
+                disabled={deleteConfirmText !== '삭제'}
+                onClick={() => handleDeleteHistory(deleteTargetIndex)}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm disabled:opacity-50"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

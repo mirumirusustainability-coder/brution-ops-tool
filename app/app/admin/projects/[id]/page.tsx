@@ -816,7 +816,8 @@ export default function AdminProjectDetailPage({
                     고객사:{' '} 
                     <button type="button" 
                     onClick={() => router.push(`/app/admin/companies/${project.company_id}`)}
-                    className="text-xs text-blue-500 hover:text-blue-700 underline"
+                    className="text-sm font-medium text-blue-500 hover:text-blue-700 underline
+"
                     >
                     {project.company?.name ?? '미지정'}
                     </button>
