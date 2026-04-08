@@ -80,6 +80,12 @@ type AdminAsset = {
   created_at: string
 }
 
+type DeleteModalState =
+  | { type: 'asset'; assetId: string; versionId: string }
+  | { type: 'project' }
+  | { type: 'deliverable'; deliverable: AdminDeliverable }
+  | { type: 'version'; versionId: string }
+
 const versionStatusOptions = [
   { value: 'draft', label: '검토중' },
   { value: 'in_review', label: '완료' },
@@ -164,6 +170,8 @@ export default function AdminProjectDetailPage({
   const [contactAuthor, setContactAuthor] = useState('')
   const [contactContent, setContactContent] = useState('')
   const [memoSaving, setMemoSaving] = useState(false)
+  const [deleteModalState, setDeleteModalState] = useState<DeleteModalState | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   const buildAssetsByVersion = (assets: AdminAsset[]) =>
     assets.reduce<Record<string, AdminAsset[]>>((acc, asset) => {
@@ -258,10 +266,7 @@ export default function AdminProjectDetailPage({
     setStatusUpdating(false)
   }
 
-  const handleDeleteAsset = async (assetId: string, versionId: string) => {
-    const confirmed = window.confirm('정말 이 파일을 삭제하시겠습니까?')
-    if (!confirmed) return
-
+  const performDeleteAsset = async (assetId: string, versionId: string) => {
     setDeletingAssetId(assetId)
     setAssetDeleteError(null)
 
@@ -289,12 +294,13 @@ export default function AdminProjectDetailPage({
     setDeletingAssetId(null)
   }
 
-  const handleDeleteProject = async () => {
+  const handleDeleteAsset = (assetId: string, versionId: string) => {
+    setDeleteConfirmText('')
+    setDeleteModalState({ type: 'asset', assetId, versionId })
+  }
+
+  const performDeleteProject = async () => {
     if (!project) return
-    const confirmed = window.confirm(
-      `정말 ${project.name}을 삭제하시겠습니까? 모든 산출물과 파일이 삭제됩니다.`
-    )
-    if (!confirmed) return
 
     setDeletingProject(true)
     setDeleteProjectError(null)
@@ -312,6 +318,11 @@ export default function AdminProjectDetailPage({
 
     showToast('프로젝트가 삭제되었습니다', 'success')
     router.replace('/app/admin/projects')
+  }
+
+  const handleDeleteProject = () => {
+    setDeleteConfirmText('')
+    setDeleteModalState({ type: 'project' })
   }
 
   const openDeliverableEditModal = (deliverable: AdminDeliverable) => {
@@ -356,12 +367,7 @@ export default function AdminProjectDetailPage({
     await fetchProject()
   }
 
-  const handleDeliverableDelete = async (deliverable: AdminDeliverable) => {
-    const confirmed = window.confirm(
-      `정말 ${deliverable.title || '드롭'}을 삭제하시겠습니까? 모든 버전과 파일이 삭제됩니다.`
-    )
-    if (!confirmed) return
-
+  const performDeliverableDelete = async (deliverable: AdminDeliverable) => {
     setDeletingDeliverableId(deliverable.id)
     setDeliverableDeleteError(null)
 
@@ -379,6 +385,11 @@ export default function AdminProjectDetailPage({
     setDeletingDeliverableId(null)
     showToast('삭제되었습니다', 'success')
     await fetchProject()
+  }
+
+  const handleDeliverableDelete = (deliverable: AdminDeliverable) => {
+    setDeleteConfirmText('')
+    setDeleteModalState({ type: 'deliverable', deliverable })
   }
 
   const handleVersionStatusChange = async (versionId: string, nextStatus: string) => {
@@ -403,10 +414,7 @@ export default function AdminProjectDetailPage({
     setVersionUpdatingId(null)
   }
 
-  const handleVersionDelete = async (versionId: string) => {
-    const confirmed = window.confirm('정말 이 버전을 삭제하시겠습니까? 모든 파일이 삭제됩니다.')
-    if (!confirmed) return
-
+  const performVersionDelete = async (versionId: string) => {
     setDeletingVersionId(versionId)
     setVersionDeleteError(null)
 
@@ -424,6 +432,11 @@ export default function AdminProjectDetailPage({
     await fetchProject()
     showToast('삭제되었습니다', 'success')
     setDeletingVersionId(null)
+  }
+
+  const handleVersionDelete = (versionId: string) => {
+    setDeleteConfirmText('')
+    setDeleteModalState({ type: 'version', versionId })
   }
 
   const handleAdminUpload = async (versionId: string, file: File) => {
@@ -568,6 +581,12 @@ export default function AdminProjectDetailPage({
     }
   }, [resolvedParams.id, router])
 
+  useEffect(() => {
+    if (currentUser?.name && !contactAuthor) {
+      setContactAuthor(currentUser.name)
+    }
+  }, [currentUser, contactAuthor])
+
   if (loading && !currentUser) {
     return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
   }
@@ -625,12 +644,6 @@ export default function AdminProjectDetailPage({
   const sortedNotes = combinedNotes
     .slice()
     .sort((a, b) => getNoteTimestamp(b) - getNoteTimestamp(a))
-
-  useEffect(() => {
-    if (currentUser?.name && !contactAuthor) {
-      setContactAuthor(currentUser.name)
-    }
-  }, [currentUser, contactAuthor])
 
   const handleAddMemo = async () => {
     if (!contactContent.trim()) {
@@ -768,7 +781,16 @@ export default function AdminProjectDetailPage({
               <div>
                 <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
                 {project.company_id ? (
-                  <span className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</span>
+                  <span className="text-xs text-gray-500 mt-1">
+                    고객사:{' '}
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/app/admin/companies/${project.company_id}`)}
+                      className="text-xs text-blue-500 hover:text-blue-700 underline"
+                    >
+                      {project.company?.name ?? '미지정'}
+                    </button>
+                  </span>
                 ) : (
                   <span className="text-xs text-gray-400 mt-1 flex items-center gap-2">
                     <span>고객사: 미지정</span>
@@ -1360,6 +1382,15 @@ export default function AdminProjectDetailPage({
                         >
                           {note.sourceLabel}
                         </span>
+                        {note.source === 'company' && project.company_id && (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/app/admin/companies/${project.company_id}`)}
+                            className="text-xs text-blue-500 hover:text-blue-700 underline"
+                          >
+                            고객사에서 관리
+                          </button>
+                        )}
                       </div>
                       <p className="text-sm text-gray-700 mt-1 whitespace-pre-line">{note.content}</p>
                     </div>
@@ -1434,6 +1465,78 @@ export default function AdminProjectDetailPage({
                 className="px-4 py-2 border border-gray-300 rounded-md"
               >
                 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteModalState && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-md rounded-lg p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">삭제 확인</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModalState(null)
+                  setDeleteConfirmText('')
+                }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-700">
+              {deleteModalState.type === 'asset' && '파일을 삭제하시려면 아래에 "삭제"를 입력하세요.'}
+              {deleteModalState.type === 'project' &&
+                `프로젝트 "${project?.name ?? ''}" 및 모든 산출물/파일을 삭제하시려면 아래에 "삭제"를 입력하세요.`}
+              {deleteModalState.type === 'deliverable' &&
+                `"${deleteModalState.deliverable.title || '드롭'}"과 모든 버전/파일을 삭제하시려면 아래에 "삭제"를 입력하세요.`}
+              {deleteModalState.type === 'version' &&
+                '버전 및 모든 파일을 삭제하시려면 아래에 "삭제"를 입력하세요.'}
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              placeholder='확인을 위해 "삭제"를 입력하세요'
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModalState(null)
+                  setDeleteConfirmText('')
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={deleteConfirmText !== '삭제'}
+                onClick={async () => {
+                  const modalState = deleteModalState
+                  if (!modalState || deleteConfirmText !== '삭제') return
+                  setDeleteModalState(null)
+                  setDeleteConfirmText('')
+                  if (modalState.type === 'asset') {
+                    await performDeleteAsset(modalState.assetId, modalState.versionId)
+                    return
+                  }
+                  if (modalState.type === 'project') {
+                    await performDeleteProject()
+                    return
+                  }
+                  if (modalState.type === 'deliverable') {
+                    await performDeliverableDelete(modalState.deliverable)
+                    return
+                  }
+                  await performVersionDelete(modalState.versionId)
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-md disabled:opacity-50"
+              >
+                삭제
               </button>
             </div>
           </div>

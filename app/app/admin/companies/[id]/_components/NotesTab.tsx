@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 import type { ApiCompany, CompanyMetadata, ContactHistoryEntry } from './types';
 
 type NotesTabProps = {
@@ -32,6 +33,7 @@ const renderBadgeValue = (value?: string | null, styleMap?: Record<string, strin
 };
 
 const getToday = () => new Date().toISOString().slice(0, 10);
+const getCurrentTime = () => new Date().toTimeString().slice(0, 5);
 
 export function NotesTab({ company, onUpdate }: NotesTabProps) {
   const { showToast } = useToast();
@@ -40,8 +42,16 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newDate, setNewDate] = useState(getToday());
+  const [newTime, setNewTime] = useState(getCurrentTime());
   const [newContent, setNewContent] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
+  const [deleteTargetIndex, setDeleteTargetIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editDate, setEditDate] = useState(getToday());
+  const [editTime, setEditTime] = useState(getCurrentTime());
+  const [editAuthor, setEditAuthor] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editingSubmitting, setEditingSubmitting] = useState(false);
 
   useEffect(() => {
     setDraft(company.metadata ?? {});
@@ -52,7 +62,11 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
     () =>
       contactHistory
         .map((entry, index) => ({ entry, index }))
-        .sort((a, b) => (b.entry.date ?? '').localeCompare(a.entry.date ?? '')),
+        .sort((a, b) =>
+          `${b.entry.date ?? ''}T${b.entry.time ?? '00:00'}`.localeCompare(
+            `${a.entry.date ?? ''}T${a.entry.time ?? '00:00'}`
+          )
+        ),
     [contactHistory]
   );
 
@@ -85,6 +99,7 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
     }
     const entry: ContactHistoryEntry = {
       date: newDate || getToday(),
+      time: newTime || null,
       content: newContent.trim(),
       author: newAuthor.trim() || null,
     };
@@ -97,21 +112,64 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
       setNewContent('');
       setNewAuthor('');
       setNewDate(getToday());
+      setNewTime(getCurrentTime());
       setShowAddForm(false);
     } catch {
       showToast('컨택 히스토리 저장에 실패했습니다', 'error');
     }
   };
 
-  const handleDeleteHistory = async (index: number) => {
+  const performDeleteHistory = async (index: number) => {
     const nextHistory = contactHistory.filter((_, idx) => idx !== index);
     const nextDraft = { ...draft, contact_history: nextHistory };
     setDraft(nextDraft);
     try {
       await onUpdate(nextDraft);
-      showToast('컨택 히스토리가 삭제되었습니다', 'success');
+      showToast('삭제되었습니다', 'success');
+      setDeleteTargetIndex(null);
     } catch {
       showToast('컨택 히스토리 삭제에 실패했습니다', 'error');
+    }
+  };
+
+  const openEditModal = (index: number) => {
+    const target = contactHistory[index];
+    if (!target) return;
+    setEditingIndex(index);
+    setEditDate(target.date || getToday());
+    setEditTime(target.time || '');
+    setEditAuthor(target.author || '');
+    setEditContent(target.content || '');
+  };
+
+  const handleEditHistory = async () => {
+    if (editingIndex === null) return;
+    if (!editContent.trim()) {
+      showToast('컨택 내용을 입력해 주세요', 'info');
+      return;
+    }
+    const nextHistory = contactHistory.map((entry, idx) =>
+      idx === editingIndex
+        ? {
+            ...entry,
+            date: editDate || getToday(),
+            time: editTime || null,
+            author: editAuthor.trim() || null,
+            content: editContent.trim(),
+          }
+        : entry
+    );
+    const nextDraft = { ...draft, contact_history: nextHistory };
+    setEditingSubmitting(true);
+    setDraft(nextDraft);
+    try {
+      await onUpdate(nextDraft);
+      showToast('수정되었습니다', 'success');
+      setEditingIndex(null);
+    } catch {
+      showToast('컨택 히스토리 저장에 실패했습니다', 'error');
+    } finally {
+      setEditingSubmitting(false);
     }
   };
 
@@ -155,6 +213,15 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
                 />
               </div>
               <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">시간</label>
+                <input
+                  type="time"
+                  value={newTime}
+                  onChange={(e) => setNewTime(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">작성자</label>
                 <input
                   type="text"
@@ -193,17 +260,26 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
               <div key={`${entry.date}-${index}`} className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 p-3">
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {entry.date} · {entry.author || '담당자 미지정'}
+                    {[entry.date, entry.time].filter(Boolean).join(' ')} · {entry.author || '담당자 미지정'}
                   </p>
                   <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{entry.content}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteHistory(index)}
-                  className="text-sm text-gray-400 hover:text-red-500"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(index)}
+                    className="text-xs text-blue-600 hover:text-blue-700 underline"
+                  >
+                    수정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTargetIndex(index)}
+                    className="text-xs text-red-500 hover:text-red-600 underline"
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -279,6 +355,67 @@ export function NotesTab({ company, onUpdate }: NotesTabProps) {
           >
             {saving ? '저장 중...' : '저장'}
           </button>
+        </div>
+      )}
+      <DeleteConfirmModal
+        isOpen={deleteTargetIndex !== null}
+        title="컨택 히스토리 삭제"
+        description='삭제하려면 "삭제"를 입력하세요.'
+        onConfirm={async () => {
+          if (deleteTargetIndex === null) return;
+          await performDeleteHistory(deleteTargetIndex);
+        }}
+        onCancel={() => setDeleteTargetIndex(null)}
+      />
+      {editingIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">컨택 히스토리 수정</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                type="date"
+                value={editDate}
+                onChange={(event) => setEditDate(event.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              />
+              <input
+                type="time"
+                value={editTime}
+                onChange={(event) => setEditTime(event.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+            <input
+              type="text"
+              value={editAuthor}
+              onChange={(event) => setEditAuthor(event.target.value)}
+              placeholder="작성자"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            />
+            <textarea
+              value={editContent}
+              onChange={(event) => setEditContent(event.target.value)}
+              placeholder="내용"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm min-h-[90px]"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingIndex(null)}
+                className="px-4 py-2 border border-gray-300 rounded-md"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleEditHistory}
+                disabled={editingSubmitting}
+                className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
+              >
+                {editingSubmitting ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
