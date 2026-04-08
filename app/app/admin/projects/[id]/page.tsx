@@ -812,7 +812,15 @@ export default function AdminProjectDetailPage({
               <div>
                 <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
                 {project.company_id ? (
-                  <span className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</span>
+                  <span className="text-xs text-gray-500 mt-1">
+                    고객사:{' '} 
+                    <button type="button" 
+                    onClick={() => router.push(`/app/admin/companies/${project.company_id}`)}
+                    className="text-xs text-blue-500 hover:text-blue-700 underline"
+                    >
+                    {project.company?.name ?? '미지정'}
+                    </button>
+                    </span>
                 ) : (
                   <span className="text-xs text-gray-400 mt-1 flex items-center gap-2">
                     <span>고객사: 미지정</span>

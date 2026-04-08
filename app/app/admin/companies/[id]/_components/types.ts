@@ -1,5 +1,6 @@
 export type ContactHistoryEntry = {
   date: string;
+  time?: string | null;
   content: string;
   author?: string | null;
 };
