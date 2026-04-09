@@ -75,7 +75,7 @@ export const GET = async (
 
     const { data: projects, error: projectsError } = await admin
       .from('projects')
-      .select('id, company_id, name, description, step, status, created_at, updated_at')
+      .select('id, company_id, name, description, step, status, metadata, created_at, updated_at')
       .eq('company_id', id)
       .order('created_at', { ascending: false })
 

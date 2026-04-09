@@ -650,21 +650,6 @@ export default function AdminProjectDetailPage({
     : Array.isArray(project.notes)
       ? project.notes
       : []
-  const companyNotes = Array.isArray(project.company?.metadata?.contact_history)
-    ? project.company?.metadata?.contact_history
-    : []
-  const combinedNotes = [
-    ...companyNotes.map((note) => ({
-      ...note,
-      source: 'company' as const,
-      sourceLabel: project.company?.name ?? '고객사',
-    })),
-    ...projectNotes.map((note) => ({
-      ...note,
-      source: 'project' as const,
-      sourceLabel: project.name,
-    })),
-  ]
   const getNoteTimestamp = (note: { date?: string; time?: string | null }) => {
     if (!note?.date) return 0
     const timeValue = note.time && note.time.trim() ? note.time : '00:00'
@@ -672,13 +657,13 @@ export default function AdminProjectDetailPage({
     return Number.isNaN(timestamp.getTime()) ? 0 : timestamp.getTime()
   }
 
-  const sortedNotes = combinedNotes
+  const sortedNotes = projectNotes
     .slice()
     .sort((a, b) => getNoteTimestamp(b) - getNoteTimestamp(a))
 
   const handleAddMemo = async () => {
     if (!contactContent.trim()) {
-      showToast('컨택 내용을 입력해 주세요', 'info')
+      showToast('메모 내용을 입력해 주세요', 'info')
       return
     }
 
@@ -699,14 +684,14 @@ export default function AdminProjectDetailPage({
         body: JSON.stringify({ notes: nextNotes }),
       })
     } catch (error) {
-      console.error('컨택 히스토리 저장 요청 실패', error)
-      showToast('컨택 히스토리 저장에 실패했습니다', 'error')
+      console.error('프로젝트 메모 저장 요청 실패', error)
+      showToast('프로젝트 메모 저장에 실패했습니다', 'error')
       setMemoSaving(false)
       return
     }
 
     if (!response.ok) {
-      showToast('컨택 히스토리 저장에 실패했습니다', 'error')
+      showToast('프로젝트 메모 저장에 실패했습니다', 'error')
       setMemoSaving(false)
       return
     }
@@ -722,7 +707,7 @@ export default function AdminProjectDetailPage({
     setContactAuthor(currentUser?.name ?? '')
     setShowContactForm(false)
     setMemoSaving(false)
-    showToast('컨택 히스토리가 저장되었습니다', 'success')
+    showToast('프로젝트 메모가 저장되었습니다', 'success')
   }
 
   return (
@@ -807,28 +792,19 @@ export default function AdminProjectDetailPage({
                 }}
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
-                🕐 컨택 히스토리 ({combinedNotes.length}개)
+                📝 프로젝트 메모 ({projectNotes.length}개)
               </button>
               <div>
                 <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
                 {project.company_id ? (
-                  <span className="text-xs text-gray-500 mt-1">
-                    고객사:{' '} 
-                    <button type="button" 
-                    onClick={() => router.push(`/app/admin/companies/${project.company_id}`)}
-                    className="text-sm font-medium text-blue-500 hover:text-blue-700 underline
-"
-                    >
-                    {project.company?.name ?? '미지정'}
-                    </button>
-                    </span>
+                  <span className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</span>
                 ) : (
                   <span className="text-xs text-gray-400 mt-1 flex items-center gap-2">
                     <span>고객사: 미지정</span>
                     <button
                       type="button"
                       onClick={openEditModal}
-                      className="text-xs text-blue-500 hover:text-blue-700 underline cursor-pointer"
+                      className="text-sm font-medium text-blue-500 hover:text-blue-700 underline cursor-pointer"
                     >
                       지정하기
                     </button>
@@ -1380,7 +1356,7 @@ export default function AdminProjectDetailPage({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-lg rounded-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">컨택 히스토리</h3>
+              <h3 className="text-lg font-semibold">프로젝트 메모</h3>
               <button
                 onClick={() => {
                   setShowMemoModal(false)
@@ -1393,31 +1369,24 @@ export default function AdminProjectDetailPage({
 
             <div className="max-h-72 overflow-y-auto space-y-3">
               {sortedNotes.length === 0 ? (
-                <p className="text-sm text-gray-500">등록된 컨택 히스토리가 없습니다.</p>
+                <p className="text-sm text-gray-500">등록된 프로젝트 메모가 없습니다.</p>
               ) : (
-                sortedNotes.map((note, index) => {
-                  const badgeStyle =
-                    note.source === 'company'
-                      ? 'bg-gray-100 text-gray-600'
-                      : 'bg-blue-50 text-blue-600'
-
-                  return (
-                    <div key={`${note.date}-${index}`} className="border-b border-gray-100 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs text-gray-500">
-                          {[note.date?.replace(/-/g, '.'), note.time].filter(Boolean).join(' ')}
-                          {note.author ? ` · ${note.author}` : ''}
-                        </p>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}
-                        >
-                          {note.sourceLabel}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-line">{note.content}</p>
+                sortedNotes.map((note, index) => (
+                  <button
+                    key={`${note.date}-${index}`}
+                    type="button"
+                    onClick={() => router.push(`/app/admin/companies/${project.company_id}?tab=history`)}
+                    className="w-full text-left border-b border-gray-100 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-gray-500">
+                        {[note.date?.replace(/-/g, '.'), note.time].filter(Boolean).join(' ')}
+                        {note.author ? ` · ${note.author}` : ''}
+                      </p>
                     </div>
-                  )
-                })
+                    <p className="text-sm text-gray-700 mt-1 whitespace-pre-line">{note.content}</p>
+                  </button>
+                ))
               )}
             </div>
 
@@ -1432,7 +1401,7 @@ export default function AdminProjectDetailPage({
                 }}
                 className="text-sm font-medium text-primary"
               >
-                + 새 컨택 추가
+                + 새 메모 추가
               </button>
               {showContactForm && (
                 <div className="space-y-2">
@@ -1460,7 +1429,7 @@ export default function AdminProjectDetailPage({
                   <textarea
                     value={contactContent}
                     onChange={(e) => setContactContent(e.target.value)}
-                    placeholder="컨택 내용을 입력하세요"
+                    placeholder="메모 내용을 입력하세요"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm min-h-[90px]"
                   />
                   <div className="flex justify-end">
