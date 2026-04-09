@@ -50,6 +50,7 @@ export type ApiProject = {
   description?: string | null;
   step?: number | null;
   status?: 'active' | 'completed' | 'paused' | null;
+  metadata?: { notes?: Array<{ date: string; time?: string | null; author?: string | null; content: string }> | null } | null;
   created_at: string;
   updated_at: string;
 };
