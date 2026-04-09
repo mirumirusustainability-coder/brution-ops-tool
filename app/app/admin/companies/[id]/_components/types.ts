@@ -13,6 +13,7 @@ export type ActivityFeedItem = {
   content: string;
   author: string;
   created_at: string;
+  pinned?: boolean;
 };
 
 export type CompanyMetadata = {

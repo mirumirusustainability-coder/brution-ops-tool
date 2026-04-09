@@ -41,7 +41,7 @@ type StaffUser = {
 const mapUser = (me: any): User => ({
   id: me.userId,
   email: me.email,
-  name: me.email,
+  name: me.name ?? me.email,
   role: me.role,
   companyId: me.companyId ?? '',
   mustChangePassword: me.mustChangePassword,
@@ -390,6 +390,7 @@ export default function CompaniesAdminPage() {
         me = {
           userId: session.user.id,
           email: session.user.email ?? '',
+          name: session.user.user_metadata?.name ?? null,
           role: sessionRole,
           companyId: session.user.user_metadata?.company_id ?? null,
           mustChangePassword: false,

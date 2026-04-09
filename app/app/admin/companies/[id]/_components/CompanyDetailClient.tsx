@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/app-layout';
 import { ToastContainer } from '@/components/toast';
@@ -105,14 +105,31 @@ function FeedItem({
   item,
   onEdit,
   onDelete,
+  onTogglePin,
 }: {
   item: ActivityFeedItem;
   onEdit: (item: ActivityFeedItem) => void;
   onDelete: (item: ActivityFeedItem) => void;
+  onTogglePin: (item: ActivityFeedItem) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const dt = new Date(item.created_at);
   const dateStr = `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`;
   const timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+
+  // close on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   return (
     <div className="group flex gap-3">
@@ -127,6 +144,7 @@ function FeedItem({
       <div className="flex-1 pb-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5 mb-1">
+            {item.pinned && <span className="text-xs">📌</span>}
             <span
               className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                 item.type === 'project'
@@ -145,27 +163,155 @@ function FeedItem({
               {dateStr} {timeStr} · {item.author}
             </span>
           </div>
-          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* ··· menu */}
+          <div ref={menuRef} className="relative shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               type="button"
-              onClick={() => onEdit(item)}
-              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-              title="수정"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 text-base leading-none"
+              title="더보기"
             >
-              ✏️
+              ···
             </button>
-            <button
-              type="button"
-              onClick={() => onDelete(item)}
-              className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
-              title="삭제"
-            >
-              🗑️
-            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-6 z-20 w-32 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                <button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); onEdit(item); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  수정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); onTogglePin(item); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  {item.pinned ? '핀 해제' : '핀 고정'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); onDelete(item); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50"
+                >
+                  삭제
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <p className="text-sm text-gray-700 whitespace-pre-line">{item.content}</p>
       </div>
+    </div>
+  );
+}
+
+function FeedInput({
+  projects,
+  onSave,
+  saving,
+  content,
+  setContent,
+  feedType,
+  setFeedType,
+  feedProjectId,
+  setFeedProjectId,
+}: {
+  projects: ApiProject[];
+  onSave: () => void;
+  saving: boolean;
+  content: string;
+  setContent: (v: string) => void;
+  feedType: 'sales' | 'project';
+  setFeedType: (v: 'sales' | 'project') => void;
+  feedProjectId: string;
+  setFeedProjectId: (v: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleFocus = () => setExpanded(true);
+
+  const handleSave = () => {
+    onSave();
+    setExpanded(false);
+  };
+
+  const handleCancel = () => {
+    setExpanded(false);
+    setContent('');
+    setFeedProjectId('');
+  };
+
+  return (
+    <div className="shrink-0 border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
+      {!expanded ? (
+        <button
+          type="button"
+          onClick={() => { setExpanded(true); setTimeout(() => textareaRef.current?.focus(), 0); }}
+          className="w-full text-left px-4 py-3 text-sm text-gray-400 hover:bg-gray-50 transition-colors"
+        >
+          기록하기...
+        </button>
+      ) : (
+        <div className="p-3 space-y-2">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onFocus={handleFocus}
+            placeholder="기록하기..."
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm min-h-[72px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                {(['sales', 'project'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => { setFeedType(t); if (t === 'sales') setFeedProjectId(''); }}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      feedType === t ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    {t === 'sales' ? '영업' : '프로젝트'}
+                  </button>
+                ))}
+              </div>
+              {feedType === 'project' && (
+                <select
+                  value={feedProjectId}
+                  onChange={(e) => setFeedProjectId(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  <option value="">프로젝트 선택</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name ?? '(이름 없음)'}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50"
+              >
+                {saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -225,8 +371,12 @@ export function CompanyDetailClient({
   }, [company.metadata]);
 
   const filteredFeed = useMemo(() => {
-    if (feedFilter === 'all') return feedItems;
-    return feedItems.filter((item) => item.type === feedFilter);
+    const base = feedFilter === 'all' ? feedItems : feedItems.filter((item) => item.type === feedFilter);
+    return [...base].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return 0;
+    });
   }, [feedItems, feedFilter]);
 
   // ── helpers ───────────────────────────────────────────────────────────────
@@ -328,6 +478,19 @@ export function CompanyDetailClient({
       showToast('삭제되었습니다', 'success');
     } catch {
       showToast('삭제에 실패했습니다', 'error');
+    }
+  };
+
+  const handleTogglePin = async (item: ActivityFeedItem) => {
+    const prevFeed = Array.isArray(company.metadata?.activity_feed) ? company.metadata.activity_feed : [];
+    const nextFeed = prevFeed.map((f) =>
+      f.id === item.id ? { ...f, pinned: !f.pinned } : f
+    );
+    try {
+      await patchCompany({ ...company.metadata, activity_feed: nextFeed });
+      showToast(item.pinned ? '핀이 해제되었습니다' : '핀으로 고정되었습니다', 'success');
+    } catch {
+      showToast('저장에 실패했습니다', 'error');
     }
   };
 
@@ -509,6 +672,7 @@ export function CompanyDetailClient({
                       item={item}
                       onEdit={openEditFeed}
                       onDelete={(i) => setDeleteFeedTarget(i)}
+                      onTogglePin={handleTogglePin}
                     />
                   )
                 )}
@@ -517,54 +681,17 @@ export function CompanyDetailClient({
           </div>
 
           {/* input area */}
-          <div className="shrink-0 border border-gray-200 rounded-xl bg-white p-3 space-y-2 shadow-sm">
-            <textarea
-              value={feedContent}
-              onChange={(e) => setFeedContent(e.target.value)}
-              placeholder="기록하기..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm min-h-[72px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                {/* type selector */}
-                <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-                  {(['sales', 'project'] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => { setFeedType(t); if (t === 'sales') setFeedProjectId(''); }}
-                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                        feedType === t ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      {t === 'sales' ? '영업' : '프로젝트'}
-                    </button>
-                  ))}
-                </div>
-                {/* project picker */}
-                {feedType === 'project' && (
-                  <select
-                    value={feedProjectId}
-                    onChange={(e) => setFeedProjectId(e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    <option value="">프로젝트 선택</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name ?? '(이름 없음)'}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleAddFeed}
-                disabled={savingFeed}
-                className="px-4 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50"
-              >
-                {savingFeed ? '저장 중...' : '저장'}
-              </button>
-            </div>
-          </div>
+          <FeedInput
+            projects={projects}
+            onSave={handleAddFeed}
+            saving={savingFeed}
+            content={feedContent}
+            setContent={setFeedContent}
+            feedType={feedType}
+            setFeedType={setFeedType}
+            feedProjectId={feedProjectId}
+            setFeedProjectId={setFeedProjectId}
+          />
         </section>
 
         {/* ── RIGHT PANEL ── */}
