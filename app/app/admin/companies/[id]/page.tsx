@@ -13,6 +13,7 @@ type PageProps = { params: Promise<{ id: string }> };
 type ApiMe = {
   userId: string;
   email: string;
+  name: string | null;
   role: string;
   companyId: string | null;
   mustChangePassword: boolean;
@@ -22,7 +23,7 @@ type ApiMe = {
 const mapUser = (me: ApiMe): AppUser => ({
   id: me.userId,
   email: me.email,
-  name: me.email,
+  name: me.name ?? me.email,
   role: me.role as AppUser['role'],
   companyId: me.companyId ?? '',
   mustChangePassword: me.mustChangePassword,
@@ -72,6 +73,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     currentUser = mapUser({
       userId: user.id,
       email: user.email ?? '',
+      name: user.user_metadata?.name ?? null,
       role: sessionRole,
       companyId: user.user_metadata?.company_id ?? null,
       mustChangePassword: false,
@@ -81,7 +83,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     const admin = createSupabaseAdmin();
     const { data: profile, error: profileError } = await admin
       .from('profiles')
-      .select('user_id, email, role, company_id, status, must_change_password')
+      .select('user_id, email, name, role, company_id, status, must_change_password')
       .eq('user_id', user.id)
       .single();
 
@@ -96,6 +98,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     currentUser = mapUser({
       userId: profile.user_id,
       email: profile.email ?? user.email ?? '',
+      name: profile.name ?? null,
       role: profile.role,
       companyId: profile.company_id,
       mustChangePassword: profile.must_change_password ?? false,

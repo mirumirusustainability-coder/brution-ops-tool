@@ -5,6 +5,16 @@ export type ContactHistoryEntry = {
   author?: string | null;
 };
 
+export type ActivityFeedItem = {
+  id: string;
+  type: 'sales' | 'project';
+  project_id?: string;
+  project_name?: string;
+  content: string;
+  author: string;
+  created_at: string;
+};
+
 export type CompanyMetadata = {
   biz_no?: string | null;
   address?: string | null;
@@ -33,6 +43,7 @@ export type CompanyMetadata = {
   internal_notes?: string | null;
   last_contact?: string | null;
   contact_history?: ContactHistoryEntry[] | null;
+  activity_feed?: ActivityFeedItem[] | null;
 };
 
 export type ApiCompany = {
