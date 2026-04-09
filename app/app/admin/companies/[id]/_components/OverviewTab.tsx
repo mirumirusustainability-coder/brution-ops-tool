@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { ApiCompany, ApiProject, CompanyMetadata } from './types';
 
@@ -10,10 +11,89 @@ type OverviewTabProps = {
   onUpdate?: (metadata: CompanyMetadata) => Promise<void>;
 };
 
+const STEP_LABELS: Record<number, string> = {
+  0: '스타터패키지',
+  1: '브랜드기획',
+  2: '디자인·인증',
+  3: '생산·납품',
+  4: '출시',
+};
+
 const emptyValue = <p className="text-sm text-gray-400 italic">-</p>;
 
 const renderTextValue = (value?: string | null) =>
   value ? <p className="text-sm text-gray-900">{value}</p> : emptyValue;
+
+function ProjectCard({ project }: { project: ApiProject }) {
+  const router = useRouter();
+  const step = project.step ?? 0;
+  const status = project.status ?? 'active';
+
+  const cardStyle =
+    status === 'completed'
+      ? 'bg-gray-50 border border-gray-200 text-gray-400'
+      : status === 'paused'
+      ? 'bg-white border-2 border-yellow-300'
+      : 'bg-white border border-gray-200';
+
+  const stepBadgeStyle =
+    status === 'completed'
+      ? 'bg-gray-200 text-gray-500'
+      : 'bg-blue-100 text-blue-700';
+
+  const statusLabel =
+    status === 'completed' ? '완료' : status === 'paused' ? '일시정지' : '진행중';
+
+  const statusBadgeStyle =
+    status === 'completed'
+      ? 'bg-gray-200 text-gray-500'
+      : status === 'paused'
+      ? 'bg-yellow-100 text-yellow-700'
+      : 'bg-green-100 text-green-700';
+
+  return (
+    <button
+      type="button"
+      onClick={() => router.push(`/app/admin/projects/${project.id}`)}
+      className={`w-full text-left rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${cardStyle}`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <p className={`text-sm font-semibold ${status === 'completed' ? 'text-gray-400' : 'text-gray-900'}`}>
+          {project.name ?? '(이름 없음)'}
+        </p>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${stepBadgeStyle}`}>
+            STEP {step}
+          </span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeStyle}`}>
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+
+      <p className={`text-xs mb-2 ${status === 'completed' ? 'text-gray-400' : 'text-gray-500'}`}>
+        {STEP_LABELS[step] ?? `STEP ${step}`}
+      </p>
+
+      <div className="flex gap-1">
+        {[1, 2, 3, 4].map((s) => (
+          <div
+            key={s}
+            className={`h-1.5 flex-1 rounded-full ${
+              s <= step
+                ? status === 'completed'
+                  ? 'bg-gray-400'
+                  : status === 'paused'
+                  ? 'bg-yellow-400'
+                  : 'bg-blue-500'
+                : 'bg-gray-200'
+            }`}
+          />
+        ))}
+      </div>
+    </button>
+  );
+}
 
 export function OverviewTab({
   company,
@@ -29,7 +109,6 @@ export function OverviewTab({
   useEffect(() => {
     setProfileDraft(company.metadata ?? {});
   }, [company]);
-
 
   const updateField = (key: keyof CompanyMetadata, value: CompanyMetadata[keyof CompanyMetadata]) => {
     setProfileDraft((prev) => ({ ...prev, [key]: value }));
@@ -173,6 +252,19 @@ export function OverviewTab({
             >
               {saving ? '저장 중...' : '저장'}
             </button>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">프로젝트</h2>
+        {projects.length === 0 ? (
+          <p className="text-sm text-gray-500">진행 중인 프로젝트가 없습니다.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {projects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
           </div>
         )}
       </div>
