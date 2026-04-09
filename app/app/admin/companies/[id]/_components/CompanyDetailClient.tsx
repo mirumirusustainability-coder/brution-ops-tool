@@ -87,7 +87,7 @@ export function CompanyDetailClient({
   const tabContent = (() => {
     if (activeTab === 'users') return <UsersTab company={company} users={users} onRefresh={refresh} />;
     if (activeTab === 'contracts') return <ContractsTab company={company} onUpdate={handleCompanyUpdate} />;
-    if (activeTab === 'notes') return <NotesTab company={company} onUpdate={handleCompanyUpdate} />;
+    if (activeTab === 'notes') return <NotesTab company={company} onUpdate={handleCompanyUpdate} projects={projects} />;
     return (
       <OverviewTab
         company={company}

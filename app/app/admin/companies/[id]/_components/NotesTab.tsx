@@ -16,7 +16,7 @@ type NotesTabProps = {
   onUpdate: (metadata: CompanyMetadata) => Promise<void>;
   projects?: Array<{
     id: string;
-    name: string;
+    name: string | null;
     metadata?: { notes?: ProjectNote[] | null } | null;
   }>;
   onUpdateProjectNotes?: (projectId: string, notes: ProjectNote[]) => Promise<void>;
