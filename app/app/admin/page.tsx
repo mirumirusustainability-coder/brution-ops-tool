@@ -2,60 +2,56 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, FolderOpen, TrendingUp, Users } from 'lucide-react'
+import { AlertTriangle, Building2, FileText, TrendingUp } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
 import { STEP_LABELS } from '@/lib/constants'
 import { createBrowserClient } from '@supabase/ssr'
 import { User, UserRole } from '@/types'
+import { useToast } from '@/hooks/use-toast'
 
-type DashboardProject = {
+type DdayCompany = {
   id: string
   name: string
-  step: number
-  status?: 'active' | 'completed' | 'paused'
+  contract_end: string
+  daysLeft: number
+}
+
+type FeedItem = {
+  id: string
+  type: string
+  content: string
+  author: string
   created_at: string
-  updated_at?: string | null
-  companies?: { name?: string } | { name?: string }[] | null
+  pinned?: boolean
+  company_id: string
+  company_name: string
 }
 
-type DashboardCounts = {
-  projects: number
-  activeProjects: number
-  companies: number
-  users: number
+type DashboardData = {
+  activeCompanies: number
+  contractCompleted: number
+  draftVersions: number
+  ddayCompanies: DdayCompany[]
+  recentActivityFeed: FeedItem[]
+  stepCounts: Record<number, number>
 }
 
-type StepCounts = Record<number, number>
-
-const getCompanyName = (company: DashboardProject['companies']) => {
-  if (!company) return ''
-  if (Array.isArray(company)) return company[0]?.name ?? ''
-  return company.name ?? ''
-}
-
-const statusLabelMap: Record<string, string> = {
-  active: '진행중',
-  completed: '완료',
-  paused: '보류',
-}
+const Skeleton = ({ className = '' }: { className?: string }) => (
+  <div className={`animate-pulse rounded bg-gray-200 ${className}`} />
+)
 
 export default function AdminDashboardPage() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const [counts, setCounts] = useState<DashboardCounts | null>(null)
-  const [stepCounts, setStepCounts] = useState<StepCounts>({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 })
-  const [pendingVersions, setPendingVersions] = useState(0)
-  const [pausedProjects, setPausedProjects] = useState(0)
-  const [recentProjects, setRecentProjects] = useState<DashboardProject[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [dataLoading, setDataLoading] = useState(true)
 
   useEffect(() => {
     let active = true
 
     const loadData = async () => {
-      setLoading(true)
-      setError(null)
+      setDataLoading(true)
 
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -74,6 +70,7 @@ export default function AdminDashboardPage() {
       let me: {
         userId: string
         email: string
+        name: string | null
         role: string | null
         companyId: string | null
         mustChangePassword: boolean
@@ -84,6 +81,7 @@ export default function AdminDashboardPage() {
         me = {
           userId: session.user.id,
           email: session.user.email ?? '',
+          name: session.user.user_metadata?.name ?? null,
           role: sessionRole,
           companyId: session.user.user_metadata?.company_id ?? null,
           mustChangePassword: false,
@@ -102,8 +100,8 @@ export default function AdminDashboardPage() {
 
         if (!meResponse.ok) {
           if (active) {
-            setError('사용자 정보를 불러올 수 없습니다')
-            setLoading(false)
+            showToast('사용자 정보를 불러올 수 없습니다', 'error')
+            setDataLoading(false)
           }
           return
         }
@@ -114,7 +112,7 @@ export default function AdminDashboardPage() {
       const user: User = {
         id: me?.userId ?? '',
         email: me?.email ?? '',
-        name: me?.email ?? '',
+        name: me?.name ?? me?.email ?? '',
         role: (me?.role ?? 'staff') as UserRole,
         companyId: me?.companyId ?? '',
         mustChangePassword: me?.mustChangePassword ?? false,
@@ -126,24 +124,21 @@ export default function AdminDashboardPage() {
         return
       }
 
+      if (active) setCurrentUser(user)
+
       const response = await fetch('/api/admin/dashboard', { cache: 'no-store' })
       if (!response.ok) {
         if (active) {
-          setError('대시보드 정보를 불러올 수 없습니다')
-          setLoading(false)
+          showToast('대시보드 정보를 불러올 수 없습니다', 'error')
+          setDataLoading(false)
         }
         return
       }
 
-      const data = await response.json()
+      const json = await response.json()
       if (active) {
-        setCurrentUser(user)
-        setCounts(data?.counts ?? null)
-        setStepCounts(data?.stepCounts ?? { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 })
-        setPendingVersions(data?.pendingVersions ?? 0)
-        setPausedProjects(data?.pausedProjects ?? 0)
-        setRecentProjects(Array.isArray(data?.recentProjects) ? data.recentProjects : [])
-        setLoading(false)
+        setData(json)
+        setDataLoading(false)
       }
     }
 
@@ -152,207 +147,262 @@ export default function AdminDashboardPage() {
     return () => {
       active = false
     }
-  }, [router])
+  }, [router, showToast])
 
-  const totalProjects = counts?.projects ?? 0
   const stepTotal = useMemo(
-    () => ({
-      0: stepCounts[0] ?? 0,
-      1: stepCounts[1] ?? 0,
-      2: stepCounts[2] ?? 0,
-      3: stepCounts[3] ?? 0,
-      4: stepCounts[4] ?? 0,
-    }),
-    [stepCounts]
+    () => Object.values(data?.stepCounts ?? {}).reduce((sum, n) => sum + n, 0),
+    [data]
   )
 
-  const statusBadgeStyles: Record<string, string> = {
-    active: 'bg-blue-100 text-blue-700',
-    completed: 'bg-green-100 text-green-700',
-    paused: 'bg-gray-100 text-gray-600',
-  }
-
-  const greetingMessage =
-    currentUser?.role === 'staff_admin'
-      ? '안녕하세요, 브루션 관리자님!'
-      : `안녕하세요, ${currentUser?.name || '고객사'}님!`
-
-  if (loading && !currentUser) {
-    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
-  }
-
-  if (error && !currentUser) {
-    return <div className="p-6 text-sm text-red-600">{error}</div>
-  }
+  const ddayUrgency = useMemo(() => {
+    const min = data?.ddayCompanies?.[0]?.daysLeft ?? null
+    if (min === null || data?.ddayCompanies?.length === 0) return 'none'
+    return min <= 7 ? 'red' : 'yellow'
+  }, [data])
 
   if (!currentUser) {
-    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>
+    return (
+      <div className="p-6 max-w-6xl space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </div>
+      </div>
+    )
   }
 
   return (
     <AppLayout user={currentUser}>
-      <div className="max-w-6xl space-y-8">
+      <div className="max-w-6xl space-y-6">
+        {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{greetingMessage}</h1>
-          <p className="text-xl font-semibold text-gray-900 mt-2">어드민 대시보드</p>
-          <p className="text-base text-gray-500 mt-1">운영 현황을 빠르게 확인하세요.</p>
+          <h1 className="text-2xl font-bold text-gray-900">안녕하세요, 브루션 관리자님!</h1>
+          <p className="text-sm text-gray-500 mt-1">운영 현황을 빠르게 확인하세요.</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* 4 Metric Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 진행 중인 고객사 */}
+          <button
+            type="button"
+            onClick={() => router.push('/app/admin/companies')}
+            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">진행 중인 고객사</p>
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+            </div>
+            {dataLoading ? (
+              <Skeleton className="mt-3 h-9 w-16" />
+            ) : (
+              <p className="mt-3 text-4xl font-bold text-gray-900">{data?.activeCompanies ?? 0}</p>
+            )}
+          </button>
+
+          {/* 계약 완료 */}
+          <button
+            type="button"
+            onClick={() => router.push('/app/admin/companies')}
+            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">계약 완료</p>
+              <Building2 className="h-4 w-4 text-emerald-500" />
+            </div>
+            {dataLoading ? (
+              <Skeleton className="mt-3 h-9 w-16" />
+            ) : (
+              <p className="mt-3 text-4xl font-bold text-gray-900">{data?.contractCompleted ?? 0}</p>
+            )}
+          </button>
+
+          {/* 처리 대기 드롭 */}
           <button
             type="button"
             onClick={() => router.push('/app/admin/projects')}
             className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <p className="text-base text-gray-500">전체 프로젝트</p>
-              <FolderOpen className="h-5 w-5 text-blue-500" />
+              <p className="text-sm text-gray-500">처리 대기 드롭</p>
+              <FileText className="h-4 w-4 text-orange-500" />
             </div>
-            <p className="mt-3 text-4xl font-bold text-gray-900">{counts?.projects ?? 0}</p>
+            {dataLoading ? (
+              <Skeleton className="mt-3 h-9 w-16" />
+            ) : (
+              <p className="mt-3 text-4xl font-bold text-gray-900">{data?.draftVersions ?? 0}</p>
+            )}
           </button>
-          <button
-            type="button"
-            onClick={() => router.push('/app/admin/projects?filter=active')}
-            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-base text-gray-500">진행중 프로젝트</p>
-              <TrendingUp className="h-5 w-5 text-emerald-500" />
-            </div>
-            <p className="mt-3 text-4xl font-bold text-gray-900">
-              {counts?.activeProjects ?? 0}
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push('/app/admin/companies')}
-            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-base text-gray-500">전체 고객사</p>
-              <Building2 className="h-5 w-5 text-indigo-500" />
-            </div>
-            <p className="mt-3 text-4xl font-bold text-gray-900">{counts?.companies ?? 0}</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push('/app/admin/companies')}
-            className="rounded-lg border border-border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-base text-gray-500">전체 담당자</p>
-              <Users className="h-5 w-5 text-purple-500" />
-            </div>
-            <p className="mt-3 text-4xl font-bold text-gray-900">{counts?.users ?? 0}</p>
-          </button>
-        </div>
 
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <div className="rounded-lg border border-border bg-white p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">STEP별 프로젝트 현황</h2>
-              <span className="text-xs text-gray-400">총 {totalProjects}건</span>
-            </div>
-            <div className="space-y-3">
-              {Object.entries(stepTotal).map(([stepKey, count]) => {
-                const step = Number(stepKey)
-                const ratio = totalProjects > 0 ? Math.round((count / totalProjects) * 100) : 0
-                return (
-                  <div key={step} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span className="text-base font-medium">
-                        STEP {step} · {STEP_LABELS[step]}
-                      </span>
-                      <span className="text-sm">{count}건</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-gray-100">
-                      <div className="h-2 rounded-full bg-blue-500" style={{ width: `${ratio}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-white p-5">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">액션 필요</h2>
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => router.push('/app/admin/projects?filter=in_review')}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left transition hover:bg-gray-100 hover:shadow-md cursor-pointer"
+          {/* D-day 임박 */}
+          <div
+            className={`rounded-lg border p-4 ${
+              ddayUrgency === 'red'
+                ? 'border-red-200 bg-red-50'
+                : ddayUrgency === 'yellow'
+                  ? 'border-yellow-200 bg-yellow-50'
+                  : 'border-border bg-white'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <p
+                className={`text-sm ${
+                  ddayUrgency === 'red'
+                    ? 'text-red-600'
+                    : ddayUrgency === 'yellow'
+                      ? 'text-yellow-700'
+                      : 'text-gray-500'
+                }`}
               >
-                <p className="text-base text-gray-500">검토중 버전</p>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">{pendingVersions}</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/app/admin/projects?filter=paused')}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 p-4 text-left transition hover:bg-gray-100 hover:shadow-md cursor-pointer"
-              >
-                <p className="text-base text-gray-500">보류 프로젝트</p>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">{pausedProjects}</p>
-              </button>
+                D-day 임박
+              </p>
+              <AlertTriangle
+                className={`h-4 w-4 ${
+                  ddayUrgency === 'red'
+                    ? 'text-red-500'
+                    : ddayUrgency === 'yellow'
+                      ? 'text-yellow-500'
+                      : 'text-gray-400'
+                }`}
+              />
             </div>
+            {dataLoading ? (
+              <Skeleton className="mt-3 h-9 w-16" />
+            ) : (
+              <p
+                className={`mt-3 text-4xl font-bold ${
+                  ddayUrgency === 'red'
+                    ? 'text-red-700'
+                    : ddayUrgency === 'yellow'
+                      ? 'text-yellow-700'
+                      : 'text-gray-900'
+                }`}
+              >
+                {data?.ddayCompanies?.length ?? 0}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-white p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">최근 프로젝트</h2>
-            <button
-              type="button"
-              onClick={() => router.push('/app/admin/projects')}
-              className="text-sm text-primary hover:text-primary-hover"
-            >
-              전체 보기
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="text-sm text-gray-500">최근 프로젝트를 불러오는 중...</div>
-          ) : recentProjects.length === 0 ? (
-            <div className="text-sm text-gray-500">등록된 프로젝트가 없습니다.</div>
-          ) : (
-            <div className="space-y-3">
-              {recentProjects.map((project) => {
-                const statusValue = project.status ?? 'active'
-                return (
+        {/* Main 2-column */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* 최근 활동 피드 */}
+          <div className="rounded-lg border border-border bg-white p-5">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">최근 활동</h2>
+            {dataLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-14 w-full" />
+                ))}
+              </div>
+            ) : !data?.recentActivityFeed?.length ? (
+              <p className="text-sm text-gray-400">활동 기록이 없습니다.</p>
+            ) : (
+              <div className="space-y-2">
+                {data.recentActivityFeed.map((item) => (
                   <button
-                    key={project.id}
+                    key={item.id}
                     type="button"
-                    onClick={() => router.push(`/app/admin/projects/${project.id}`)}
-                    className="w-full rounded-lg border border-border px-4 py-3 text-left hover:bg-gray-50"
+                    onClick={() => router.push(`/app/admin/companies/${item.company_id}`)}
+                    className="w-full rounded-lg border border-gray-100 px-3 py-2.5 text-left hover:bg-gray-50 transition"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-gray-900">
-                          {getCompanyName(project.companies) || '미지정'}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-blue-600 truncate">
+                          {item.company_name}
                         </p>
-                        <p className="text-base text-gray-800">{project.name}</p>
-                        <p className="text-sm text-gray-400 mt-1">
-                          마지막 업데이트: {new Date(project.updated_at ?? project.created_at).toLocaleDateString('ko-KR')}
-                        </p>
+                        <p className="text-sm text-gray-700 truncate mt-0.5">{item.content}</p>
                       </div>
-                      <div className="text-right text-sm text-gray-500 space-y-2">
-                        <p>
-                          STEP {project.step} · {STEP_LABELS[project.step]}
-                        </p>
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
-                            statusBadgeStyles[statusValue]
-                          }`}
-                        >
-                          {statusLabelMap[statusValue] ?? '진행중'}
-                        </span>
-                      </div>
+                      <p className="text-xs text-gray-400 shrink-0">
+                        {new Date(item.created_at).toLocaleDateString('ko-KR', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </p>
                     </div>
                   </button>
-                )
-              })}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* STEP별 현황 */}
+          <div className="rounded-lg border border-border bg-white p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-900">STEP별 현황</h2>
+              <span className="text-xs text-gray-400">총 {stepTotal}건</span>
             </div>
-          )}
+            {dataLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {[0, 1, 2, 3, 4].map((step) => {
+                  const count = data?.stepCounts?.[step] ?? 0
+                  const ratio = stepTotal > 0 ? Math.round((count / stepTotal) * 100) : 0
+                  return (
+                    <div key={step} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-gray-700">
+                          STEP {step} · {STEP_LABELS[step]}
+                        </span>
+                        <span className="text-gray-500">{count}건</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-100">
+                        <div
+                          className="h-2 rounded-full bg-blue-500 transition-all"
+                          style={{ width: `${ratio}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* D-day 임박 고객사 목록 */}
+        {!dataLoading && (data?.ddayCompanies?.length ?? 0) > 0 && (
+          <div className="rounded-lg border border-border bg-white p-5">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">계약 만료 임박</h2>
+            <div className="space-y-2">
+              {data!.ddayCompanies.map((company) => (
+                <button
+                  key={company.id}
+                  type="button"
+                  onClick={() => router.push(`/app/admin/companies/${company.id}`)}
+                  className="w-full rounded-lg border border-gray-100 px-4 py-3 text-left hover:bg-gray-50 transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{company.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        만료일:{' '}
+                        {new Date(company.contract_end).toLocaleDateString('ko-KR')}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-sm font-semibold px-2 py-1 rounded-full ${
+                        company.daysLeft <= 7
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
+                      D-{company.daysLeft}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   )
