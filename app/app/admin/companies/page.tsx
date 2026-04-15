@@ -478,7 +478,7 @@ export default function CompaniesAdminPage() {
   const contractStatusOptions = ['상담중', '계약완료', '진행중', '완료', '보류'];
 
   if (loading && !currentUser) {
-    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>;
+    return <div className="p-6 min-h-screen" />;
   }
 
   if (!currentUser) {

@@ -619,7 +619,7 @@ export default function AdminProjectDetailPage({
   }, [currentUser, contactAuthor])
 
   if (loading && !currentUser) {
-    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
+    return <div className="p-6 min-h-screen" />
   }
 
   if (error && !currentUser) {

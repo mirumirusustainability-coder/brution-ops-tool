@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { User, UserRole } from '@/types'
 
 type ApiProject = {
+  step: number
   id: string
   name: string
   description: string | null
@@ -273,7 +274,7 @@ export default function AdminProjectsPage() {
   }, [projects, query, statusFilter, inReviewOnly])
 
   if (loading && !currentUser) {
-    return <div className="p-6 text-sm text-gray-500">로딩 중...</div>
+    return <div className="p-6 min-h-screen" />
   }
 
   if (error && !currentUser) {

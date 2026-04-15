@@ -162,7 +162,7 @@ export default function AdminDashboardPage() {
   }, [data])
 
   if (!currentUser) {
-    return <div className="p-6 text-sm text-gray-400">로딩 중...</div>
+    return <div className="p-6 min-h-screen" />
   }
 
   return (
