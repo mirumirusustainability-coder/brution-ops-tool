@@ -26,3 +26,12 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+/* NProgress custom styles */
+#nprogress .bar {
+  background: #378ADD !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px #378ADD, 0 0 5px #378ADD !important;
+}

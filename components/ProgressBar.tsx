@@ -1,44 +1,41 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import NProgress from 'nprogress'
+import 'nprogress/nprogress.css'
+
+NProgress.configure({
+  showSpinner: false,
+  trickleSpeed: 200,
+  minimum: 0.1,
+})
 
 export function ProgressBar() {
   const pathname = usePathname()
-  const [visible, setVisible] = useState(false)
-  const prevPathname = useRef(pathname)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (prevPathname.current !== pathname) {
-      prevPathname.current = pathname
-      setVisible(true)
-      clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => setVisible(false), 600)
-    }
-    return () => clearTimeout(timerRef.current)
-  }, [pathname])
+    NProgress.done()
+  }, [pathname, searchParams])
 
-  return (
-    <div
-      className={`fixed top-0 left-0 right-0 z-[9999] h-[3px] overflow-hidden transition-opacity duration-300 ${
-        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
-    >
-      <div
-        className="h-full w-full origin-left"
-        style={{
-          background: '#378ADD',
-          animation: visible ? 'progress-slide 0.6s ease-out forwards' : 'none',
-        }}
-      />
-      <style>{`
-        @keyframes progress-slide {
-          0% { transform: scaleX(0); }
-          60% { transform: scaleX(0.8); }
-          100% { transform: scaleX(1); }
-        }
-      `}</style>
-    </div>
-  )
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('a')
+      if (
+        target &&
+        target.href &&
+        target.href.startsWith(window.location.origin) &&
+        !target.target &&
+        !e.ctrlKey &&
+        !e.metaKey
+      ) {
+        NProgress.start()
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [])
+
+  return null
 }

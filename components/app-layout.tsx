@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
@@ -30,7 +30,9 @@ export function AppLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <ProgressBar />
+      <Suspense fallback={null}>
+        <ProgressBar />
+      </Suspense>
       {/* Sidebar */}
       <Sidebar
         userRole={user.role}
