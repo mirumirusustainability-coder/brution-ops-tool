@@ -19,6 +19,7 @@ type ApiProject = {
   name: string
   description: string | null
   created_at: string
+  updated_at?: string | null
   company_id: string
   status?: 'active' | 'completed' | 'paused'
   metadata?: { launch_date?: string | null; assignee?: string | null } | null
@@ -75,7 +76,7 @@ const getDropCounts = (deliverables: ApiProject['deliverables']) => {
 
 // ─── resizable column widths ──────────────────────────────────────────────
 
-const DEFAULT_COL_WIDTHS = [300, 200, 140, 150, 120, 120] // all px
+const DEFAULT_COL_WIDTHS = [300, 240, 120, 120, 180, 0] // last col is flex
 
 function useColumnWidths() {
   const [widths, setWidths] = useState(DEFAULT_COL_WIDTHS)
@@ -282,7 +283,7 @@ export default function AdminProjectsPage() {
 
   // ── grid template ─────────────────────────────────────────────────────────
 
-  const gridTemplate = `${cols.widths[0]}px ${cols.widths[1]}px ${cols.widths[2]}px ${cols.widths[3]}px ${cols.widths[4]}px ${cols.widths[5]}px`
+  const gridTemplate = `${cols.widths[0]}px ${cols.widths[1]}px ${cols.widths[2]}px ${cols.widths[3]}px ${cols.widths[4]}px minmax(0,1fr)`
 
   const [isDragging, setIsDragging] = useState(false)
   const Divider = ({ idx }: { idx: number }) => (
@@ -322,12 +323,7 @@ export default function AdminProjectsPage() {
         </div>
         <div className="text-xs text-gray-600 truncate">{assignee}</div>
         <div className="text-xs text-gray-500">
-          {(() => {
-            const feed = Array.isArray(co.metadata?.activity_feed) ? co.metadata.activity_feed : []
-            if (feed.length === 0) return '-'
-            const sorted = [...feed].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            return new Date(sorted[0].created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
-          })()}
+          {project.updated_at ? new Date(project.updated_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '-'}
         </div>
       </div>
     )

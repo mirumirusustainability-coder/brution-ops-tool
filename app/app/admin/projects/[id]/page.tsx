@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useEffect, useRef, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X } from 'lucide-react'
+import { ChevronRight, Plus, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
 import { Breadcrumb } from '@/components/breadcrumb'
 import { StepProgress } from '@/components/step-progress'
@@ -714,9 +714,104 @@ export default function AdminProjectDetailPage({
     showToast('프로젝트 메모가 저장되었습니다', 'success')
   }
 
+  // ── resizable right panel ─────────────────────────────────────────────────
+  const RIGHT_KEY = 'brution-project-right-width'
+  const RIGHT_DEFAULT = 300
+  const RIGHT_MIN = 240
+  const RIGHT_MAX = 420
+  const [rightWidth, setRightWidth] = useState(RIGHT_DEFAULT)
+  const [panelMounted, setPanelMounted] = useState(false)
+  const rightDragging = useRef(false)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(RIGHT_KEY)
+      if (saved) { const n = Number(saved); if (n >= RIGHT_MIN && n <= RIGHT_MAX) setRightWidth(n) }
+    } catch {}
+    setPanelMounted(true)
+  }, [])
+
+  const onRightDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    rightDragging.current = true
+    const startX = e.clientX
+    const startW = rightWidth
+    const onMove = (ev: MouseEvent) => {
+      if (!rightDragging.current) return
+      const next = Math.max(RIGHT_MIN, Math.min(RIGHT_MAX, startW - (ev.clientX - startX)))
+      setRightWidth(next)
+    }
+    const onUp = () => {
+      rightDragging.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      setRightWidth((w) => { try { localStorage.setItem(RIGHT_KEY, String(w)) } catch {}; return w })
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  // ── dot menu ──────────────────────────────────────────────────────────────
+  const [dotMenuOpen, setDotMenuOpen] = useState(false)
+  const dotMenuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!dotMenuOpen) return
+    const h = (e: MouseEvent) => { if (dotMenuRef.current && !dotMenuRef.current.contains(e.target as Node)) setDotMenuOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [dotMenuOpen])
+
+  // ── center tab ────────────────────────────────────────────────────────────
+  const [detailTab, setDetailTab] = useState<'drops' | 'gantt' | 'history'>('drops')
+
+  // ── memo input ────────────────────────────────────────────────────────────
+  const [memoInput, setMemoInput] = useState('')
+  const [memoSending, setMemoSending] = useState(false)
+  const memoEndRef = useRef<HTMLDivElement>(null)
+
+  const handleSendMemo = async () => {
+    if (!memoInput.trim()) return
+    const dept = currentUser?.role === 'staff_admin' ? '브루션 관리자' : '브루션 팀'
+    const newNote: ProjectNote = {
+      date: getTodayDate(),
+      time: getCurrentTime(),
+      author: `${currentUser?.name ?? ''}|${dept}`,
+      content: memoInput.trim(),
+    }
+    const nextNotes = [...projectNotes, newNote]
+    setMemoSending(true)
+    try {
+      const r = await fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: nextNotes }) })
+      if (!r.ok) { showToast('메모 저장에 실패했습니다', 'error'); setMemoSending(false); return }
+      setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), notes: nextNotes } } : prev)
+      setMemoInput('')
+      showToast('메모가 저장되었습니다', 'success')
+      setTimeout(() => memoEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    } catch { showToast('메모 저장에 실패했습니다', 'error') }
+    finally { setMemoSending(false) }
+  }
+
+  // ── d-day ─────────────────────────────────────────────────────────────────
+  const launchDate = (project.metadata as any)?.launch_date ?? null
+  const ddayInfo = (() => {
+    if (!launchDate) return { label: '미설정', color: 'text-gray-400', bg: 'bg-gray-100' }
+    const today = new Date(); today.setHours(0,0,0,0)
+    const end = new Date(launchDate); end.setHours(0,0,0,0)
+    const diff = Math.ceil((end.getTime() - today.getTime()) / (1000*60*60*24))
+    if (diff < 0) return { label: `D+${Math.abs(diff)}`, color: 'text-red-700', bg: 'bg-red-50' }
+    if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-700', bg: 'bg-red-50' }
+    if (diff <= 30) return { label: `D-${diff}`, color: 'text-yellow-700', bg: 'bg-yellow-50' }
+    return { label: `D-${diff}`, color: 'text-green-700', bg: 'bg-green-50' }
+  })()
+
   return (
     <AppLayout user={currentUser}>
-      <div className="max-w-6xl space-y-6">
+      <div className="space-y-3" style={{ visibility: panelMounted ? 'visible' : 'hidden' }}>
+        {/* Breadcrumb */}
         <Breadcrumb
           items={[
             { label: '브루션 관리자', href: '/app/admin' },
@@ -724,294 +819,246 @@ export default function AdminProjectDetailPage({
             { label: project.name },
           ]}
         />
-        <div>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
-              <button
-                onClick={openEditModal}
-                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
-              >
-                프로젝트 수정
-              </button>
-              {currentStatus === 'active' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange('completed')}
-                    disabled={statusUpdating}
-                    className="px-3 py-1.5 rounded-md text-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                  >
-                    완료 처리
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange('paused')}
-                    disabled={statusUpdating}
-                    className="px-3 py-1.5 rounded-md text-sm text-white bg-gray-500 hover:bg-gray-600 disabled:opacity-50"
-                  >
-                    보류
-                  </button>
-                </>
-              )}
-              {currentStatus === 'completed' && (
-                <button
-                  type="button"
-                  onClick={() => handleStatusChange('active')}
-                  disabled={statusUpdating}
-                  className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                >
-                  재개
-                </button>
-              )}
-              {currentStatus === 'paused' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange('active')}
-                    disabled={statusUpdating}
-                    className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    재개
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange('completed')}
-                    disabled={statusUpdating}
-                    className="px-3 py-1.5 rounded-md text-sm text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                  >
-                    완료 처리
-                  </button>
-                </>
-              )}
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${ddayInfo.color} ${ddayInfo.bg}`}>{ddayInfo.label}</span>
             </div>
-            <div className="text-right space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMemoModal(true)
-                  setShowContactForm(false)
-                  setContactContent('')
-                  setContactDate(new Date().toISOString().slice(0, 10))
-                }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                📝 프로젝트 메모 ({projectNotes.length}개)
-              </button>
-              <div>
-                <p className="text-sm text-gray-600">{project.description || '설명 없음'}</p>
-                {project.company_id ? (
-                  <span className="text-xs text-gray-500 mt-1">고객사: {project.company?.name ?? '미지정'}</span>
-                ) : (
-                  <span className="text-xs text-gray-400 mt-1 flex items-center gap-2">
-                    <span>고객사: 미지정</span>
-                    <button
-                      type="button"
-                      onClick={openEditModal}
-                      className="text-sm font-medium text-blue-500 hover:text-blue-700 underline cursor-pointer"
-                    >
-                      지정하기
-                    </button>
-                  </span>
-                )}
+            <button type="button" onClick={() => router.push(`/app/admin/companies/${project.company_id}`)} className="text-sm text-gray-500 hover:text-blue-600 hover:underline mt-0.5">
+              {project.company?.name ?? '미지정'}
+            </button>
+            {(project.metadata as any)?.assignee && <span className="text-xs text-gray-400 ml-3">담당: {(project.metadata as any).assignee}</span>}
+          </div>
+          {/* dot menu */}
+          <div ref={dotMenuRef} className="relative">
+            <button type="button" onClick={() => setDotMenuOpen((v) => !v)} className="p-2 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 text-lg leading-none">···</button>
+            {dotMenuOpen && (
+              <div className="absolute right-0 top-9 z-30 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                <button type="button" onClick={() => { setDotMenuOpen(false); openEditModal() }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">프로젝트 수정</button>
+                {currentStatus === 'active' && <>
+                  <button type="button" onClick={() => { setDotMenuOpen(false); handleStatusChange('completed') }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">완료 처리</button>
+                  <button type="button" onClick={() => { setDotMenuOpen(false); handleStatusChange('paused') }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">보류</button>
+                </>}
+                {currentStatus !== 'active' && <button type="button" onClick={() => { setDotMenuOpen(false); handleStatusChange('active') }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">재개</button>}
+                <div className="border-t border-gray-100 my-1" />
+                <button type="button" onClick={() => { setDotMenuOpen(false); handleDeleteProject() }} className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50">프로젝트 삭제</button>
               </div>
-            </div>
-          </div>
-          <div className="mt-4 rounded-lg border border-border bg-white p-4">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-sm font-medium text-gray-700">프로젝트 STEP</span>
-              {stepUpdating && <span className="text-xs text-gray-500">저장 중...</span>}
-            </div>
-            <StepProgress
-              currentStep={project.step ?? 0}
-              onStepChange={handleStepChange}
-              readonly={false}
-            />
-            {stepError && <div className="mt-2 text-xs text-red-600">{stepError}</div>}
-            {statusError && <div className="mt-2 text-xs text-red-600">{statusError}</div>}
+            )}
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">드롭</h2>
-          <button
-            onClick={() => {
-              setDeliverableType(getDefaultDeliverableType(project?.step))
-              setShowDeliverableModal(true)
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md"
-          >
-            <Plus className="w-4 h-4" />
-            새 드롭 추가
-          </button>
-        </div>
-
-        {error && <div className="text-sm text-red-600">{error}</div>}
-        {assetDeleteError && <div className="text-sm text-red-600">{assetDeleteError}</div>}
-        {uploadError && <div className="text-sm text-red-600">{uploadError}</div>}
-        {versionUpdateError && <div className="text-sm text-red-600">{versionUpdateError}</div>}
-        {versionDeleteError && <div className="text-sm text-red-600">{versionDeleteError}</div>}
-        {deliverableDeleteError && <div className="text-sm text-red-600">{deliverableDeleteError}</div>}
-
-        <div className="space-y-4">
-          {deliverables.length === 0 ? (
-            <div className="bg-muted rounded-lg p-8 text-center text-gray-600">등록된 드롭이 없습니다</div>
-          ) : (
-            deliverables.map((deliverable) => (
-              <div key={deliverable.id} className="bg-white border border-border rounded-lg p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{deliverable.title || '제목 없음'}</h3>
-                    <p className="text-sm text-gray-500">
-                      타입: {DELIVERABLE_TYPE_LABELS[deliverable.type]} · 공개범위: {deliverable.visibility}
-                    </p>
-                    <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-600">
-                      STEP {project.step ?? 0} · {STEP_LABELS[project.step ?? 0]}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openDeliverableEditModal(deliverable)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md"
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeliverableDelete(deliverable)}
-                      disabled={deletingDeliverableId === deliverable.id}
-                      className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-md disabled:opacity-50"
-                    >
-                      {deletingDeliverableId === deliverable.id ? '삭제 중...' : '삭제'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedDeliverable(deliverable)
-                        setShowVersionModal(true)
-                      }}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md"
-                    >
-                      <Plus className="w-4 h-4" />
-                      새 버전 추가
-                    </button>
-                  </div>
+        {/* STEP visualization */}
+        <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            {[0, 1, 2, 3, 4].map((s) => {
+              const isDone = s < currentStep
+              const isCurrent = s === currentStep
+              return (
+                <div key={s} className="flex items-center gap-2">
+                  <button type="button" onClick={() => !stepUpdating && handleStepChange(s)} disabled={stepUpdating} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-colors ${isDone ? 'bg-blue-500 border-blue-500 text-white' : isCurrent ? 'border-blue-500 text-blue-600 bg-white' : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300'}`}>{s}</button>
+                  {s < 4 && <div className={`w-8 h-0.5 ${s < currentStep ? 'bg-blue-500' : 'bg-gray-200'}`} />}
                 </div>
+              )
+            })}
+            <span className="ml-2 text-sm text-gray-600">STEP {currentStep} · {STEP_LABELS[currentStep]}</span>
+          </div>
+        </div>
 
-                <div className="mt-4 space-y-2">
-                  {deliverable.versions?.length ? (
-                    deliverable.versions.map((version) => {
-                      const assets = assetsByVersion[version.id] ?? []
-                      const inputId = `admin-upload-${version.id}`
-                      const normalizedStatus = version.status
-                      const statusValue = versionStatusOptions.some(
-                        (option) => option.value === normalizedStatus
-                      )
-                        ? normalizedStatus
-                        : 'draft'
+        {/* 2-column layout */}
+        <div className="flex h-[calc(100vh-var(--topbar-h,64px)-14rem)] overflow-hidden">
+          {/* LEFT — main */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {/* tabs */}
+            <div className="flex gap-1 border-b border-gray-200 shrink-0 mb-3">
+              {([['drops', '드롭'], ['gantt', '간트차트'], ['history', '히스토리']] as const).map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setDetailTab(key)} className={`px-3 py-2 text-sm border-b-2 -mb-px ${detailTab === key ? 'border-primary text-primary font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>{label}</button>
+              ))}
+            </div>
 
-                      return (
-                        <div key={version.id} className="flex flex-col gap-3 bg-muted rounded-md p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">v{version.version_no}</p>
-                              <p className="text-sm text-gray-500">{version.title || '제목 없음'}</p>
+            {detailTab === 'drops' && (
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                {/* existing drops content */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold text-gray-900">드롭 목록</h2>
+                  <button onClick={() => { setDeliverableType(getDefaultDeliverableType(currentStep)); setDeliverableTitle(''); setDeliverableVisibility('internal'); setDeliverableError(null); setShowDeliverableModal(true) }} className="flex items-center gap-1 text-sm text-primary hover:underline"><Plus className="w-4 h-4" /> 드롭 추가</button>
+                </div>
+                {orderedStepGroups.map((groupStep) => {
+                  const groupDeliverables = deliverables.filter((d) => {
+                    const stepTypes = STEP_DELIVERABLE_GROUPS[groupStep] || []
+                    return stepTypes.includes(d.type as DeliverableType)
+                  })
+                  if (groupDeliverables.length === 0 && groupStep !== currentStep) return null
+                  return (
+                    <div key={groupStep}>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">STEP {groupStep} · {STEP_LABELS[groupStep]}</h3>
+                      {groupDeliverables.length === 0 ? (
+                        <p className="text-xs text-gray-400 mb-3">등록된 드롭이 없습니다</p>
+                      ) : (
+                        <div className="space-y-2 mb-3">
+                          {groupDeliverables.map((d) => (
+                            <div key={d.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{d.title ?? DELIVERABLE_TYPE_LABELS[d.type]}</p>
+                                  <p className="text-xs text-gray-400">{DELIVERABLE_TYPE_LABELS[d.type]} · {d.visibility === 'client' ? '고객사 공개' : '내부'}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button type="button" onClick={() => { setEditingDeliverable(d); setEditDeliverableTitle(d.title ?? ''); setEditDeliverableType(d.type); setEditDeliverableVisibility(d.visibility); setEditDeliverableError(null); setShowDeliverableEditModal(true) }} className="text-xs text-gray-400 hover:text-gray-700 underline">수정</button>
+                                  <button type="button" onClick={() => handleDeliverableDelete(d)} disabled={deletingDeliverableId === d.id} className="text-xs text-red-400 hover:text-red-600 underline">삭제</button>
+                                </div>
+                              </div>
+                              {/* versions */}
+                              {d.versions.length > 0 && (
+                                <div className="space-y-1.5 mt-2">
+                                  {d.versions.map((v) => {
+                                    const vAssets = assetsByVersion[v.id] ?? []
+                                    return (
+                                      <div key={v.id} className="bg-gray-50 rounded-md p-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-medium text-gray-700">v{v.version_no}</span>
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${v.status === 'in_review' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{v.status === 'in_review' ? '완료' : '검토중'}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <select value={v.status} onChange={(e) => handleVersionStatusChange(v.id, e.target.value as VersionStatus)} disabled={versionUpdatingId === v.id} className="text-xs border border-gray-200 rounded px-1 py-0.5">
+                                              {versionStatusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                            </select>
+                                            <label className="text-xs text-primary cursor-pointer hover:underline">
+                                              {uploadingVersionId === v.id ? '...' : '📎'}
+                                              <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAdminUpload(v.id, f); e.currentTarget.value = '' }} />
+                                            </label>
+                                            <button type="button" onClick={() => handleVersionDelete(v.id)} disabled={deletingVersionId === v.id} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                                          </div>
+                                        </div>
+                                        {vAssets.length > 0 && (
+                                          <div className="mt-1.5 space-y-1">
+                                            {vAssets.map((a) => (
+                                              <div key={a.id} className="flex items-center justify-between text-xs text-gray-600">
+                                                <span className="truncate">{a.original_name ?? getFileNameFromPath(a.path) ?? a.id}</span>
+                                                <button type="button" onClick={() => handleDeleteAsset(a.id, v.id)} disabled={deletingAssetId === a.id} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              <button type="button" onClick={() => { setSelectedDeliverable(d); setVersionTitle(''); setVersionError(null); setShowVersionModal(true) }} className="mt-2 text-xs text-primary hover:underline">+ 버전 추가</button>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <select
-                                value={statusValue}
-                                onChange={(event) =>
-                                  handleVersionStatusChange(version.id, event.target.value)
-                                }
-                                disabled={versionUpdatingId === version.id}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded-md"
-                              >
-                                {versionStatusOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <input
-                                id={inputId}
-                                type="file"
-                                className="hidden"
-                                onChange={(event) => {
-                                  const selectedFile = event.target.files?.[0]
-                                  if (selectedFile) {
-                                    handleAdminUpload(version.id, selectedFile)
-                                    event.target.value = ''
-                                  }
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const input = document.getElementById(inputId) as HTMLInputElement | null
-                                  input?.click()
-                                }}
-                                disabled={uploadingVersionId === version.id}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-                              >
-                                {uploadingVersionId === version.id ? '업로드 중...' : '파일 업로드'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleVersionDelete(version.id)}
-                                disabled={deletingVersionId === version.id}
-                                className="px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-md disabled:opacity-50"
-                              >
-                                {deletingVersionId === version.id ? '삭제 중...' : '버전 삭제'}
-                              </button>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            {assets.length ? (
-                              assets.map((asset) => {
-                                const displayName =
-                                  asset.file_name || asset.name || getFileNameFromPath(asset.path) || '파일'
-
-                                return (
-                                  <div key={asset.id} className="flex items-center justify-between text-sm text-gray-600">
-                                    <span className="truncate">{displayName}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteAsset(asset.id, version.id)}
-                                      disabled={deletingAssetId === asset.id}
-                                      className="text-red-600 hover:text-red-700 disabled:opacity-50"
-                                    >
-                                      {deletingAssetId === asset.id ? '삭제 중...' : '삭제'}
-                                    </button>
-                                  </div>
-                                )
-                              })
-                            ) : (
-                              <p className="text-sm text-gray-400">업로드된 파일 없음</p>
-                            )}
-                          </div>
+                          ))}
                         </div>
-                      )
-                    })
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {detailTab === 'gantt' && (
+              <div className="flex-1 flex items-center justify-center text-sm text-gray-400">간트차트는 Phase A 이후 구현 예정입니다.</div>
+            )}
+
+            {detailTab === 'history' && (
+              <div className="flex-1 overflow-y-auto pr-2">
+                <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">프로젝트 히스토리</p>
+                  {sortedNotes.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-6">기록이 없습니다.</p>
                   ) : (
-                    <div className="text-sm text-gray-500">버전이 없습니다</div>
+                    <div className="space-y-3">
+                      {sortedNotes.map((note, idx) => {
+                        const parts = (note.author ?? '').split('|')
+                        const name = parts[0] || '알 수 없음'
+                        const dept = parts[1] || ''
+                        return (
+                          <div key={idx} className="flex gap-3">
+                            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center shrink-0">{name.charAt(0)}</div>
+                            <div>
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <span className="font-medium text-gray-700">{name}</span>
+                                {dept && <span>{dept}</span>}
+                                <span>{note.date} {note.time ?? ''}</span>
+                              </div>
+                              <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-line">{note.content}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          {deleteProjectError && <div className="text-sm text-red-600">{deleteProjectError}</div>}
-          <button
-            type="button"
-            onClick={handleDeleteProject}
-            disabled={deletingProject}
-            className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {deletingProject ? '삭제 중...' : '프로젝트 삭제'}
-          </button>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div onMouseDown={onRightDragStart} className="shrink-0 w-3 cursor-col-resize flex items-center justify-center mx-1 group">
+            <div className="w-0.5 h-4 bg-gray-300 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+          </div>
+
+          {/* RIGHT panel */}
+          <aside style={{ width: rightWidth }} className="shrink-0 flex flex-col gap-3 overflow-hidden">
+            {/* D-day + company link */}
+            <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm text-center">
+              <p className="text-xs text-gray-500 mb-1">출시 D-day</p>
+              <p className={`text-2xl font-bold ${ddayInfo.color}`}>{ddayInfo.label}</p>
+              {launchDate && <p className="text-xs text-gray-400 mt-1">{new Date(launchDate).toLocaleDateString('ko-KR')}</p>}
+              <button type="button" onClick={() => router.push(`/app/admin/companies/${project.company_id}`)} className="mt-2 text-xs text-primary hover:underline flex items-center justify-center gap-1 mx-auto">고객사 바로가기 <ChevronRight className="w-3 h-3" /></button>
+            </div>
+
+            {/* description */}
+            {project.description && (
+              <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">설명</p>
+                <p className="text-sm text-gray-700 whitespace-pre-line">{project.description}</p>
+              </div>
+            )}
+
+            {/* memo widget — fills remaining height */}
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">프로젝트 메모</p>
+              </div>
+              {/* messages */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {sortedNotes.length === 0 && <p className="text-xs text-gray-400 text-center py-4">메모가 없습니다.</p>}
+                {[...sortedNotes].reverse().map((note, idx) => {
+                  const parts = (note.author ?? '').split('|')
+                  const name = parts[0] || '알 수 없음'
+                  const dept = parts[1] || ''
+                  return (
+                    <div key={idx} className="flex gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">{name.charAt(0)}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="font-medium text-gray-700">{name}</span>
+                          {dept && <span className="text-gray-400">{dept}</span>}
+                          <span className="text-gray-300">{note.date} {note.time ?? ''}</span>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-line mt-0.5">{note.content}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div ref={memoEndRef} />
+              </div>
+              {/* input */}
+              <div className="p-3 border-t border-gray-100 shrink-0">
+                <div className="flex gap-2">
+                  <textarea value={memoInput} onChange={(e) => setMemoInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMemo() } }} placeholder="메모 입력..." className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm min-h-[36px] max-h-[80px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400" rows={1} />
+                  <button type="button" onClick={handleSendMemo} disabled={memoSending || !memoInput.trim()} className="shrink-0 px-3 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-hover disabled:opacity-50">{memoSending ? '...' : '전송'}</button>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
+
 
       {showDeliverableModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
