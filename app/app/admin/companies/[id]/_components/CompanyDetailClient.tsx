@@ -29,6 +29,62 @@ const STEP_LABELS: Record<number, string> = {
 
 const DEFAULT_SHORTCUTS = ['채팅', '견적서', '승인요청', '리포트'];
 
+const LEFT_WIDTH_KEY = 'brution-company-left-width';
+const RIGHT_WIDTH_KEY = 'brution-company-right-width';
+const LEFT_DEFAULT = 260;
+const LEFT_MIN = 200;
+const LEFT_MAX = 320;
+const RIGHT_DEFAULT = 340;
+const RIGHT_MIN = 260;
+const RIGHT_MAX = 420;
+
+function useResizable(storageKey: string, defaultVal: number, min: number, max: number) {
+  const [width, setWidth] = useState(defaultVal);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startW = useRef(defaultVal);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const n = Number(saved);
+        if (n >= min && n <= max) setWidth(n);
+      }
+    } catch {}
+  }, [storageKey, min, max]);
+
+  const onMouseDown = (e: React.MouseEvent, direction: 1 | -1) => {
+    e.preventDefault();
+    dragging.current = true;
+    startX.current = e.clientX;
+    startW.current = width;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta = (ev.clientX - startX.current) * direction;
+      const next = Math.min(max, Math.max(min, startW.current + delta));
+      setWidth(next);
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try { localStorage.setItem(storageKey, String(Math.min(max, Math.max(min, startW.current + 0)))); } catch {}
+      // save final width
+      setWidth((w) => { try { localStorage.setItem(storageKey, String(w)); } catch {} return w; });
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  return { width, onMouseDown };
+}
+
 const contractBadgeStyles: Record<string, string> = {
   '리드': 'bg-gray-100 text-gray-600',
   '상담중': 'bg-blue-50 text-blue-600',
@@ -242,6 +298,10 @@ export function CompanyDetailClient({
   const router = useRouter();
   const { showToast } = useToast();
 
+  // ── resizable panels ──────────────────────────────────────────────────────
+  const leftPanel = useResizable(LEFT_WIDTH_KEY, LEFT_DEFAULT, LEFT_MIN, LEFT_MAX);
+  const rightPanel = useResizable(RIGHT_WIDTH_KEY, RIGHT_DEFAULT, RIGHT_MIN, RIGHT_MAX);
+
   // ── modals ────────────────────────────────────────────────────────────────
   const [openModal, setOpenModal] = useState<ModalType>(null);
   const [showDeleteCompanyModal, setShowDeleteCompanyModal] = useState(false);
@@ -401,10 +461,10 @@ export function CompanyDetailClient({
 
   return (
     <AppLayout user={currentUser}>
-      <div className="flex gap-4 h-[calc(100vh-var(--topbar-h,64px)-3rem)] -m-6 p-6 overflow-hidden">
+      <div className="flex h-[calc(100vh-var(--topbar-h,64px)-3rem)] -m-6 p-6 overflow-hidden">
 
-        {/* ── LEFT PANEL (240px) ── */}
-        <aside className="w-[260px] shrink-0 flex flex-col gap-3 overflow-y-auto">
+        {/* ── LEFT PANEL ── */}
+        <aside style={{ width: leftPanel.width }} className="shrink-0 flex flex-col gap-3 overflow-y-auto">
           {/* profile card */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -502,6 +562,12 @@ export function CompanyDetailClient({
 
           {error && <p className="text-xs text-red-500">{error}</p>}
         </aside>
+
+        {/* Left divider */}
+        <div
+          onMouseDown={(e) => leftPanel.onMouseDown(e, 1)}
+          className="shrink-0 w-1 cursor-col-resize rounded-full hover:bg-blue-400 active:bg-blue-500 transition-colors bg-transparent mx-1"
+        />
 
         {/* ── CENTER PANEL ── */}
         <section className="flex-1 flex flex-col gap-3 min-w-0 overflow-hidden">
@@ -604,8 +670,14 @@ export function CompanyDetailClient({
           )}
         </section>
 
-        {/* ── RIGHT PANEL (210px) ── */}
-        <aside className="w-[340px] shrink-0 flex flex-col gap-3 overflow-y-auto">
+        {/* Right divider */}
+        <div
+          onMouseDown={(e) => rightPanel.onMouseDown(e, -1)}
+          className="shrink-0 w-1 cursor-col-resize rounded-full hover:bg-blue-400 active:bg-blue-500 transition-colors bg-transparent mx-1"
+        />
+
+        {/* ── RIGHT PANEL ── */}
+        <aside style={{ width: rightPanel.width }} className="shrink-0 flex flex-col gap-3 overflow-y-auto">
           {/* D-day */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm text-center">
             <p className="text-xs text-gray-500 mb-1">출시 D-day</p>
