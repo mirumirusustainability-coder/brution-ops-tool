@@ -158,6 +158,8 @@ export default function AdminProjectDetailPage({
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editCompanyId, setEditCompanyId] = useState('')
+  const [editLaunchDate, setEditLaunchDate] = useState('')
+  const [editAssignee, setEditAssignee] = useState('')
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [showMemoModal, setShowMemoModal] = useState(false)
@@ -503,6 +505,8 @@ export default function AdminProjectDetailPage({
     setEditName(project.name)
     setEditDescription(project.description ?? '')
     setEditCompanyId(project.company_id ?? '')
+    setEditLaunchDate((project as any).metadata?.launch_date ?? '')
+    setEditAssignee((project as any).metadata?.assignee ?? '')
     setEditError(null)
     setShowEditModal(true)
   }
@@ -1212,6 +1216,25 @@ export default function AdminProjectDetailPage({
                   </option>
                 ))}
               </select>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">출시 예정일</label>
+                <input
+                  type="date"
+                  value={editLaunchDate}
+                  onChange={(event) => setEditLaunchDate(event.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">담당자</label>
+                <input
+                  type="text"
+                  value={editAssignee}
+                  onChange={(event) => setEditAssignee(event.target.value)}
+                  placeholder="담당자명"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
               {editError && <p className="text-sm text-red-600">{editError}</p>}
             </div>
 
@@ -1233,6 +1256,12 @@ export default function AdminProjectDetailPage({
                   setEditing(true)
                   setEditError(null)
 
+                  const editMetadata: Record<string, any> = {}
+                  if (editLaunchDate) editMetadata.launch_date = editLaunchDate
+                  else editMetadata.launch_date = null
+                  if (editAssignee.trim()) editMetadata.assignee = editAssignee.trim()
+                  else editMetadata.assignee = null
+
                   const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -1240,6 +1269,7 @@ export default function AdminProjectDetailPage({
                       name: editName.trim(),
                       description: editDescription.trim() || null,
                       companyId: editCompanyId,
+                      metadata: editMetadata,
                     }),
                   })
 

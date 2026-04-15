@@ -87,6 +87,7 @@ export const POST = async (request: Request) => {
     const description = body?.description ?? null
     const companyId = body?.companyId
     const stepInput = body?.step
+    const incomingMetadata = body?.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata) ? body.metadata : null
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'INVALID_NAME' }, { status: 400 })
@@ -107,8 +108,9 @@ export const POST = async (request: Request) => {
         company_id: companyId,
         step,
         created_by: profile.user_id,
+        ...(incomingMetadata ? { metadata: incomingMetadata } : {}),
       })
-      .select('id, name, description, created_at, company_id, step, status')
+      .select('id, name, description, created_at, company_id, step, status, metadata')
       .single()
 
     if (error || !data) {

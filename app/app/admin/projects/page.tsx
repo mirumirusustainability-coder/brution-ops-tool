@@ -75,7 +75,7 @@ const getDropCounts = (deliverables: ApiProject['deliverables']) => {
 
 // ─── resizable column widths ──────────────────────────────────────────────
 
-const DEFAULT_COL_WIDTHS = [0.35, 180, 120, 120, 100, 100] // first is fraction, rest px
+const DEFAULT_COL_WIDTHS = [300, 200, 140, 150, 120, 120] // all px
 
 function useColumnWidths() {
   const [widths, setWidths] = useState(DEFAULT_COL_WIDTHS)
@@ -108,9 +108,9 @@ function useColumnWidths() {
       const delta = ev.clientX - startX.current
       const next = [...startWidths.current]
       // adjust the column to the left of the divider
-      const minW = colIdx === 0 ? 0.2 : 60
-      const maxW = colIdx === 0 ? 0.6 : 300
-      const newVal = startWidths.current[colIdx] + (colIdx === 0 ? delta / (window.innerWidth * 0.7) : delta)
+      const minW = 80
+      const maxW = 500
+      const newVal = startWidths.current[colIdx] + delta
       next[colIdx] = Math.max(minW, Math.min(maxW, newVal))
       setWidths(next)
     }
@@ -282,10 +282,16 @@ export default function AdminProjectsPage() {
 
   // ── grid template ─────────────────────────────────────────────────────────
 
-  const gridTemplate = `minmax(0, ${cols.widths[0]}fr) ${cols.widths[1]}px ${cols.widths[2]}px ${cols.widths[3]}px ${cols.widths[4]}px ${cols.widths[5]}px`
+  const gridTemplate = `${cols.widths[0]}px ${cols.widths[1]}px ${cols.widths[2]}px ${cols.widths[3]}px ${cols.widths[4]}px ${cols.widths[5]}px`
 
+  const [isDragging, setIsDragging] = useState(false)
   const Divider = ({ idx }: { idx: number }) => (
-    <div onMouseDown={(e) => cols.onMouseDown(e, idx)} className="absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 transition-colors z-10" style={{ right: -2 }} />
+    <div
+      onMouseDown={(e) => { setIsDragging(true); cols.onMouseDown(e, idx); const up = () => { setIsDragging(false); document.removeEventListener('mouseup', up) }; document.addEventListener('mouseup', up) }}
+      className="absolute top-0 bottom-0 w-3 -right-1.5 cursor-col-resize z-10 flex items-center justify-center group"
+    >
+      <div className="w-0.5 h-4 bg-gray-300 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+    </div>
   )
 
   const renderRow = (project: ApiProject) => {
@@ -362,7 +368,7 @@ export default function AdminProjectsPage() {
 
         {/* List view */}
         {viewMode === 'list' && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden ${isDragging ? 'cursor-col-resize' : ''}`}>
             {/* Header */}
             <div className="hidden md:grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide" style={{ gridTemplateColumns: gridTemplate }}>
               {['프로젝트', 'STEP', '출시 D-day', '드롭', '담당자', '최근 활동'].map((label, i) => (

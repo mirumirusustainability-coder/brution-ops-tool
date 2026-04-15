@@ -142,9 +142,11 @@ export const PATCH = async (
       updates.status = body.status
     }
 
-    if (Array.isArray(body?.notes)) {
-      const admin = createSupabaseAdmin()
-      const { data: projectMeta, error: metaError } = await admin
+    // merge metadata fields (notes, launch_date, assignee, etc.)
+    const hasMetadataUpdates = Array.isArray(body?.notes) || (body?.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata))
+    if (hasMetadataUpdates) {
+      const admin2 = createSupabaseAdmin()
+      const { data: projectMeta, error: metaError } = await admin2
         .from('projects')
         .select('metadata')
         .eq('id', id)
@@ -155,10 +157,13 @@ export const PATCH = async (
         return NextResponse.json({ error: metaError.message }, { status: 500 })
       }
 
-      updates.metadata = {
-        ...(projectMeta?.metadata ?? {}),
-        notes: body.notes,
+      const existing = (projectMeta?.metadata ?? {}) as Record<string, any>
+      const merged = { ...existing }
+      if (Array.isArray(body?.notes)) merged.notes = body.notes
+      if (body?.metadata && typeof body.metadata === 'object') {
+        Object.assign(merged, body.metadata)
       }
+      updates.metadata = merged
     }
 
     if (Object.keys(updates).length === 0) {
