@@ -10,7 +10,7 @@
 - 프로젝트명: brution-ops-tool
 - 스택: Next.js 15 (App Router), TypeScript, Tailwind CSS, Supabase
 - 목적: 브루션 내부 운영툴 + 고객사 포털
-- 설계 문서: brution_design_v2.md 참고
+- 설계 문서: brution_design_v3.md 참고
 
 ---
 
@@ -108,7 +108,7 @@ Haiku — 단순 반복
 
 새 세션 시작 시 반드시 아래 파일 먼저 읽을 것:
 1. AGENTS.md (이 파일)
-2. brution_design_v2.md (전체 설계 기준)
+2. brution_design_v3.md (전체 설계 기준)
 
 작업 완료 후 반드시 기록:
 - 커밋 해시
@@ -127,3 +127,12 @@ Haiku — 단순 반복
 - 고객사 상세: app/app/admin/companies/[id]/_components/CompanyDetailClient.tsx
 - 프로젝트 상세: app/app/admin/projects/[id]/page.tsx
 - 고객사 API: app/api/admin/companies/[id]/route.ts
+
+---
+
+## 참고 문서
+
+- 설계 문서 v3: brution_design_v3.md (전체 설계 기준 — 항상 최신 버전 참조)
+- AGENTS.md: 이 파일 (AI 코딩 에이전트 업무 지침)
+
+작업 시작 전 반드시 brution_design_v3.md를 읽고 현재 Phase와 다음 작업을 확인할 것.
