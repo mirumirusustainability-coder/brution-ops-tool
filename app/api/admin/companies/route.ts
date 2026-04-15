@@ -62,7 +62,7 @@ export const GET = async (_request: Request) => {
     const admin = createSupabaseAdmin()
     const { data: companies, error } = await admin
       .from('companies')
-      .select('id, name, created_at, updated_at')
+      .select('id, name, metadata, created_at, updated_at')
       .neq('id', BRUTION_COMPANY_ID)
       .order('created_at', { ascending: false })
 
@@ -102,10 +102,43 @@ export const GET = async (_request: Request) => {
       }
     })
 
+    // drop status counts per company
+    const allProjectIds = (projects ?? []).map((p) => p.id)
+    const dropCountMap = new Map<string, { published: number; in_review: number; draft: number }>()
+
+    if (allProjectIds.length > 0) {
+      const { data: versions } = await admin
+        .from('deliverable_versions')
+        .select('id, status, deliverables!inner(project_id)')
+        .in('deliverables.project_id', allProjectIds)
+
+      if (versions) {
+        // map project_id -> company_id
+        const projectToCompany = new Map<string, string>()
+        ;(projects ?? []).forEach((p) => projectToCompany.set(p.id, p.company_id))
+
+        for (const v of versions) {
+          const projectId = (v.deliverables as unknown as { project_id: string })?.project_id
+          if (!projectId) continue
+          const companyId = projectToCompany.get(projectId)
+          if (!companyId) continue
+          if (!dropCountMap.has(companyId)) {
+            dropCountMap.set(companyId, { published: 0, in_review: 0, draft: 0 })
+          }
+          const counts = dropCountMap.get(companyId)!
+          const s = (v.status ?? '') as string
+          if (s === 'published') counts.published++
+          else if (s === 'in_review') counts.in_review++
+          else if (s === 'draft') counts.draft++
+        }
+      }
+    }
+
     const enriched = (companies ?? []).map((company) => ({
       ...company,
       latest_project: latestProjectMap.get(company.id) ?? null,
       client_admin_name: adminNameMap.get(company.id) ?? null,
+      drop_counts: dropCountMap.get(company.id) ?? { published: 0, in_review: 0, draft: 0 },
     }))
 
     return NextResponse.json({ companies: enriched })

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Plus, ShieldAlert, Users, Download, UserPlus } from 'lucide-react';
+import { Plus, ShieldAlert, Download, UserPlus } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { createBrowserClient } from '@supabase/ssr';
@@ -14,6 +14,7 @@ import { User } from '@/types';
 type ApiCompany = {
   id: string;
   name: string;
+  metadata?: Record<string, any> | null;
   created_at: string;
   updated_at: string;
   latest_project?: {
@@ -25,6 +26,7 @@ type ApiCompany = {
     updated_at?: string | null;
   } | null;
   client_admin_name?: string | null;
+  drop_counts?: { published: number; in_review: number; draft: number } | null;
 };
 
 type StaffUser = {
@@ -94,7 +96,7 @@ export default function CompaniesAdminPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'paused'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   const loadCompanies = async () => {
@@ -450,29 +452,41 @@ export default function CompaniesAdminPage() {
   const staffCount = staffUsers.length;
   const canAddStaff = staffCount < 30;
 
-  const statusCounts = companies.reduce(
+  const contractFilterTabs = ['all', '리드', '상담중', '계약완료', '진행중', '완료'] as const;
+  const contractFilterLabels: Record<string, string> = {
+    all: '전체',
+    '리드': '리드',
+    '상담중': '상담중',
+    '계약완료': '계약',
+    '진행중': '진행',
+    '완료': '완료',
+  };
+
+  const contractStatusCounts = companies.reduce<Record<string, number>>(
     (acc, company) => {
-      const status = company.latest_project?.status ?? null;
-      acc.all += 1;
-      if (status === 'active') acc.active += 1;
-      if (status === 'completed') acc.completed += 1;
-      if (status === 'paused') acc.paused += 1;
+      acc.all = (acc.all ?? 0) + 1;
+      const cs = (company.metadata?.contract_status as string) ?? '';
+      if (cs) acc[cs] = (acc[cs] ?? 0) + 1;
       return acc;
     },
-    { all: 0, active: 0, completed: 0, paused: 0 }
+    { all: 0 }
   );
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredCompanies = companies.filter((company) => {
-    const matchesStatus = statusFilter === 'all' || company.latest_project?.status === statusFilter;
+    const cs = (company.metadata?.contract_status as string) ?? '';
+    const matchesStatus = statusFilter === 'all' || cs === statusFilter;
     const matchesSearch = !normalizedSearch || company.name.toLowerCase().includes(normalizedSearch);
     return matchesStatus && matchesSearch;
   });
 
-  const statusBadgeStyles: Record<string, string> = {
-    active: 'bg-emerald-50 text-emerald-600',
-    completed: 'bg-blue-50 text-blue-600',
-    paused: 'bg-gray-100 text-gray-600',
+  const contractBadgeStyles: Record<string, string> = {
+    '리드': 'bg-gray-100 text-gray-600',
+    '상담중': 'bg-blue-50 text-blue-600',
+    '계약완료': 'bg-indigo-50 text-indigo-600',
+    '진행중': 'bg-emerald-50 text-emerald-600',
+    '완료': 'bg-green-50 text-green-700',
+    '보류': 'bg-yellow-50 text-yellow-600',
   };
 
   const contractStatusOptions = ['상담중', '계약완료', '진행중', '완료', '보류'];
@@ -1137,25 +1151,18 @@ export default function CompaniesAdminPage() {
         {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
 
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          {(
-            [
-              { key: 'all', label: '전체', count: statusCounts.all },
-              { key: 'active', label: '진행중', count: statusCounts.active },
-              { key: 'completed', label: '완료', count: statusCounts.completed },
-              { key: 'paused', label: '일시정지', count: statusCounts.paused },
-            ] as const
-          ).map((tab) => (
+          {contractFilterTabs.map((tab) => (
             <button
-              key={tab.key}
+              key={tab}
               type="button"
-              onClick={() => setStatusFilter(tab.key)}
+              onClick={() => setStatusFilter(tab)}
               className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                statusFilter === tab.key
+                statusFilter === tab
                   ? 'bg-primary text-white border-primary'
                   : 'border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {tab.label} {tab.count}
+              {contractFilterLabels[tab]} {contractStatusCounts[tab] ?? 0}
             </button>
           ))}
           <div className="flex-1 min-w-[200px]">
@@ -1169,63 +1176,110 @@ export default function CompaniesAdminPage() {
           </div>
         </div>
 
-        {/* Companies List */}
+        {/* Companies Grid */}
         {filteredCompanies.length === 0 && !loading ? (
-          <div className="text-sm text-gray-500">검색 결과가 없습니다</div>
+          <div className="text-sm text-gray-500">등록된 고객사가 없습니다</div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredCompanies.map((company) => {
+              const meta = company.metadata ?? {};
+              const contractStatus = (meta.contract_status as string) ?? '';
               const latestProject = company.latest_project ?? null;
-              const statusValue = latestProject?.status ?? null;
-              const statusStyle = statusValue ? statusBadgeStyles[statusValue] : '';
               const stepValue = typeof latestProject?.step === 'number' ? latestProject.step : null;
-              const stepLabel = stepValue !== null ? STEP_LABELS[stepValue] : null;
               const managerName = company.client_admin_name ?? '-';
+              const drops = company.drop_counts ?? { published: 0, in_review: 0, draft: 0 };
+              const dropTotal = drops.published + drops.in_review + drops.draft;
+
+              // D-day
+              const contractEnd = meta.contract_end as string | undefined;
+              let ddayLabel = '';
+              let ddayColor = '';
+              if (contractEnd) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const end = new Date(contractEnd);
+                end.setHours(0, 0, 0, 0);
+                const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                if (diff < 0) { ddayLabel = `D+${Math.abs(diff)}`; ddayColor = 'text-red-600 bg-red-50'; }
+                else if (diff <= 7) { ddayLabel = `D-${diff}`; ddayColor = 'text-red-600 bg-red-50'; }
+                else if (diff <= 30) { ddayLabel = `D-${diff}`; ddayColor = 'text-yellow-600 bg-yellow-50'; }
+                else { ddayLabel = `D-${diff}`; ddayColor = 'text-green-600 bg-green-50'; }
+              }
+
+              // last activity
+              const feed = Array.isArray(meta.activity_feed) ? meta.activity_feed : [];
+              let lastActivity = '';
+              if (feed.length > 0) {
+                const sorted = [...feed].sort(
+                  (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
+                lastActivity = new Date(sorted[0].created_at).toLocaleDateString('ko-KR', {
+                  month: 'short',
+                  day: 'numeric',
+                });
+              }
 
               return (
-              <div
-                key={company.id}
-                onClick={() => router.push(`/app/admin/companies/${company.id}`)}
-                className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md hover:border-blue-200 transition-shadow cursor-pointer"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-primary/10 rounded-md">
-                      <Building2 className="w-5 h-5 text-primary" />
+                <div
+                  key={company.id}
+                  onClick={() => router.push(`/app/admin/companies/${company.id}`)}
+                  className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer"
+                >
+                  {/* Row 1: name + badge */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="font-semibold text-gray-900 truncate">{company.name}</h3>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {contractStatus && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${contractBadgeStyles[contractStatus] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {contractStatus}
+                        </span>
+                      )}
+                      {ddayLabel && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${ddayColor}`}>
+                          {ddayLabel}
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900">{company.name}</h3>
-                        {statusValue && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle}`}>
-                            {statusValue === 'active' ? '진행중' : statusValue === 'completed' ? '완료' : '일시정지'}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">담당자: {managerName}</p>
+                  </div>
+
+                  {/* Row 2: STEP progress */}
+                  {stepValue !== null ? (
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 mb-1">
+                        STEP {stepValue} · {STEP_LABELS[stepValue]}
+                      </p>
+                      <StepProgress currentStep={stepValue} readonly />
                     </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 mb-3">프로젝트 없음</p>
+                  )}
+
+                  {/* Row 3: drop counts */}
+                  {dropTotal > 0 && (
+                    <div className="flex items-center gap-3 mb-3 text-xs">
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                        {drops.published}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                        {drops.in_review}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                        {drops.draft}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Row 4: meta info */}
+                  <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
+                    <span>담당: {managerName}</span>
+                    {lastActivity && <span>최근 활동: {lastActivity}</span>}
                   </div>
                 </div>
-
-                {stepValue !== null && stepLabel ? (
-                  <div className="mt-4 space-y-2">
-                    <div className="text-sm font-medium text-gray-700">
-                      STEP {stepValue} · {stepLabel}
-                    </div>
-                    <StepProgress currentStep={stepValue} readonly />
-                  </div>
-                ) : null}
-
-                <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    <span>최대 5명</span>
-                  </div>
-                  <span>마지막 수정일: {new Date(company.updated_at).toLocaleDateString('ko-KR')}</span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         )}
 
