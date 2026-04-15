@@ -70,3 +70,60 @@ push 실패 시 git pull --rebase origin main 후 재시도.
 
 - 브루션 UUID: '00000000-0000-0000-0000-000000000001'
 - STEP: 0=스타터패키지 / 1=브랜드기획 / 2=디자인·인증 / 3=생산·납품 / 4=출시
+
+---
+
+## 모델 전략 (작업별 권장 모델)
+
+### 모델 변경 방법
+/model claude-opus-4-6
+/model claude-sonnet-4-6
+/model claude-haiku-4-5-20251001
+
+### 상황별 권장 모델
+
+Opus 4.6 — 설계/판단
+- 전체 아키텍처 설계
+- 복잡한 버그 원인 분석
+- DB 스키마 설계
+- 새로운 기능 전체 구조 설계
+- 새 페이지/컴포넌트 전면 개편
+
+Sonnet 4.6 — 일반 구현
+- 기존 컴포넌트 수정/개선
+- API 라우트 수정
+- UI 스타일 수정
+- 원인 파악된 버그 수정
+- 타입 추가
+
+Haiku — 단순 반복
+- 파일 내용 확인/출력
+- 단순 텍스트 변경
+- git 명령어 실행
+- 파일 구조 파악
+
+---
+
+## 작업 인수인계 (컨텍스트 유지)
+
+새 세션 시작 시 반드시 아래 파일 먼저 읽을 것:
+1. AGENTS.md (이 파일)
+2. brution_design_v2.md (전체 설계 기준)
+
+작업 완료 후 반드시 기록:
+- 커밋 해시
+- 변경된 파일 목록
+- 다음 작업 예정 내용
+
+현재 진행 상황:
+- Phase A 진행 중
+- 완료: AGENTS.md 생성(a149a0f), 대시보드 개편(132e636)
+- 진행 중: 대시보드 UX 개선
+- 다음: 오른쪽 패널 강화, 간트차트 3트랙
+
+주요 파일 경로:
+- 대시보드: app/app/admin/page.tsx
+- 대시보드 API: app/api/admin/dashboard/route.ts
+- 고객사 상세: app/app/admin/companies/[id]/_components/CompanyDetailClient.tsx
+- 프로젝트 상세: app/app/admin/projects/[id]/page.tsx
+- 고객사 API: app/api/admin/companies/[id]/route.ts
