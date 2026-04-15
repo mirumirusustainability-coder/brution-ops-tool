@@ -404,7 +404,7 @@ export function CompanyDetailClient({
       <div className="flex gap-4 h-[calc(100vh-var(--topbar-h,64px)-3rem)] -m-6 p-6 overflow-hidden">
 
         {/* ── LEFT PANEL (240px) ── */}
-        <aside className="w-56 shrink-0 flex flex-col gap-3 overflow-y-auto">
+        <aside className="w-[260px] shrink-0 flex flex-col gap-3 overflow-y-auto">
           {/* profile card */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -605,7 +605,7 @@ export function CompanyDetailClient({
         </section>
 
         {/* ── RIGHT PANEL (210px) ── */}
-        <aside className="w-[300px] shrink-0 flex flex-col gap-3 overflow-y-auto">
+        <aside className="w-[340px] shrink-0 flex flex-col gap-3 overflow-y-auto">
           {/* D-day */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm text-center">
             <p className="text-xs text-gray-500 mb-1">출시 D-day</p>
@@ -730,7 +730,7 @@ export function CompanyDetailClient({
                 </select>
               </div>
               {([
-                ['contract_amount', '계약금액', 'number'], ['contract_start', '계약 시작일', 'date'], ['contract_end', '계약 종료일', 'date'],
+                ['contract_amount', '계약금액', 'number'], ['contract_start', '계약 시작일', 'date'], ['contract_end', '출시 예정일', 'date'],
                 ['total_amount', '총액', 'number'],
               ] as [keyof CompanyMetadata, string, string][]).map(([key, label, type]) => (
                 <div key={key}>
