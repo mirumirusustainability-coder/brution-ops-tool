@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronRight, Plus, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
 import { ToastContainer } from '@/components/toast'
 import { createBrowserClient } from '@supabase/ssr'
 import { useToast } from '@/hooks/use-toast'
+import { STEP_LABELS } from '@/lib/constants'
 import { User, UserRole } from '@/types'
+
+const BRUTION_ID = '00000000-0000-0000-0000-000000000001'
 
 type ApiProject = {
   step: number
@@ -17,14 +20,11 @@ type ApiProject = {
   created_at: string
   company_id: string
   status?: 'active' | 'completed' | 'paused'
-  companies?: { name?: string } | { name?: string }[] | null
+  companies?: { id?: string; name?: string; metadata?: Record<string, any> | null } | { id?: string; name?: string; metadata?: Record<string, any> | null }[] | null
   deliverables?: { deliverable_versions?: { status?: string }[] }[] | null
 }
 
-type ApiCompany = {
-  id: string
-  name: string
-}
+type ApiCompany = { id: string; name: string }
 
 const stepOptions = [
   { value: 0, label: 'STEP 0 · 스타터 패키지' },
@@ -34,30 +34,45 @@ const stepOptions = [
   { value: 4, label: 'STEP 4 · 출시' },
 ]
 
-const statusTabs = [
-  { value: 'all', label: '전체' },
-  { value: 'active', label: '진행중' },
-  { value: 'completed', label: '완료' },
-  { value: 'paused', label: '보류' },
-]
-
-const statusBadgeStyles: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700',
-  completed: 'bg-green-100 text-green-700',
-  paused: 'bg-gray-100 text-gray-600',
+const stepBadgeColors: Record<number, string> = {
+  0: 'bg-gray-100 text-gray-700',
+  1: 'bg-blue-50 text-blue-700',
+  2: 'bg-purple-50 text-purple-700',
+  3: 'bg-orange-50 text-orange-700',
+  4: 'bg-green-50 text-green-700',
 }
 
-const statusLabelMap: Record<string, string> = {
-  active: '진행중',
-  completed: '완료',
-  paused: '보류',
+const getCompany = (c: ApiProject['companies']) => {
+  if (!c) return { name: '', metadata: null as Record<string, any> | null }
+  const obj = Array.isArray(c) ? c[0] : c
+  return { name: obj?.name ?? '', metadata: obj?.metadata ?? null }
 }
 
-const getCompanyName = (company: ApiProject['companies']) => {
-  if (!company) return ''
-  if (Array.isArray(company)) return company[0]?.name ?? ''
-  return company.name ?? ''
+const getDday = (contractEnd?: string | null) => {
+  if (!contractEnd) return { label: '미설정', color: 'text-gray-400', accent: false }
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const end = new Date(contractEnd); end.setHours(0, 0, 0, 0)
+  const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  if (diff < 0) return { label: `D+${Math.abs(diff)}`, color: 'text-red-600 font-semibold', accent: true }
+  if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-600 font-semibold', accent: true }
+  if (diff <= 30) return { label: `D-${diff}`, color: 'text-yellow-600 font-semibold', accent: false }
+  return { label: `D-${diff}`, color: 'text-green-600', accent: false }
 }
+
+const getDropCounts = (deliverables: ApiProject['deliverables']) => {
+  let published = 0, in_review = 0, draft = 0
+  ;(deliverables ?? []).forEach((d) => {
+    ;(d.deliverable_versions ?? []).forEach((v) => {
+      if (v.status === 'published') published++
+      else if (v.status === 'in_review') in_review++
+      else if (v.status === 'draft') draft++
+    })
+  })
+  return { published, in_review, draft }
+}
+
+type ViewMode = 'list' | 'step'
+type Filter = 'all' | 'step0' | 'step1' | 'step2' | 'step3' | 'step4' | 'active' | 'completed'
 
 export default function AdminProjectsPage() {
   const router = useRouter()
@@ -69,8 +84,11 @@ export default function AdminProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'paused'>('all')
-  const [inReviewOnly, setInReviewOnly] = useState(false)
+  const [filter, setFilter] = useState<Filter>('all')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [collapsedSteps, setCollapsedSteps] = useState<Set<number>>(new Set())
+
+  // create modal
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
@@ -84,496 +102,300 @@ export default function AdminProjectsPage() {
   const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const filterParam = searchParams.get('filter')
-    if (filterParam === 'active' || filterParam === 'paused') {
-      setStatusFilter(filterParam)
-      setInReviewOnly(false)
-    } else if (filterParam === 'in_review') {
-      setStatusFilter('all')
-      setInReviewOnly(true)
-    } else {
-      setStatusFilter('all')
-      setInReviewOnly(false)
-    }
+    const fp = searchParams.get('filter')
+    if (fp === 'active') setFilter('active')
+    else if (fp === 'paused') setFilter('all')
+    else setFilter('all')
   }, [searchParams])
 
   useEffect(() => {
     let active = true
-
     const loadData = async () => {
-      setLoading(true)
-      setError(null)
-
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      setLoading(true); setError(null)
+      const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
       const { data: { session } } = await supabase.auth.getSession()
-
-      if (!session) {
-        router.replace('/login')
-        return
-      }
+      if (!session) { router.replace('/login'); return }
 
       const sessionRole = session.user.user_metadata?.role ?? null
-      let me: {
-        userId: string
-        email: string
-        role: string | null
-        companyId: string | null
-        mustChangePassword: boolean
-        status: string
-      } | null = null
-
+      let me: any = null
       if (sessionRole) {
-        me = {
-          userId: session.user.id,
-          email: session.user.email ?? '',
-          role: sessionRole,
-          companyId: session.user.user_metadata?.company_id ?? null,
-          mustChangePassword: false,
-          status: 'active',
-        }
+        me = { userId: session.user.id, email: session.user.email ?? '', role: sessionRole, companyId: session.user.user_metadata?.company_id ?? null, mustChangePassword: false, status: 'active' }
       } else {
-        const meResponse = await fetch('/api/auth/me', {
-          cache: 'no-store',
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-
-        if (meResponse.status === 401) {
-          router.replace('/login')
-          return
-        }
-
-        if (!meResponse.ok) {
-          if (active) {
-            setError('사용자 정보를 불러올 수 없습니다')
-            setLoading(false)
-          }
-          return
-        }
-
-        me = await meResponse.json()
+        const r = await fetch('/api/auth/me', { cache: 'no-store', headers: { Authorization: `Bearer ${session.access_token}` } })
+        if (r.status === 401) { router.replace('/login'); return }
+        if (!r.ok) { if (active) { setError('사용자 정보를 불러올 수 없습니다'); setLoading(false) }; return }
+        me = await r.json()
       }
+      const user: User = { id: me.userId, email: me.email, name: me.email, role: me.role as UserRole, companyId: me.companyId ?? '', mustChangePassword: me.mustChangePassword, status: me.status as 'active' | 'inactive' }
+      if (user.role !== 'staff_admin') { router.replace('/app/projects'); return }
 
-      const user: User = {
-        id: me?.userId ?? '',
-        email: me?.email ?? '',
-        name: me?.email ?? '',
-        role: (me?.role ?? 'staff') as UserRole,
-        companyId: me?.companyId ?? '',
-        mustChangePassword: me?.mustChangePassword ?? false,
-        status: (me?.status ?? 'active') as 'active' | 'inactive',
-      }
-
-      if (user.role !== 'staff_admin') {
-        router.replace('/app/projects')
-        return
-      }
-
-      const loadProjects = async () => {
-        const projectsResponse = await fetch('/api/admin/projects', { cache: 'no-store' })
-        if (!projectsResponse.ok) {
-          if (active) {
-            setError('프로젝트 목록을 불러올 수 없습니다')
-            setLoading(false)
-          }
-          return false
-        }
-
-        const data = await projectsResponse.json()
-        const items = Array.isArray(data?.projects) ? data.projects : []
-        if (active) {
-          setProjects(items)
-        }
-        return true
-      }
-
-      const loadCompanies = async () => {
-        const response = await fetch('/api/admin/companies', { cache: 'no-store' })
-        if (!response.ok) {
-          if (active) {
-            setError('고객사 목록을 불러올 수 없습니다')
-          }
-          return false
-        }
-        const data = await response.json()
-        const items = Array.isArray(data?.companies) ? data.companies : []
-        if (active) {
-          setCompanies(items)
-        }
-        return true
-      }
-
-      await Promise.all([loadProjects(), loadCompanies()])
-
+      const [pRes, cRes] = await Promise.all([
+        fetch('/api/admin/projects', { cache: 'no-store' }),
+        fetch('/api/admin/companies', { cache: 'no-store' }),
+      ])
       if (active) {
-        setCurrentUser(user)
-        setLoading(false)
+        if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d?.projects) ? d.projects : []) }
+        else setError('프로젝트 목록을 불러올 수 없습니다')
+        if (cRes.ok) { const d = await cRes.json(); setCompanies(Array.isArray(d?.companies) ? d.companies : []) }
+        setCurrentUser(user); setLoading(false)
       }
     }
-
     loadData()
-
-    return () => {
-      active = false
-    }
+    return () => { active = false }
   }, [router])
 
   useEffect(() => {
     if (!isOpen) return
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleOutsideClick)
-    return () => document.removeEventListener('mousedown', handleOutsideClick)
+    const h = (e: MouseEvent) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
   }, [isOpen])
 
   useEffect(() => {
-    if (!formCompanyId) {
-      setSelectedCompany(null)
-      return
-    }
-    const matched = companies.find((company) => company.id === formCompanyId)
-    if (matched) {
-      setSelectedCompany(matched)
-    }
+    if (!formCompanyId) { setSelectedCompany(null); return }
+    const m = companies.find((c) => c.id === formCompanyId)
+    if (m) setSelectedCompany(m)
   }, [companies, formCompanyId])
 
-  const filteredCompanies = useMemo(() => {
-    const keyword = searchQuery.trim().toLowerCase()
-    const availableCompanies = companies.filter(
-      (company) => company.id !== '00000000-0000-0000-0000-000000000001'
-    )
-    if (!keyword) return availableCompanies
-    return availableCompanies.filter((company) => company.name.toLowerCase().includes(keyword))
+  const filteredModalCompanies = useMemo(() => {
+    const kw = searchQuery.trim().toLowerCase()
+    const available = companies.filter((c) => c.id !== BRUTION_ID)
+    if (!kw) return available
+    return available.filter((c) => c.name.toLowerCase().includes(kw))
   }, [companies, searchQuery])
 
+  // filter + sort projects
   const filteredProjects = useMemo(() => {
-    const keyword = query.trim().toLowerCase()
-    let result = projects
-    if (statusFilter !== 'all') {
-      result = result.filter((project) => (project.status ?? 'active') === statusFilter)
+    const kw = query.trim().toLowerCase()
+    let result = projects.filter((p) => {
+      const co = getCompany(p.companies)
+      // exclude brution
+      if (co.metadata && (Array.isArray(p.companies) ? p.companies[0] : p.companies)?.id === BRUTION_ID) return false
+      if (p.company_id === BRUTION_ID) return false
+      return true
+    })
+
+    // apply filter
+    if (filter === 'active') result = result.filter((p) => (p.status ?? 'active') === 'active')
+    else if (filter === 'completed') result = result.filter((p) => p.status === 'completed')
+    else if (filter.startsWith('step')) {
+      const step = Number(filter.replace('step', ''))
+      result = result.filter((p) => p.step === step)
     }
-    if (inReviewOnly) {
-      result = result.filter((project) =>
-        project.deliverables?.some((deliverable) =>
-          deliverable.deliverable_versions?.some((version) => version.status === 'in_review')
-        )
-      )
+
+    // search
+    if (kw) {
+      result = result.filter((p) => p.name.toLowerCase().includes(kw) || getCompany(p.companies).name.toLowerCase().includes(kw))
     }
-    if (!keyword) return result
-    return result.filter((project) =>
-      project.name.toLowerCase().includes(keyword) ||
-      getCompanyName(project.companies).toLowerCase().includes(keyword)
+
+    // sort by D-day (contract_end)
+    return [...result].sort((a, b) => {
+      const endA = (getCompany(a.companies).metadata?.contract_end as string) ?? ''
+      const endB = (getCompany(b.companies).metadata?.contract_end as string) ?? ''
+      if (!endA && !endB) return 0; if (!endA) return 1; if (!endB) return -1
+      return new Date(endA).getTime() - new Date(endB).getTime()
+    })
+  }, [projects, query, filter])
+
+  const filterTabs: { key: Filter; label: string }[] = [
+    { key: 'all', label: '전체' },
+    { key: 'step0', label: 'STEP 0' },
+    { key: 'step1', label: 'STEP 1' },
+    { key: 'step2', label: 'STEP 2' },
+    { key: 'step3', label: 'STEP 3' },
+    { key: 'step4', label: 'STEP 4' },
+    { key: 'active', label: '진행중' },
+    { key: 'completed', label: '완료' },
+  ]
+
+  const stepGroups = useMemo(() => {
+    const groups: Record<number, ApiProject[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] }
+    filteredProjects.forEach((p) => { const s = p.step ?? 0; if (groups[s]) groups[s].push(p) })
+    return groups
+  }, [filteredProjects])
+
+  const toggleStep = (s: number) => setCollapsedSteps((prev) => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
+
+  const handleCreate = async () => {
+    if (!formName.trim()) { setFormError('프로젝트명을 입력하세요'); return }
+    if (!formCompanyId) { setFormError('고객사를 선택하세요'); return }
+    setCreating(true); setFormError(null)
+    const r = await fetch('/api/admin/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formName.trim(), description: formDescription.trim() || null, companyId: formCompanyId, step: formStep }) })
+    if (!r.ok) { setFormError('프로젝트 생성에 실패했습니다'); showToast('프로젝트 생성에 실패했습니다', 'error'); setCreating(false); return }
+    setFormName(''); setFormDescription(''); setFormStep(0); setFormCompanyId(''); setSelectedCompany(null); setSearchQuery(''); setIsOpen(false); setShowCreateModal(false); setCreating(false)
+    showToast('프로젝트가 생성되었습니다', 'success')
+    const pr = await fetch('/api/admin/projects', { cache: 'no-store' })
+    if (pr.ok) { const d = await pr.json(); setProjects(Array.isArray(d?.projects) ? d.projects : []) }
+  }
+
+  // ── render helpers ────────────────────────────────────────────────────────
+
+  const renderRow = (project: ApiProject) => {
+    const co = getCompany(project.companies)
+    const dday = getDday(co.metadata?.contract_end as string | undefined)
+    const drops = getDropCounts(project.deliverables)
+    const step = project.step ?? 0
+
+    return (
+      <div
+        key={project.id}
+        onClick={() => router.push(`/app/admin/projects/${project.id}`)}
+        className={`relative grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_110px_90px_110px_90px_90px] gap-2 px-4 py-3 items-center cursor-pointer hover:bg-blue-50/40 transition-colors ${dday.accent ? 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-red-500 before:rounded-r' : ''}`}
+      >
+        {/* 프로젝트명 + 고객사 */}
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate">{project.name}</p>
+          <p className="text-xs text-gray-400 truncate">{co.name || '미지정'}</p>
+        </div>
+        {/* STEP */}
+        <div>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stepBadgeColors[step] ?? 'bg-gray-100 text-gray-700'}`}>
+            STEP {step} · {STEP_LABELS[step]}
+          </span>
+        </div>
+        {/* D-day */}
+        <div><span className={`text-xs ${dday.color}`}>{dday.label}</span></div>
+        {/* 드롭 */}
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400" />{drops.published}</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />{drops.in_review}</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{drops.draft}</span>
+        </div>
+        {/* 담당자 — from company metadata brution_manager */}
+        <div className="text-xs text-gray-600 truncate">{(co.metadata?.brution_manager as string) ?? '-'}</div>
+        {/* 최근 활동 */}
+        <div className="text-xs text-gray-500">
+          {(() => {
+            const feed = Array.isArray(co.metadata?.activity_feed) ? co.metadata.activity_feed : []
+            if (feed.length === 0) return '-'
+            const sorted = [...feed].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            return new Date(sorted[0].created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+          })()}
+        </div>
+      </div>
     )
-  }, [projects, query, statusFilter, inReviewOnly])
-
-  if (loading && !currentUser) {
-    return <div className="p-6 min-h-screen" />
   }
 
-  if (error && !currentUser) {
-    return <div className="p-6 text-sm text-red-600">{error}</div>
-  }
-
-  if (!currentUser) {
-    return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>
-  }
+  if (loading && !currentUser) return <div className="p-6 min-h-screen" />
+  if (error && !currentUser) return <div className="p-6 text-sm text-red-600">{error}</div>
+  if (!currentUser) return <div className="p-6 text-sm text-gray-500">사용자 정보를 확인할 수 없습니다.</div>
 
   return (
     <AppLayout user={currentUser}>
       <div className="max-w-6xl">
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
             <h1 className="text-2xl font-bold text-gray-900">프로젝트 관리</h1>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              새 프로젝트 추가
-            </button>
+            <p className="text-sm text-gray-500 mt-0.5">총 {filteredProjects.length}건</p>
           </div>
-          <div className="relative max-w-sm">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="프로젝트명 또는 고객사명으로 검색"
-              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md"
-            />
+          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors">
+            <Plus className="w-4 h-4" /> 새 프로젝트
+          </button>
+        </div>
+
+        {/* Search + Filters + View toggle */}
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="프로젝트명 / 고객사명 검색" className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm" />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {statusTabs.map((tab) => {
-              const isActive = statusFilter === tab.value
-              return (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter(tab.value as 'all' | 'active' | 'completed' | 'paused')
-                    setInReviewOnly(false)
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                    isActive
-                      ? 'bg-primary text-white border-primary'
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              )
-            })}
+          {filterTabs.map((t) => (
+            <button key={t.key} type="button" onClick={() => setFilter(t.key)} className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${filter === t.key ? 'bg-primary text-white border-primary' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>{t.label}</button>
+          ))}
+          <div className="ml-auto flex rounded-lg border border-gray-200 overflow-hidden">
+            <button type="button" onClick={() => setViewMode('list')} className={`px-3 py-1.5 text-xs font-medium ${viewMode === 'list' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>목록</button>
+            <button type="button" onClick={() => setViewMode('step')} className={`px-3 py-1.5 text-xs font-medium ${viewMode === 'step' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>STEP별</button>
           </div>
         </div>
 
-        {loading && <div className="text-sm text-gray-500 mb-4">목록을 불러오는 중...</div>}
         {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
 
-        {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-lg rounded-lg bg-white p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">새 프로젝트 추가</h3>
-                <button onClick={() => setShowCreateModal(false)}>
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <input
-                  value={formName}
-                  onChange={(event) => setFormName(event.target.value)}
-                  placeholder="프로젝트명"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-                <textarea
-                  value={formDescription}
-                  onChange={(event) => setFormDescription(event.target.value)}
-                  placeholder="설명 (선택)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  rows={3}
-                />
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setIsOpen((prev) => !prev)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md flex items-center justify-between"
-                  >
-                    <span className={selectedCompany ? 'text-gray-900' : 'text-gray-400'}>
-                      {selectedCompany ? selectedCompany.name : '고객사를 선택하세요'}
-                    </span>
-                    {selectedCompany ? (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setSelectedCompany(null)
-                          setFormCompanyId('')
-                          setSearchQuery('')
-                          setIsOpen(false)
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            setSelectedCompany(null)
-                            setFormCompanyId('')
-                            setSearchQuery('')
-                            setIsOpen(false)
-                          }
-                        }}
-                        className="ml-2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </span>
-                    ) : null}
-                  </button>
-                  {isOpen && (
-                    <div className="absolute z-50 mt-2 w-full rounded-md border border-gray-200 bg-white shadow-lg">
-                      <div className="p-2">
-                        <input
-                          autoFocus
-                          value={searchQuery}
-                          onChange={(event) => setSearchQuery(event.target.value)}
-                          placeholder="고객사 검색"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        />
-                      </div>
-                      <div className="max-h-48 overflow-y-auto py-1">
-                        {filteredCompanies.length === 0 ? (
-                          <div className="px-3 py-2 text-sm text-gray-500">검색 결과가 없습니다</div>
-                        ) : (
-                          filteredCompanies.map((company) => (
-                            <button
-                              key={company.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedCompany(company)
-                                setFormCompanyId(company.id)
-                                setSearchQuery('')
-                                setIsOpen(false)
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                            >
-                              {company.name}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <select
-                  value={formStep}
-                  onChange={(event) => setFormStep(Number(event.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  {stepOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {formError && <p className="text-sm text-red-600">{formError}</p>}
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateModal(false)
-                    setFormError(null)
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  disabled={creating}
-                  onClick={async () => {
-                    if (!formName.trim()) {
-                      setFormError('프로젝트명을 입력하세요')
-                      return
-                    }
-                    if (!formCompanyId) {
-                      setFormError('고객사를 선택하세요')
-                      return
-                    }
-
-                    setCreating(true)
-                    setFormError(null)
-
-                    const response = await fetch('/api/admin/projects', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        name: formName.trim(),
-                        description: formDescription.trim() || null,
-                        companyId: formCompanyId,
-                        step: formStep,
-                      }),
-                    })
-
-                    if (!response.ok) {
-                      setFormError('프로젝트 생성에 실패했습니다')
-                      showToast('프로젝트 생성에 실패했습니다', 'error')
-                      setCreating(false)
-                      return
-                    }
-
-                    setFormName('')
-                    setFormDescription('')
-                    setFormStep(0)
-                    setFormCompanyId('')
-                    setSelectedCompany(null)
-                    setSearchQuery('')
-                    setIsOpen(false)
-                    setShowCreateModal(false)
-                    setCreating(false)
-                    showToast('프로젝트가 생성되었습니다', 'success')
-
-                    const projectsResponse = await fetch('/api/admin/projects', { cache: 'no-store' })
-                    if (projectsResponse.ok) {
-                      const data = await projectsResponse.json()
-                      const items = Array.isArray(data?.projects) ? data.projects : []
-                      setProjects(items)
-                    }
-                  }}
-                  className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50"
-                >
-                  {creating ? '생성 중...' : '추가'}
-                </button>
-              </div>
+        {/* List view */}
+        {viewMode === 'list' && (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="hidden md:grid grid-cols-[minmax(0,2fr)_110px_90px_110px_90px_90px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <span>프로젝트</span><span>STEP</span><span>출시 D-day</span><span>드롭</span><span>담당자</span><span>최근 활동</span>
             </div>
+            {filteredProjects.length === 0 ? (
+              <div className="p-12 text-center text-sm text-gray-500">등록된 프로젝트가 없습니다</div>
+            ) : (
+              <div className="divide-y divide-gray-100">{filteredProjects.map(renderRow)}</div>
+            )}
           </div>
         )}
 
-        <div className="overflow-hidden rounded-lg border border-border bg-white">
-          {filteredProjects.length === 0 ? (
-            <div className="bg-muted rounded-lg p-8 text-center text-gray-600">
-              등록된 프로젝트가 없습니다
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">고객사</th>
-                  <th className="px-4 py-3 text-left font-semibold">프로젝트명</th>
-                  <th className="px-4 py-3 text-left font-semibold">STEP</th>
-                  <th className="px-4 py-3 text-left font-semibold">상태</th>
-                  <th className="px-4 py-3 text-left font-semibold">생성일</th>
-                  <th className="px-4 py-3 text-right font-semibold">보기</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProjects.map((project) => {
-                  const statusValue = project.status ?? 'active'
-                  const statusLabel = statusLabelMap[statusValue] ?? '진행중'
-                  const statusStyle = statusBadgeStyles[statusValue] ?? statusBadgeStyles.active
-
-                  return (
-                    <tr
-                      key={project.id}
-                      onClick={() => router.push(`/app/admin/projects/${project.id}`)}
-                      className="group border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
-                    >
-                      <td className="px-4 py-3">
-                        <span className="text-base font-semibold text-gray-900">
-                          {getCompanyName(project.companies) || '미지정'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{project.name}</div>
-                        <div className="text-xs text-gray-500 mt-1">{project.description || '설명 없음'}</div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">STEP {project.step ?? 0}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyle}`}>
-                          {statusLabel}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {new Date(project.created_at).toLocaleDateString('ko-KR')}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-400">
-                        <ChevronRight className="ml-auto h-4 w-4" />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* Step group view */}
+        {viewMode === 'step' && (
+          <div className="space-y-3">
+            {[0, 1, 2, 3, 4].map((step) => {
+              const items = stepGroups[step] ?? []
+              const collapsed = collapsedSteps.has(step)
+              return (
+                <div key={step} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <button type="button" onClick={() => toggleStep(step)} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      {collapsed ? <ChevronRight className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stepBadgeColors[step]}`}>STEP {step}</span>
+                      <span className="text-sm font-medium text-gray-700">{STEP_LABELS[step]}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{items.length}건</span>
+                  </button>
+                  {!collapsed && items.length > 0 && (
+                    <div className="divide-y divide-gray-100">{items.map(renderRow)}</div>
+                  )}
+                  {!collapsed && items.length === 0 && (
+                    <div className="p-6 text-center text-xs text-gray-400">프로젝트 없음</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">새 프로젝트 추가</h3>
+              <button onClick={() => setShowCreateModal(false)}><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-3">
+              <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="프로젝트명" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="설명 (선택)" className="w-full px-3 py-2 border border-gray-300 rounded-md" rows={3} />
+              <div className="relative" ref={dropdownRef}>
+                <button type="button" onClick={() => setIsOpen((v) => !v)} className="w-full px-3 py-2 border border-gray-300 rounded-md flex items-center justify-between">
+                  <span className={selectedCompany ? 'text-gray-900' : 'text-gray-400'}>{selectedCompany ? selectedCompany.name : '고객사를 선택하세요'}</span>
+                  {selectedCompany && (
+                    <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setSelectedCompany(null); setFormCompanyId(''); setSearchQuery(''); setIsOpen(false) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCompany(null); setFormCompanyId(''); setSearchQuery(''); setIsOpen(false) } }} className="ml-2 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></span>
+                  )}
+                </button>
+                {isOpen && (
+                  <div className="absolute z-50 mt-2 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+                    <div className="p-2"><input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="고객사 검색" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" /></div>
+                    <div className="max-h-48 overflow-y-auto py-1">
+                      {filteredModalCompanies.length === 0 ? <div className="px-3 py-2 text-sm text-gray-500">검색 결과가 없습니다</div> : filteredModalCompanies.map((c) => (
+                        <button key={c.id} type="button" onClick={() => { setSelectedCompany(c); setFormCompanyId(c.id); setSearchQuery(''); setIsOpen(false) }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{c.name}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <select value={formStep} onChange={(e) => setFormStep(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                {stepOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              {formError && <p className="text-sm text-red-600">{formError}</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => { setShowCreateModal(false); setFormError(null) }} className="px-4 py-2 border border-gray-300 rounded-md">취소</button>
+              <button type="button" disabled={creating} onClick={handleCreate} className="px-4 py-2 bg-primary text-white rounded-md disabled:opacity-50">{creating ? '생성 중...' : '추가'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ToastContainer />
     </AppLayout>
   )
