@@ -36,10 +36,6 @@ type DashboardData = {
   stepCounts: Record<number, number>
 }
 
-const Skeleton = ({ className = '' }: { className?: string }) => (
-  <div className={`animate-pulse rounded bg-gray-200 ${className}`} />
-)
-
 export default function AdminDashboardPage() {
   const router = useRouter()
   const { showToast } = useToast()
@@ -149,6 +145,11 @@ export default function AdminDashboardPage() {
     }
   }, [router, showToast])
 
+  const stepMax = useMemo(
+    () => Math.max(...Object.values(data?.stepCounts ?? { 0: 0 }), 1),
+    [data]
+  )
+
   const stepTotal = useMemo(
     () => Object.values(data?.stepCounts ?? {}).reduce((sum, n) => sum + n, 0),
     [data]
@@ -156,27 +157,33 @@ export default function AdminDashboardPage() {
 
   const ddayUrgency = useMemo(() => {
     const min = data?.ddayCompanies?.[0]?.daysLeft ?? null
-    if (min === null || data?.ddayCompanies?.length === 0) return 'none'
+    if (min === null || (data?.ddayCompanies?.length ?? 0) === 0) return 'none'
     return min <= 7 ? 'red' : 'yellow'
   }, [data])
 
   if (!currentUser) {
-    return (
-      <div className="p-6 max-w-6xl space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-64 w-full rounded-lg" />
-          <Skeleton className="h-64 w-full rounded-lg" />
-        </div>
-      </div>
-    )
+    return <div className="p-6 text-sm text-gray-400">로딩 중...</div>
   }
 
   return (
     <AppLayout user={currentUser}>
+      {/* Progress bar */}
+      <style>{`
+        @keyframes loading-slide {
+          0% { transform: translateX(-100%); }
+          60% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+        .loading-bar-inner { animation: loading-slide 1.4s ease-in-out infinite; }
+      `}</style>
+      <div
+        className={`fixed top-0 left-0 right-0 z-50 h-0.5 overflow-hidden transition-opacity duration-500 ${
+          dataLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="loading-bar-inner h-full w-full bg-blue-500" />
+      </div>
+
       <div className="max-w-6xl space-y-6">
         {/* Header */}
         <div>
@@ -196,14 +203,12 @@ export default function AdminDashboardPage() {
               <p className="text-sm text-gray-500">진행 중인 고객사</p>
               <TrendingUp className="h-4 w-4 text-blue-500" />
             </div>
-            {dataLoading ? (
-              <Skeleton className="mt-3 h-9 w-16" />
-            ) : (
-              <p className="mt-3 text-4xl font-bold text-gray-900">{data?.activeCompanies ?? 0}</p>
-            )}
+            <p className="mt-3 text-4xl font-bold text-gray-900">
+              {dataLoading ? '—' : (data?.activeCompanies ?? 0)}
+            </p>
           </button>
 
-          {/* 계약 완료 */}
+          {/* 이번달 계약 완료 */}
           <button
             type="button"
             onClick={() => router.push('/app/admin/companies')}
@@ -213,11 +218,9 @@ export default function AdminDashboardPage() {
               <p className="text-sm text-gray-500">계약 완료</p>
               <Building2 className="h-4 w-4 text-emerald-500" />
             </div>
-            {dataLoading ? (
-              <Skeleton className="mt-3 h-9 w-16" />
-            ) : (
-              <p className="mt-3 text-4xl font-bold text-gray-900">{data?.contractCompleted ?? 0}</p>
-            )}
+            <p className="mt-3 text-4xl font-bold text-gray-900">
+              {dataLoading ? '—' : (data?.contractCompleted ?? 0)}
+            </p>
           </button>
 
           {/* 처리 대기 드롭 */}
@@ -230,16 +233,16 @@ export default function AdminDashboardPage() {
               <p className="text-sm text-gray-500">처리 대기 드롭</p>
               <FileText className="h-4 w-4 text-orange-500" />
             </div>
-            {dataLoading ? (
-              <Skeleton className="mt-3 h-9 w-16" />
-            ) : (
-              <p className="mt-3 text-4xl font-bold text-gray-900">{data?.draftVersions ?? 0}</p>
-            )}
+            <p className="mt-3 text-4xl font-bold text-gray-900">
+              {dataLoading ? '—' : (data?.draftVersions ?? 0)}
+            </p>
           </button>
 
-          {/* D-day 임박 */}
-          <div
-            className={`rounded-lg border p-4 ${
+          {/* D-day 임박 — 클릭 가능, 내부 목록 표시 */}
+          <button
+            type="button"
+            onClick={() => router.push('/app/admin/companies')}
+            className={`rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${
               ddayUrgency === 'red'
                 ? 'border-red-200 bg-red-50'
                 : ddayUrgency === 'yellow'
@@ -269,40 +272,59 @@ export default function AdminDashboardPage() {
                 }`}
               />
             </div>
-            {dataLoading ? (
-              <Skeleton className="mt-3 h-9 w-16" />
-            ) : (
-              <p
-                className={`mt-3 text-4xl font-bold ${
-                  ddayUrgency === 'red'
-                    ? 'text-red-700'
-                    : ddayUrgency === 'yellow'
-                      ? 'text-yellow-700'
-                      : 'text-gray-900'
-                }`}
-              >
-                {data?.ddayCompanies?.length ?? 0}
-              </p>
+            <p
+              className={`mt-3 text-4xl font-bold ${
+                ddayUrgency === 'red'
+                  ? 'text-red-700'
+                  : ddayUrgency === 'yellow'
+                    ? 'text-yellow-700'
+                    : 'text-gray-900'
+              }`}
+            >
+              {dataLoading ? '—' : (data?.ddayCompanies?.length ?? 0)}
+            </p>
+            {/* 고객사 목록 */}
+            {!dataLoading && (
+              <div className="mt-3 space-y-1">
+                {(data?.ddayCompanies?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-gray-400">D-day 임박 고객사 없음</p>
+                ) : (
+                  data!.ddayCompanies.slice(0, 3).map((company) => (
+                    <div key={company.id} className="flex items-center justify-between gap-1">
+                      <p className="text-xs text-gray-700 truncate">{company.name}</p>
+                      <span
+                        className={`shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                          company.daysLeft <= 7
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}
+                      >
+                        D-{company.daysLeft}
+                      </span>
+                    </div>
+                  ))
+                )}
+                {(data?.ddayCompanies?.length ?? 0) > 3 && (
+                  <p className="text-xs text-gray-400">+{data!.ddayCompanies.length - 3}개 더</p>
+                )}
+              </div>
             )}
-          </div>
+          </button>
         </div>
 
         {/* Main 2-column */}
         <div className="grid gap-4 lg:grid-cols-2">
           {/* 최근 활동 피드 */}
-          <div className="rounded-lg border border-border bg-white p-5">
+          <div className="rounded-lg border border-border bg-white p-5 min-h-[220px]">
             <h2 className="text-base font-semibold text-gray-900 mb-4">최근 활동</h2>
-            {dataLoading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-14 w-full" />
-                ))}
-              </div>
-            ) : !data?.recentActivityFeed?.length ? (
+            {!dataLoading && !data?.recentActivityFeed?.length ? (
               <p className="text-sm text-gray-400">활동 기록이 없습니다.</p>
             ) : (
               <div className="space-y-2">
-                {data.recentActivityFeed.map((item) => (
+                {(dataLoading
+                  ? ([] as FeedItem[])
+                  : (data?.recentActivityFeed ?? [])
+                ).map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -330,79 +352,40 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* STEP별 현황 */}
-          <div className="rounded-lg border border-border bg-white p-5">
+          <div className="rounded-lg border border-border bg-white p-5 min-h-[220px]">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-gray-900">STEP별 현황</h2>
               <span className="text-xs text-gray-400">총 {stepTotal}건</span>
             </div>
-            {dataLoading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {[0, 1, 2, 3, 4].map((step) => {
-                  const count = data?.stepCounts?.[step] ?? 0
-                  const ratio = stepTotal > 0 ? Math.round((count / stepTotal) * 100) : 0
-                  return (
-                    <div key={step} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium text-gray-700">
-                          STEP {step} · {STEP_LABELS[step]}
-                        </span>
-                        <span className="text-gray-500">{count}건</span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-100">
-                        <div
-                          className="h-2 rounded-full bg-blue-500 transition-all"
-                          style={{ width: `${ratio}%` }}
-                        />
-                      </div>
+            <div className="space-y-3">
+              {[0, 1, 2, 3, 4].map((step) => {
+                const count = data?.stepCounts?.[step] ?? 0
+                const ratio = dataLoading ? 0 : Math.round((count / stepMax) * 100)
+                return (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => router.push('/app/admin/projects')}
+                    className="w-full space-y-1 text-left group"
+                  >
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                        STEP {step} · {STEP_LABELS[step]}
+                      </span>
+                      <span className="text-gray-500">{dataLoading ? '—' : `${count}건`}</span>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* D-day 임박 고객사 목록 */}
-        {!dataLoading && (data?.ddayCompanies?.length ?? 0) > 0 && (
-          <div className="rounded-lg border border-border bg-white p-5">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">계약 만료 임박</h2>
-            <div className="space-y-2">
-              {data!.ddayCompanies.map((company) => (
-                <button
-                  key={company.id}
-                  type="button"
-                  onClick={() => router.push(`/app/admin/companies/${company.id}`)}
-                  className="w-full rounded-lg border border-gray-100 px-4 py-3 text-left hover:bg-gray-50 transition"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{company.name}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        만료일:{' '}
-                        {new Date(company.contract_end).toLocaleDateString('ko-KR')}
-                      </p>
+                    <div className="h-2 w-full rounded-full bg-gray-100">
+                      <div
+                        className="h-2 rounded-full bg-blue-500 transition-all duration-500"
+                        style={{ width: `${ratio}%` }}
+                      />
                     </div>
-                    <span
-                      className={`text-sm font-semibold px-2 py-1 rounded-full ${
-                        company.daysLeft <= 7
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}
-                    >
-                      D-{company.daysLeft}
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                )
+              })}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </AppLayout>
   )
