@@ -39,20 +39,22 @@ const RIGHT_MIN = 260;
 const RIGHT_MAX = 420;
 
 function useResizable(storageKey: string, defaultVal: number, min: number, max: number) {
-  const [width, setWidth] = useState(() => {
-    if (typeof window === 'undefined') return defaultVal;
+  const [width, setWidth] = useState(defaultVal);
+  const [mounted, setMounted] = useState(false);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startW = useRef(defaultVal);
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const n = Number(saved);
-        if (n >= min && n <= max) return n;
+        if (n >= min && n <= max) setWidth(n);
       }
     } catch {}
-    return defaultVal;
-  });
-  const dragging = useRef(false);
-  const startX = useRef(0);
-  const startW = useRef(defaultVal);
+    setMounted(true);
+  }, [storageKey, min, max]);
 
   const onMouseDown = (e: React.MouseEvent, direction: 1 | -1) => {
     e.preventDefault();
@@ -82,7 +84,7 @@ function useResizable(storageKey: string, defaultVal: number, min: number, max: 
     document.addEventListener('mouseup', onUp);
   };
 
-  return { width, onMouseDown };
+  return { width, mounted, onMouseDown };
 }
 
 const contractBadgeStyles: Record<string, string> = {
@@ -461,7 +463,7 @@ export function CompanyDetailClient({
 
   return (
     <AppLayout user={currentUser}>
-      <div className="flex h-[calc(100vh-var(--topbar-h,64px)-3rem)] -m-6 p-6 overflow-hidden">
+      <div className="flex h-[calc(100vh-var(--topbar-h,64px)-3rem)] -m-6 p-6 overflow-hidden" style={{ visibility: leftPanel.mounted ? 'visible' : 'hidden' }}>
 
         {/* ── LEFT PANEL ── */}
         <aside style={{ width: leftPanel.width }} className="shrink-0 flex flex-col gap-3 overflow-y-auto">
