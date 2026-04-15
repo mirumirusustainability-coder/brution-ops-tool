@@ -181,6 +181,38 @@ export default function AdminProjectDetailPage({
   } | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
+  // ── resizable right panel (hooks must be before any early return) ────────
+  const [rightWidth, setRightWidth] = useState(300)
+  const [panelMounted, setPanelMounted] = useState(false)
+  const rightDragging = useRef(false)
+
+  // ── dot menu ────────────────────────────────────────────────────────────
+  const [dotMenuOpen, setDotMenuOpen] = useState(false)
+  const dotMenuRef = useRef<HTMLDivElement>(null)
+
+  // ── center tab ──────────────────────────────────────────────────────────
+  const [detailTab, setDetailTab] = useState<'drops' | 'gantt' | 'history'>('drops')
+
+  // ── memo input ──────────────────────────────────────────────────────────
+  const [memoInput, setMemoInput] = useState('')
+  const [memoSending, setMemoSending] = useState(false)
+  const memoEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('brution-project-right-width')
+      if (saved) { const n = Number(saved); if (n >= 240 && n <= 420) setRightWidth(n) }
+    } catch {}
+    setPanelMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!dotMenuOpen) return
+    const h = (e: MouseEvent) => { if (dotMenuRef.current && !dotMenuRef.current.contains(e.target as Node)) setDotMenuOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [dotMenuOpen])
+
   const buildAssetsByVersion = (assets: AdminAsset[]) =>
     assets.reduce<Record<string, AdminAsset[]>>((acc, asset) => {
       if (!acc[asset.deliverable_version_id]) {
@@ -714,23 +746,6 @@ export default function AdminProjectDetailPage({
     showToast('프로젝트 메모가 저장되었습니다', 'success')
   }
 
-  // ── resizable right panel ─────────────────────────────────────────────────
-  const RIGHT_KEY = 'brution-project-right-width'
-  const RIGHT_DEFAULT = 300
-  const RIGHT_MIN = 240
-  const RIGHT_MAX = 420
-  const [rightWidth, setRightWidth] = useState(RIGHT_DEFAULT)
-  const [panelMounted, setPanelMounted] = useState(false)
-  const rightDragging = useRef(false)
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(RIGHT_KEY)
-      if (saved) { const n = Number(saved); if (n >= RIGHT_MIN && n <= RIGHT_MAX) setRightWidth(n) }
-    } catch {}
-    setPanelMounted(true)
-  }, [])
-
   const onRightDragStart = (e: React.MouseEvent) => {
     e.preventDefault()
     rightDragging.current = true
@@ -738,7 +753,7 @@ export default function AdminProjectDetailPage({
     const startW = rightWidth
     const onMove = (ev: MouseEvent) => {
       if (!rightDragging.current) return
-      const next = Math.max(RIGHT_MIN, Math.min(RIGHT_MAX, startW - (ev.clientX - startX)))
+      const next = Math.max(240, Math.min(420, startW - (ev.clientX - startX)))
       setRightWidth(next)
     }
     const onUp = () => {
@@ -747,31 +762,13 @@ export default function AdminProjectDetailPage({
       document.removeEventListener('mouseup', onUp)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
-      setRightWidth((w) => { try { localStorage.setItem(RIGHT_KEY, String(w)) } catch {}; return w })
+      setRightWidth((w) => { try { localStorage.setItem('brution-project-right-width', String(w)) } catch {}; return w })
     }
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
-
-  // ── dot menu ──────────────────────────────────────────────────────────────
-  const [dotMenuOpen, setDotMenuOpen] = useState(false)
-  const dotMenuRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!dotMenuOpen) return
-    const h = (e: MouseEvent) => { if (dotMenuRef.current && !dotMenuRef.current.contains(e.target as Node)) setDotMenuOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [dotMenuOpen])
-
-  // ── center tab ────────────────────────────────────────────────────────────
-  const [detailTab, setDetailTab] = useState<'drops' | 'gantt' | 'history'>('drops')
-
-  // ── memo input ────────────────────────────────────────────────────────────
-  const [memoInput, setMemoInput] = useState('')
-  const [memoSending, setMemoSending] = useState(false)
-  const memoEndRef = useRef<HTMLDivElement>(null)
 
   const handleSendMemo = async () => {
     if (!memoInput.trim()) return
