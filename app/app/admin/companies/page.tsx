@@ -1209,7 +1209,7 @@ export default function CompaniesAdminPage() {
               <span>회사명</span>
               <span>상태</span>
               <span>STEP</span>
-              <span>D-day</span>
+              <span>출시 D-day</span>
               <span>드롭</span>
               <span>담당자</span>
               <span>최근 활동</span>

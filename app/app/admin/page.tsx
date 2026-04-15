@@ -243,7 +243,7 @@ export default function AdminDashboardPage() {
                       : 'text-gray-500'
                 }`}
               >
-                D-day 임박
+                출시 D-day
               </p>
               <AlertTriangle
                 className={`h-4 w-4 ${
@@ -270,7 +270,7 @@ export default function AdminDashboardPage() {
             {!dataLoading && (
               <div className="mt-3 space-y-1">
                 {(data?.ddayCompanies?.length ?? 0) === 0 ? (
-                  <p className="text-xs text-gray-400">D-day 임박 고객사 없음</p>
+                  <p className="text-xs text-gray-400">출시 D-day 임박 고객사 없음</p>
                 ) : (
                   data!.ddayCompanies.slice(0, 3).map((company) => (
                     <div key={company.id} className="flex items-center justify-between gap-1">

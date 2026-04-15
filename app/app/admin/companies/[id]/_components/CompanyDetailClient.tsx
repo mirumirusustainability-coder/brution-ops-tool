@@ -404,7 +404,7 @@ export function CompanyDetailClient({
       <div className="flex gap-4 h-[calc(100vh-var(--topbar-h,64px)-3rem)] -m-6 p-6 overflow-hidden">
 
         {/* ── LEFT PANEL (240px) ── */}
-        <aside className="w-60 shrink-0 flex flex-col gap-3 overflow-y-auto">
+        <aside className="w-56 shrink-0 flex flex-col gap-3 overflow-y-auto">
           {/* profile card */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -605,10 +605,10 @@ export function CompanyDetailClient({
         </section>
 
         {/* ── RIGHT PANEL (210px) ── */}
-        <aside className="w-52 shrink-0 flex flex-col gap-3 overflow-y-auto">
+        <aside className="w-[300px] shrink-0 flex flex-col gap-3 overflow-y-auto">
           {/* D-day */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm text-center">
-            <p className="text-xs text-gray-500 mb-1">계약 D-day</p>
+            <p className="text-xs text-gray-500 mb-1">출시 D-day</p>
             <p className={`text-2xl font-bold ${ddayInfo.color}`}>{ddayInfo.label}</p>
             {meta.contract_end && <p className="text-xs text-gray-400 mt-1">{new Date(meta.contract_end).toLocaleDateString('ko-KR')}</p>}
           </div>
