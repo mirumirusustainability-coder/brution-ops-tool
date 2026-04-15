@@ -908,9 +908,9 @@ export default function AdminProjectDetailPage({
                                 </div>
                               </div>
                               {/* versions */}
-                              {d.versions.length > 0 && (
+                              {(d.versions ?? []).length > 0 && (
                                 <div className="space-y-1.5 mt-2">
-                                  {d.versions.map((v) => {
+                                  {(d.versions ?? []).map((v) => {
                                     const vAssets = assetsByVersion[v.id] ?? []
                                     return (
                                       <div key={v.id} className="bg-gray-50 rounded-md p-2">
