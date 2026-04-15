@@ -318,11 +318,14 @@ function FeedInput({
 
 // ─── main component ───────────────────────────────────────────────────────────
 
+type DropStatusCounts = { published: number; in_review: number; draft: number };
+
 type CompanyDetailClientProps = {
   currentUser: AppUser;
   company: ApiCompany;
   projects: ApiProject[];
   users: ApiUser[];
+  dropStatusCounts: DropStatusCounts;
   error?: string | null;
 };
 
@@ -334,6 +337,7 @@ export function CompanyDetailClient({
   company,
   projects,
   users,
+  dropStatusCounts,
   error,
 }: CompanyDetailClientProps) {
   const router = useRouter();
@@ -347,6 +351,11 @@ export function CompanyDetailClient({
   // ── modals ────────────────────────────────────────────────────────────────
   const [openModal, setOpenModal] = useState<ModalType>(null);
   const [showDeleteCompanyModal, setShowDeleteCompanyModal] = useState(false);
+
+  // ── next action ──────────────────────────────────────────────────────────
+  const [isEditingAction, setIsEditingAction] = useState(false);
+  const [nextActionDraft, setNextActionDraft] = useState(company.metadata?.next_action ?? '');
+  const [savingAction, setSavingAction] = useState(false);
 
   // ── activity feed ─────────────────────────────────────────────────────────
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
@@ -493,6 +502,37 @@ export function CompanyDetailClient({
       showToast('저장에 실패했습니다', 'error');
     }
   };
+
+  // ── next action ────────────────────────────────────────────────────────────
+
+  const handleSaveNextAction = async () => {
+    setSavingAction(true);
+    try {
+      await patchCompany({ ...company.metadata, next_action: nextActionDraft.trim() || null });
+      setIsEditingAction(false);
+      showToast('저장되었습니다', 'success');
+    } catch {
+      showToast('저장에 실패했습니다', 'error');
+    } finally {
+      setSavingAction(false);
+    }
+  };
+
+  // ── D-day calc ────────────────────────────────────────────────────────────
+
+  const ddayInfo = useMemo(() => {
+    const end = company.metadata?.contract_end;
+    if (!end) return { label: '미설정', color: 'text-gray-400', bg: 'bg-gray-100' };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(end);
+    endDate.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return { label: `D+${Math.abs(diff)} (만료)`, color: 'text-red-700', bg: 'bg-red-50' };
+    if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-700', bg: 'bg-red-50' };
+    if (diff <= 30) return { label: `D-${diff}`, color: 'text-yellow-700', bg: 'bg-yellow-50' };
+    return { label: `D-${diff}`, color: 'text-green-700', bg: 'bg-green-50' };
+  }, [company.metadata?.contract_end]);
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -696,6 +736,98 @@ export function CompanyDetailClient({
 
         {/* ── RIGHT PANEL ── */}
         <aside className="w-72 shrink-0 flex flex-col gap-4 overflow-y-auto">
+
+          {/* D-day */}
+          <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">계약 D-day</h3>
+            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-bold ${ddayInfo.color} ${ddayInfo.bg}`}>
+              {ddayInfo.label}
+            </div>
+            {company.metadata?.contract_end && (
+              <p className="text-xs text-gray-500 mt-1.5">
+                만료일: {new Date(company.metadata.contract_end).toLocaleDateString('ko-KR')}
+              </p>
+            )}
+          </div>
+
+          {/* next action */}
+          <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">다음 액션</h3>
+              {!isEditingAction && (
+                <button
+                  type="button"
+                  onClick={() => { setIsEditingAction(true); setNextActionDraft(company.metadata?.next_action ?? ''); }}
+                  className="text-xs text-gray-400 hover:text-gray-700 underline"
+                >
+                  편집
+                </button>
+              )}
+            </div>
+            {isEditingAction ? (
+              <div className="space-y-2">
+                <textarea
+                  value={nextActionDraft}
+                  onChange={(e) => setNextActionDraft(e.target.value)}
+                  placeholder="다음 액션을 입력하세요"
+                  className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm min-h-[60px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAction(false)}
+                    className="flex-1 text-xs py-1.5 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveNextAction}
+                    disabled={savingAction}
+                    className="flex-1 text-xs py-1.5 bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
+                  >
+                    {savingAction ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className={`text-sm whitespace-pre-line ${company.metadata?.next_action ? 'text-gray-700' : 'text-gray-400'}`}>
+                {company.metadata?.next_action || '다음 액션을 입력하세요'}
+              </p>
+            )}
+          </div>
+
+          {/* drop status */}
+          <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">드롭 현황</h3>
+            {dropStatusCounts.published + dropStatusCounts.in_review + dropStatusCounts.draft === 0 ? (
+              <p className="text-xs text-gray-400">드롭이 없습니다.</p>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-400" />
+                    Published
+                  </span>
+                  <span className="font-semibold text-gray-700">{dropStatusCounts.published}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                    In Review
+                  </span>
+                  <span className="font-semibold text-gray-700">{dropStatusCounts.in_review}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-gray-400" />
+                    Draft
+                  </span>
+                  <span className="font-semibold text-gray-700">{dropStatusCounts.draft}</span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* projects */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">

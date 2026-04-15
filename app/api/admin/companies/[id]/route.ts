@@ -93,10 +93,31 @@ export const GET = async (
       return NextResponse.json({ error: 'MEMBERS_FETCH_FAILED' }, { status: 500 })
     }
 
+    // fetch deliverable_versions for all projects under this company
+    const projectIds = (projects ?? []).map((p) => p.id)
+    let dropStatusCounts = { published: 0, in_review: 0, draft: 0 }
+
+    if (projectIds.length > 0) {
+      const { data: versions } = await admin
+        .from('deliverable_versions')
+        .select('id, status, deliverables!inner(project_id)')
+        .in('deliverables.project_id', projectIds)
+
+      if (versions) {
+        for (const v of versions) {
+          const s = (v.status ?? '') as string
+          if (s === 'published') dropStatusCounts.published++
+          else if (s === 'in_review') dropStatusCounts.in_review++
+          else if (s === 'draft') dropStatusCounts.draft++
+        }
+      }
+    }
+
     return NextResponse.json({
       company,
       projects: projects ?? [],
       members: members ?? [],
+      dropStatusCounts,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN'

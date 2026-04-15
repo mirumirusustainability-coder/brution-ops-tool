@@ -126,6 +126,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
   let company: ApiCompany | null = null;
   let projects: ApiProject[] = [];
   let users: ApiUser[] = [];
+  let dropStatusCounts = { published: 0, in_review: 0, draft: 0 };
   let error: string | null = null;
 
   const companyResponse = await fetch(`${baseUrl}/api/admin/companies/${id}`, {
@@ -139,6 +140,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     const data = await companyResponse.json().catch(() => null);
     company = data?.company ?? null;
     projects = Array.isArray(data?.projects) ? data.projects : [];
+    dropStatusCounts = data?.dropStatusCounts ?? { published: 0, in_review: 0, draft: 0 };
   }
 
   if (!company) {
@@ -169,6 +171,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
       company={company}
       projects={projects}
       users={users}
+      dropStatusCounts={dropStatusCounts}
       error={error}
     />
   );

@@ -45,6 +45,7 @@ export type CompanyMetadata = {
   last_contact?: string | null;
   contact_history?: ContactHistoryEntry[] | null;
   activity_feed?: ActivityFeedItem[] | null;
+  next_action?: string | null;
 };
 
 export type ApiCompany = {
