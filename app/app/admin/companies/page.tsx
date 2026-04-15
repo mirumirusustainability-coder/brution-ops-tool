@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, ShieldAlert, Download, UserPlus } from 'lucide-react';
+import { Plus, ShieldAlert, Download, UserPlus, Search } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { createBrowserClient } from '@supabase/ssr';
 import { useToast } from '@/hooks/use-toast';
-import { StepProgress } from '@/components/step-progress';
 import { STEP_LABELS } from '@/lib/constants';
 import { User } from '@/types';
 
@@ -473,12 +472,24 @@ export default function CompaniesAdminPage() {
   );
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredCompanies = companies.filter((company) => {
-    const cs = (company.metadata?.contract_status as string) ?? '';
-    const matchesStatus = statusFilter === 'all' || cs === statusFilter;
-    const matchesSearch = !normalizedSearch || company.name.toLowerCase().includes(normalizedSearch);
-    return matchesStatus && matchesSearch;
-  });
+
+  const filteredCompanies = useMemo(() => {
+    const filtered = companies.filter((company) => {
+      const cs = (company.metadata?.contract_status as string) ?? '';
+      const matchesStatus = statusFilter === 'all' || cs === statusFilter;
+      const matchesSearch = !normalizedSearch || company.name.toLowerCase().includes(normalizedSearch);
+      return matchesStatus && matchesSearch;
+    });
+    // D-day 임박순 정렬
+    return [...filtered].sort((a, b) => {
+      const endA = (a.metadata?.contract_end as string) ?? '';
+      const endB = (b.metadata?.contract_end as string) ?? '';
+      if (!endA && !endB) return 0;
+      if (!endA) return 1;
+      if (!endB) return -1;
+      return new Date(endA).getTime() - new Date(endB).getTime();
+    });
+  }, [companies, statusFilter, normalizedSearch]);
 
   const contractBadgeStyles: Record<string, string> = {
     '리드': 'bg-gray-100 text-gray-600',
@@ -487,6 +498,17 @@ export default function CompaniesAdminPage() {
     '진행중': 'bg-emerald-50 text-emerald-600',
     '완료': 'bg-green-50 text-green-700',
     '보류': 'bg-yellow-50 text-yellow-600',
+  };
+
+  const getDday = (contractEnd?: string | null) => {
+    if (!contractEnd) return { label: '미설정', color: 'text-gray-400', accent: false };
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const end = new Date(contractEnd); end.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return { label: `D+${Math.abs(diff)}`, color: 'text-red-600 font-semibold', accent: true };
+    if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-600 font-semibold', accent: true };
+    if (diff <= 30) return { label: `D-${diff}`, color: 'text-yellow-600 font-semibold', accent: false };
+    return { label: `D-${diff}`, color: 'text-green-600', accent: false };
   };
 
   const contractStatusOptions = ['상담중', '계약완료', '진행중', '완료', '보류'];
@@ -1145,11 +1167,9 @@ export default function CompaniesAdminPage() {
           </div>
         )}
 
-        {loading && (
-          <div className="text-sm text-gray-500 mb-4">고객사 목록을 불러오는 중...</div>
-        )}
         {error && <div className="text-sm text-red-600 mb-4">{error}</div>}
 
+        {/* Filter tabs + search */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           {contractFilterTabs.map((tab) => (
             <button
@@ -1165,121 +1185,118 @@ export default function CompaniesAdminPage() {
               {contractFilterLabels[tab]} {contractStatusCounts[tab] ?? 0}
             </button>
           ))}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-[200px] relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="고객사 검색..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm"
             />
           </div>
         </div>
 
-        {/* Companies Grid */}
+        {/* Attio-style table */}
         {filteredCompanies.length === 0 && !loading ? (
-          <div className="text-sm text-gray-500">등록된 고객사가 없습니다</div>
+          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+            <p className="text-sm text-gray-500">등록된 고객사가 없습니다</p>
+          </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredCompanies.map((company) => {
-              const meta = company.metadata ?? {};
-              const contractStatus = (meta.contract_status as string) ?? '';
-              const latestProject = company.latest_project ?? null;
-              const stepValue = typeof latestProject?.step === 'number' ? latestProject.step : null;
-              const managerName = company.client_admin_name ?? '-';
-              const drops = company.drop_counts ?? { published: 0, in_review: 0, draft: 0 };
-              const dropTotal = drops.published + drops.in_review + drops.draft;
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            {/* Table header */}
+            <div className="hidden md:grid grid-cols-[minmax(0,2fr)_100px_120px_80px_120px_100px_90px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <span>회사명</span>
+              <span>상태</span>
+              <span>STEP</span>
+              <span>D-day</span>
+              <span>드롭</span>
+              <span>담당자</span>
+              <span>최근 활동</span>
+            </div>
+            {/* Table rows */}
+            <div className="divide-y divide-gray-100">
+              {filteredCompanies.map((company) => {
+                const meta = company.metadata ?? {};
+                const contractStatus = (meta.contract_status as string) ?? '';
+                const latestProject = company.latest_project ?? null;
+                const stepValue = typeof latestProject?.step === 'number' ? latestProject.step : null;
+                const managerName = company.client_admin_name ?? '-';
+                const drops = company.drop_counts ?? { published: 0, in_review: 0, draft: 0 };
+                const dday = getDday(meta.contract_end as string | undefined);
 
-              // D-day
-              const contractEnd = meta.contract_end as string | undefined;
-              let ddayLabel = '';
-              let ddayColor = '';
-              if (contractEnd) {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const end = new Date(contractEnd);
-                end.setHours(0, 0, 0, 0);
-                const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                if (diff < 0) { ddayLabel = `D+${Math.abs(diff)}`; ddayColor = 'text-red-600 bg-red-50'; }
-                else if (diff <= 7) { ddayLabel = `D-${diff}`; ddayColor = 'text-red-600 bg-red-50'; }
-                else if (diff <= 30) { ddayLabel = `D-${diff}`; ddayColor = 'text-yellow-600 bg-yellow-50'; }
-                else { ddayLabel = `D-${diff}`; ddayColor = 'text-green-600 bg-green-50'; }
-              }
+                const feed = Array.isArray(meta.activity_feed) ? meta.activity_feed : [];
+                let lastActivity = '';
+                if (feed.length > 0) {
+                  const sorted = [...feed].sort(
+                    (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                  );
+                  lastActivity = new Date(sorted[0].created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+                }
 
-              // last activity
-              const feed = Array.isArray(meta.activity_feed) ? meta.activity_feed : [];
-              let lastActivity = '';
-              if (feed.length > 0) {
-                const sorted = [...feed].sort(
-                  (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                );
-                lastActivity = new Date(sorted[0].created_at).toLocaleDateString('ko-KR', {
-                  month: 'short',
-                  day: 'numeric',
-                });
-              }
+                const initial = company.name.charAt(0).toUpperCase();
 
-              return (
-                <div
-                  key={company.id}
-                  onClick={() => router.push(`/app/admin/companies/${company.id}`)}
-                  className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer"
-                >
-                  {/* Row 1: name + badge */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <h3 className="font-semibold text-gray-900 truncate">{company.name}</h3>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {contractStatus && (
+                return (
+                  <div
+                    key={company.id}
+                    onClick={() => router.push(`/app/admin/companies/${company.id}`)}
+                    className={`relative grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_100px_120px_80px_120px_100px_90px] gap-2 px-4 py-3 items-center cursor-pointer hover:bg-blue-50/40 transition-colors ${
+                      dday.accent ? 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-red-500 before:rounded-r' : ''
+                    }`}
+                  >
+                    {/* 회사명 */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold flex items-center justify-center shrink-0">
+                        {initial}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{company.name}</p>
+                        {meta.brand_name && (
+                          <p className="text-xs text-gray-400 truncate">{meta.brand_name as string}</p>
+                        )}
+                      </div>
+                    </div>
+                    {/* 상태 */}
+                    <div>
+                      {contractStatus ? (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${contractBadgeStyles[contractStatus] ?? 'bg-gray-100 text-gray-600'}`}>
                           {contractStatus}
                         </span>
-                      )}
-                      {ddayLabel && (
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${ddayColor}`}>
-                          {ddayLabel}
-                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
                       )}
                     </div>
-                  </div>
-
-                  {/* Row 2: STEP progress */}
-                  {stepValue !== null ? (
-                    <div className="mb-3">
-                      <p className="text-xs text-gray-500 mb-1">
-                        STEP {stepValue} · {STEP_LABELS[stepValue]}
-                      </p>
-                      <StepProgress currentStep={stepValue} readonly />
+                    {/* STEP */}
+                    <div className="flex items-center gap-2">
+                      {stepValue !== null ? (
+                        <>
+                          <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden max-w-[60px]">
+                            <div className="h-full rounded-full bg-blue-500" style={{ width: `${(stepValue / 4) * 100}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-600 shrink-0">STEP {stepValue}</span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-xs text-gray-400 mb-3">프로젝트 없음</p>
-                  )}
-
-                  {/* Row 3: drop counts */}
-                  {dropTotal > 0 && (
-                    <div className="flex items-center gap-3 mb-3 text-xs">
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                        {drops.published}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                        {drops.in_review}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                        {drops.draft}
-                      </span>
+                    {/* D-day */}
+                    <div>
+                      <span className={`text-xs ${dday.color}`}>{dday.label}</span>
                     </div>
-                  )}
-
-                  {/* Row 4: meta info */}
-                  <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
-                    <span>담당: {managerName}</span>
-                    {lastActivity && <span>최근 활동: {lastActivity}</span>}
+                    {/* 드롭 */}
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400" />{drops.published}</span>
+                      <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />{drops.in_review}</span>
+                      <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{drops.draft}</span>
+                    </div>
+                    {/* 담당자 */}
+                    <div className="text-xs text-gray-600 truncate">{managerName}</div>
+                    {/* 최근 활동 */}
+                    <div className="text-xs text-gray-500">{lastActivity || '-'}</div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 

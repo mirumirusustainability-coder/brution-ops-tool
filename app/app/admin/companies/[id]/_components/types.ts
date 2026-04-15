@@ -22,7 +22,7 @@ export type CompanyMetadata = {
   phone?: string | null;
   representative_name?: string | null;
   contact_email?: string | null;
-  contract_status?: '계약전' | '진행중' | '완료' | string | null;
+  contract_status?: '계약전' | '리드' | '상담중' | '계약완료' | '진행중' | '완료' | string | null;
   starter_package?: boolean | string | null;
   total_amount?: number | string | null;
   deposit_paid?: boolean | null;
@@ -46,6 +46,24 @@ export type CompanyMetadata = {
   contact_history?: ContactHistoryEntry[] | null;
   activity_feed?: ActivityFeedItem[] | null;
   next_action?: string | null;
+  // v3 fields
+  homepage_url?: string | null;
+  smartstore_url?: string | null;
+  coupang_url?: string | null;
+  brand_name?: string | null;
+  brand_target?: string | null;
+  brand_tone?: string | null;
+  brand_forbidden?: string | null;
+  package_type?: 'starter' | 'standard' | 'premium' | string | null;
+  contract_amount?: number | string | null;
+  ai_credit_limit?: number | null;
+  ai_credit_used?: number | null;
+  shortcut_actions?: string[] | null;
+  ai_summary?: string | null;
+  profile_image_url?: string | null;
+  brution_manager?: string | null;
+  regular_meeting?: string | null;
+  last_communication?: string | null;
 };
 
 export type ApiCompany = {
