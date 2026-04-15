@@ -11,6 +11,7 @@ import { STEP_LABELS } from '@/lib/constants'
 import { User, UserRole } from '@/types'
 
 const BRUTION_ID = '00000000-0000-0000-0000-000000000001'
+const COL_WIDTHS_KEY = 'brution-project-col-widths'
 
 type ApiProject = {
   step: number
@@ -20,6 +21,7 @@ type ApiProject = {
   created_at: string
   company_id: string
   status?: 'active' | 'completed' | 'paused'
+  metadata?: { launch_date?: string | null; assignee?: string | null } | null
   companies?: { id?: string; name?: string; metadata?: Record<string, any> | null } | { id?: string; name?: string; metadata?: Record<string, any> | null }[] | null
   deliverables?: { deliverable_versions?: { status?: string }[] }[] | null
 }
@@ -43,15 +45,15 @@ const stepBadgeColors: Record<number, string> = {
 }
 
 const getCompany = (c: ApiProject['companies']) => {
-  if (!c) return { name: '', metadata: null as Record<string, any> | null }
+  if (!c) return { id: '', name: '', metadata: null as Record<string, any> | null }
   const obj = Array.isArray(c) ? c[0] : c
-  return { name: obj?.name ?? '', metadata: obj?.metadata ?? null }
+  return { id: obj?.id ?? '', name: obj?.name ?? '', metadata: obj?.metadata ?? null }
 }
 
-const getDday = (contractEnd?: string | null) => {
-  if (!contractEnd) return { label: '미설정', color: 'text-gray-400', accent: false }
+const getDday = (dateStr?: string | null) => {
+  if (!dateStr) return { label: '미설정', color: 'text-gray-400', accent: false }
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const end = new Date(contractEnd); end.setHours(0, 0, 0, 0)
+  const end = new Date(dateStr); end.setHours(0, 0, 0, 0)
   const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   if (diff < 0) return { label: `D+${Math.abs(diff)}`, color: 'text-red-600 font-semibold', accent: true }
   if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-600 font-semibold', accent: true }
@@ -71,16 +73,82 @@ const getDropCounts = (deliverables: ApiProject['deliverables']) => {
   return { published, in_review, draft }
 }
 
+// ─── resizable column widths ──────────────────────────────────────────────
+
+const DEFAULT_COL_WIDTHS = [0.35, 180, 120, 120, 100, 100] // first is fraction, rest px
+
+function useColumnWidths() {
+  const [widths, setWidths] = useState(DEFAULT_COL_WIDTHS)
+  const [mounted, setMounted] = useState(false)
+  const dragging = useRef(false)
+  const dragIdx = useRef(-1)
+  const startX = useRef(0)
+  const startWidths = useRef([...DEFAULT_COL_WIDTHS])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COL_WIDTHS_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length === 6) setWidths(parsed)
+      }
+    } catch {}
+    setMounted(true)
+  }, [])
+
+  const onMouseDown = (e: React.MouseEvent, colIdx: number) => {
+    e.preventDefault()
+    dragging.current = true
+    dragIdx.current = colIdx
+    startX.current = e.clientX
+    startWidths.current = [...widths]
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return
+      const delta = ev.clientX - startX.current
+      const next = [...startWidths.current]
+      // adjust the column to the left of the divider
+      const minW = colIdx === 0 ? 0.2 : 60
+      const maxW = colIdx === 0 ? 0.6 : 300
+      const newVal = startWidths.current[colIdx] + (colIdx === 0 ? delta / (window.innerWidth * 0.7) : delta)
+      next[colIdx] = Math.max(minW, Math.min(maxW, newVal))
+      setWidths(next)
+    }
+
+    const onUp = () => {
+      dragging.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      setWidths((w) => { try { localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(w)) } catch {}; return w })
+    }
+
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  return { widths, mounted, onMouseDown }
+}
+
+// ─── types ────────────────────────────────────────────────────────────────
+
 type ViewMode = 'list' | 'step'
 type Filter = 'all' | 'step0' | 'step1' | 'step2' | 'step3' | 'step4' | 'active' | 'completed'
+
+// ─── page component ──────────────────────────────────────────────────────
 
 export default function AdminProjectsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { showToast } = useToast()
+  const cols = useColumnWidths()
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [projects, setProjects] = useState<ApiProject[]>([])
   const [companies, setCompanies] = useState<ApiCompany[]>([])
+  const [staffUsers, setStaffUsers] = useState<{ user_id: string; name: string | null; email: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -94,6 +162,8 @@ export default function AdminProjectsPage() {
   const [formDescription, setFormDescription] = useState('')
   const [formCompanyId, setFormCompanyId] = useState('')
   const [formStep, setFormStep] = useState(0)
+  const [formLaunchDate, setFormLaunchDate] = useState('')
+  const [formAssignee, setFormAssignee] = useState('')
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -104,7 +174,6 @@ export default function AdminProjectsPage() {
   useEffect(() => {
     const fp = searchParams.get('filter')
     if (fp === 'active') setFilter('active')
-    else if (fp === 'paused') setFilter('all')
     else setFilter('all')
   }, [searchParams])
 
@@ -115,7 +184,6 @@ export default function AdminProjectsPage() {
       const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.replace('/login'); return }
-
       const sessionRole = session.user.user_metadata?.role ?? null
       let me: any = null
       if (sessionRole) {
@@ -128,15 +196,16 @@ export default function AdminProjectsPage() {
       }
       const user: User = { id: me.userId, email: me.email, name: me.email, role: me.role as UserRole, companyId: me.companyId ?? '', mustChangePassword: me.mustChangePassword, status: me.status as 'active' | 'inactive' }
       if (user.role !== 'staff_admin') { router.replace('/app/projects'); return }
-
-      const [pRes, cRes] = await Promise.all([
+      const [pRes, cRes, sRes] = await Promise.all([
         fetch('/api/admin/projects', { cache: 'no-store' }),
         fetch('/api/admin/companies', { cache: 'no-store' }),
+        fetch('/api/admin/staff', { cache: 'no-store' }),
       ])
       if (active) {
         if (pRes.ok) { const d = await pRes.json(); setProjects(Array.isArray(d?.projects) ? d.projects : []) }
         else setError('프로젝트 목록을 불러올 수 없습니다')
         if (cRes.ok) { const d = await cRes.json(); setCompanies(Array.isArray(d?.companies) ? d.companies : []) }
+        if (sRes.ok) { const d = await sRes.json(); setStaffUsers(Array.isArray(d?.staff) ? d.staff : []) }
         setCurrentUser(user); setLoading(false)
       }
     }
@@ -159,59 +228,39 @@ export default function AdminProjectsPage() {
 
   const filteredModalCompanies = useMemo(() => {
     const kw = searchQuery.trim().toLowerCase()
-    const available = companies.filter((c) => c.id !== BRUTION_ID)
-    if (!kw) return available
-    return available.filter((c) => c.name.toLowerCase().includes(kw))
+    const avail = companies.filter((c) => c.id !== BRUTION_ID)
+    if (!kw) return avail
+    return avail.filter((c) => c.name.toLowerCase().includes(kw))
   }, [companies, searchQuery])
 
-  // filter + sort projects
   const filteredProjects = useMemo(() => {
     const kw = query.trim().toLowerCase()
     let result = projects.filter((p) => {
-      const co = getCompany(p.companies)
-      // exclude brution
-      if (co.metadata && (Array.isArray(p.companies) ? p.companies[0] : p.companies)?.id === BRUTION_ID) return false
       if (p.company_id === BRUTION_ID) return false
+      const co = getCompany(p.companies)
+      if (co.id === BRUTION_ID) return false
       return true
     })
-
-    // apply filter
     if (filter === 'active') result = result.filter((p) => (p.status ?? 'active') === 'active')
     else if (filter === 'completed') result = result.filter((p) => p.status === 'completed')
-    else if (filter.startsWith('step')) {
-      const step = Number(filter.replace('step', ''))
-      result = result.filter((p) => p.step === step)
-    }
-
-    // search
-    if (kw) {
-      result = result.filter((p) => p.name.toLowerCase().includes(kw) || getCompany(p.companies).name.toLowerCase().includes(kw))
-    }
-
-    // sort by D-day (contract_end)
+    else if (filter.startsWith('step')) result = result.filter((p) => p.step === Number(filter.replace('step', '')))
+    if (kw) result = result.filter((p) => p.name.toLowerCase().includes(kw) || getCompany(p.companies).name.toLowerCase().includes(kw))
     return [...result].sort((a, b) => {
-      const endA = (getCompany(a.companies).metadata?.contract_end as string) ?? ''
-      const endB = (getCompany(b.companies).metadata?.contract_end as string) ?? ''
+      const endA = a.metadata?.launch_date ?? ''
+      const endB = b.metadata?.launch_date ?? ''
       if (!endA && !endB) return 0; if (!endA) return 1; if (!endB) return -1
       return new Date(endA).getTime() - new Date(endB).getTime()
     })
   }, [projects, query, filter])
 
   const filterTabs: { key: Filter; label: string }[] = [
-    { key: 'all', label: '전체' },
-    { key: 'step0', label: 'STEP 0' },
-    { key: 'step1', label: 'STEP 1' },
-    { key: 'step2', label: 'STEP 2' },
-    { key: 'step3', label: 'STEP 3' },
-    { key: 'step4', label: 'STEP 4' },
-    { key: 'active', label: '진행중' },
-    { key: 'completed', label: '완료' },
+    { key: 'all', label: '전체' }, { key: 'step0', label: 'STEP 0' }, { key: 'step1', label: 'STEP 1' }, { key: 'step2', label: 'STEP 2' }, { key: 'step3', label: 'STEP 3' }, { key: 'step4', label: 'STEP 4' }, { key: 'active', label: '진행중' }, { key: 'completed', label: '완료' },
   ]
 
   const stepGroups = useMemo(() => {
-    const groups: Record<number, ApiProject[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] }
-    filteredProjects.forEach((p) => { const s = p.step ?? 0; if (groups[s]) groups[s].push(p) })
-    return groups
+    const g: Record<number, ApiProject[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] }
+    filteredProjects.forEach((p) => { const s = p.step ?? 0; if (g[s]) g[s].push(p) })
+    return g
   }, [filteredProjects])
 
   const toggleStep = (s: number) => setCollapsedSteps((prev) => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
@@ -220,50 +269,52 @@ export default function AdminProjectsPage() {
     if (!formName.trim()) { setFormError('프로젝트명을 입력하세요'); return }
     if (!formCompanyId) { setFormError('고객사를 선택하세요'); return }
     setCreating(true); setFormError(null)
-    const r = await fetch('/api/admin/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formName.trim(), description: formDescription.trim() || null, companyId: formCompanyId, step: formStep }) })
+    const metadata: Record<string, any> = {}
+    if (formLaunchDate) metadata.launch_date = formLaunchDate
+    if (formAssignee) metadata.assignee = formAssignee
+    const r = await fetch('/api/admin/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: formName.trim(), description: formDescription.trim() || null, companyId: formCompanyId, step: formStep, metadata: Object.keys(metadata).length ? metadata : undefined }) })
     if (!r.ok) { setFormError('프로젝트 생성에 실패했습니다'); showToast('프로젝트 생성에 실패했습니다', 'error'); setCreating(false); return }
-    setFormName(''); setFormDescription(''); setFormStep(0); setFormCompanyId(''); setSelectedCompany(null); setSearchQuery(''); setIsOpen(false); setShowCreateModal(false); setCreating(false)
+    setFormName(''); setFormDescription(''); setFormStep(0); setFormCompanyId(''); setFormLaunchDate(''); setFormAssignee(''); setSelectedCompany(null); setSearchQuery(''); setIsOpen(false); setShowCreateModal(false); setCreating(false)
     showToast('프로젝트가 생성되었습니다', 'success')
     const pr = await fetch('/api/admin/projects', { cache: 'no-store' })
     if (pr.ok) { const d = await pr.json(); setProjects(Array.isArray(d?.projects) ? d.projects : []) }
   }
 
-  // ── render helpers ────────────────────────────────────────────────────────
+  // ── grid template ─────────────────────────────────────────────────────────
+
+  const gridTemplate = `minmax(0, ${cols.widths[0]}fr) ${cols.widths[1]}px ${cols.widths[2]}px ${cols.widths[3]}px ${cols.widths[4]}px ${cols.widths[5]}px`
+
+  const Divider = ({ idx }: { idx: number }) => (
+    <div onMouseDown={(e) => cols.onMouseDown(e, idx)} className="absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 transition-colors z-10" style={{ right: -2 }} />
+  )
 
   const renderRow = (project: ApiProject) => {
     const co = getCompany(project.companies)
-    const dday = getDday(co.metadata?.contract_end as string | undefined)
+    const launchDate = project.metadata?.launch_date ?? null
+    const dday = getDday(launchDate)
     const drops = getDropCounts(project.deliverables)
     const step = project.step ?? 0
+    const assignee = (project.metadata?.assignee as string) ?? (co.metadata?.brution_manager as string) ?? '-'
 
     return (
       <div
         key={project.id}
         onClick={() => router.push(`/app/admin/projects/${project.id}`)}
-        className={`relative grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_110px_90px_110px_90px_90px] gap-2 px-4 py-3 items-center cursor-pointer hover:bg-blue-50/40 transition-colors ${dday.accent ? 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-red-500 before:rounded-r' : ''}`}
+        className={`relative grid gap-2 px-4 py-3 items-center cursor-pointer hover:bg-blue-50/40 transition-colors ${dday.accent ? 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-red-500 before:rounded-r' : ''}`}
+        style={{ gridTemplateColumns: gridTemplate }}
       >
-        {/* 프로젝트명 + 고객사 */}
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-900 truncate">{project.name}</p>
           <p className="text-xs text-gray-400 truncate">{co.name || '미지정'}</p>
         </div>
-        {/* STEP */}
-        <div>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stepBadgeColors[step] ?? 'bg-gray-100 text-gray-700'}`}>
-            STEP {step} · {STEP_LABELS[step]}
-          </span>
-        </div>
-        {/* D-day */}
-        <div><span className={`text-xs ${dday.color}`}>{dday.label}</span></div>
-        {/* 드롭 */}
+        <div><span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${stepBadgeColors[step] ?? 'bg-gray-100 text-gray-700'}`}>STEP {step} · {STEP_LABELS[step]}</span></div>
+        <div><span className={`text-xs whitespace-nowrap ${dday.color}`}>{dday.label}</span></div>
         <div className="flex items-center gap-2 text-xs text-gray-600">
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400" />{drops.published}</span>
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />{drops.in_review}</span>
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{drops.draft}</span>
         </div>
-        {/* 담당자 — from company metadata brution_manager */}
-        <div className="text-xs text-gray-600 truncate">{(co.metadata?.brution_manager as string) ?? '-'}</div>
-        {/* 최근 활동 */}
+        <div className="text-xs text-gray-600 truncate">{assignee}</div>
         <div className="text-xs text-gray-500">
           {(() => {
             const feed = Array.isArray(co.metadata?.activity_feed) ? co.metadata.activity_feed : []
@@ -282,16 +333,14 @@ export default function AdminProjectsPage() {
 
   return (
     <AppLayout user={currentUser}>
-      <div className="max-w-6xl">
+      <div className="max-w-6xl" style={{ visibility: cols.mounted ? 'visible' : 'hidden' }}>
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">프로젝트 관리</h1>
             <p className="text-sm text-gray-500 mt-0.5">총 {filteredProjects.length}건</p>
           </div>
-          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors">
-            <Plus className="w-4 h-4" /> 새 프로젝트
-          </button>
+          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover transition-colors"><Plus className="w-4 h-4" /> 새 프로젝트</button>
         </div>
 
         {/* Search + Filters + View toggle */}
@@ -314,8 +363,14 @@ export default function AdminProjectsPage() {
         {/* List view */}
         {viewMode === 'list' && (
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="hidden md:grid grid-cols-[minmax(0,2fr)_110px_90px_110px_90px_90px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
-              <span>프로젝트</span><span>STEP</span><span>출시 D-day</span><span>드롭</span><span>담당자</span><span>최근 활동</span>
+            {/* Header */}
+            <div className="hidden md:grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide" style={{ gridTemplateColumns: gridTemplate }}>
+              {['프로젝트', 'STEP', '출시 D-day', '드롭', '담당자', '최근 활동'].map((label, i) => (
+                <div key={label} className="relative">
+                  {label}
+                  {i < 5 && <Divider idx={i} />}
+                </div>
+              ))}
             </div>
             {filteredProjects.length === 0 ? (
               <div className="p-12 text-center text-sm text-gray-500">등록된 프로젝트가 없습니다</div>
@@ -341,12 +396,8 @@ export default function AdminProjectsPage() {
                     </div>
                     <span className="text-xs text-gray-400">{items.length}건</span>
                   </button>
-                  {!collapsed && items.length > 0 && (
-                    <div className="divide-y divide-gray-100">{items.map(renderRow)}</div>
-                  )}
-                  {!collapsed && items.length === 0 && (
-                    <div className="p-6 text-center text-xs text-gray-400">프로젝트 없음</div>
-                  )}
+                  {!collapsed && items.length > 0 && <div className="divide-y divide-gray-100">{items.map(renderRow)}</div>}
+                  {!collapsed && items.length === 0 && <div className="p-6 text-center text-xs text-gray-400">프로젝트 없음</div>}
                 </div>
               )
             })}
@@ -363,14 +414,15 @@ export default function AdminProjectsPage() {
               <button onClick={() => setShowCreateModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3">
-              <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="프로젝트명" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-              <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="설명 (선택)" className="w-full px-3 py-2 border border-gray-300 rounded-md" rows={3} />
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">프로젝트명 *</label>
+                <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="프로젝트명" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
               <div className="relative" ref={dropdownRef}>
+                <label className="text-xs text-gray-500 mb-1 block">고객사 *</label>
                 <button type="button" onClick={() => setIsOpen((v) => !v)} className="w-full px-3 py-2 border border-gray-300 rounded-md flex items-center justify-between">
                   <span className={selectedCompany ? 'text-gray-900' : 'text-gray-400'}>{selectedCompany ? selectedCompany.name : '고객사를 선택하세요'}</span>
-                  {selectedCompany && (
-                    <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setSelectedCompany(null); setFormCompanyId(''); setSearchQuery(''); setIsOpen(false) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCompany(null); setFormCompanyId(''); setSearchQuery(''); setIsOpen(false) } }} className="ml-2 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></span>
-                  )}
+                  {selectedCompany && <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setSelectedCompany(null); setFormCompanyId(''); setSearchQuery(''); setIsOpen(false) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCompany(null); setFormCompanyId(''); setSearchQuery(''); setIsOpen(false) } }} className="ml-2 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></span>}
                 </button>
                 {isOpen && (
                   <div className="absolute z-50 mt-2 w-full rounded-md border border-gray-200 bg-white shadow-lg">
@@ -383,9 +435,29 @@ export default function AdminProjectsPage() {
                   </div>
                 )}
               </div>
-              <select value={formStep} onChange={(e) => setFormStep(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                {stepOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">STEP</label>
+                  <select value={formStep} onChange={(e) => setFormStep(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    {stepOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">출시 예정일</label>
+                  <input type="date" value={formLaunchDate} onChange={(e) => setFormLaunchDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">담당자</label>
+                <select value={formAssignee} onChange={(e) => setFormAssignee(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <option value="">선택</option>
+                  {staffUsers.map((s) => <option key={s.user_id} value={s.name ?? s.email}>{s.name ?? s.email}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">프로젝트 설명</label>
+                <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="설명 (선택)" className="w-full px-3 py-2 border border-gray-300 rounded-md" rows={3} />
+              </div>
               {formError && <p className="text-sm text-red-600">{formError}</p>}
             </div>
             <div className="flex justify-end gap-2">

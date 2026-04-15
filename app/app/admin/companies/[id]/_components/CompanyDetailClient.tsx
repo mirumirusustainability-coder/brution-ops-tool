@@ -438,16 +438,22 @@ export function CompanyDetailClient({
   const inputCls = 'w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
 
   const ddayInfo = useMemo(() => {
-    const end = meta.contract_end;
-    if (!end) return { label: '미설정', color: 'text-gray-400', bg: 'bg-gray-100' };
+    // Use the most imminent project launch_date, fallback to contract_end
+    const launchDates = projects
+      .map((p) => p.metadata?.launch_date)
+      .filter((d): d is string => !!d)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    const end = launchDates[0] ?? meta.contract_end;
+    if (!end) return { label: '미설정', color: 'text-gray-400', bg: 'bg-gray-100', dateStr: '' };
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const endDate = new Date(end); endDate.setHours(0, 0, 0, 0);
     const diff = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return { label: `D+${Math.abs(diff)}`, color: 'text-red-700', bg: 'bg-red-50' };
-    if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-700', bg: 'bg-red-50' };
-    if (diff <= 30) return { label: `D-${diff}`, color: 'text-yellow-700', bg: 'bg-yellow-50' };
-    return { label: `D-${diff}`, color: 'text-green-700', bg: 'bg-green-50' };
-  }, [meta.contract_end]);
+    const dateStr = endDate.toLocaleDateString('ko-KR');
+    if (diff < 0) return { label: `D+${Math.abs(diff)}`, color: 'text-red-700', bg: 'bg-red-50', dateStr };
+    if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-700', bg: 'bg-red-50', dateStr };
+    if (diff <= 30) return { label: `D-${diff}`, color: 'text-yellow-700', bg: 'bg-yellow-50', dateStr };
+    return { label: `D-${diff}`, color: 'text-green-700', bg: 'bg-green-50', dateStr };
+  }, [projects, meta.contract_end]);
 
   const aiCreditLimit = (meta.ai_credit_limit as number) ?? 100;
   const aiCreditUsed = (meta.ai_credit_used as number) ?? 0;
@@ -684,7 +690,7 @@ export function CompanyDetailClient({
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm text-center">
             <p className="text-xs text-gray-500 mb-1">출시 D-day</p>
             <p className={`text-2xl font-bold ${ddayInfo.color}`}>{ddayInfo.label}</p>
-            {meta.contract_end && <p className="text-xs text-gray-400 mt-1">{new Date(meta.contract_end).toLocaleDateString('ko-KR')}</p>}
+            {ddayInfo.dateStr && <p className="text-xs text-gray-400 mt-1">{ddayInfo.dateStr}</p>}
           </div>
 
           {/* drop status */}
@@ -704,12 +710,30 @@ export function CompanyDetailClient({
               <p className="text-xs text-gray-400">프로젝트 없음</p>
             ) : (
               <div className="space-y-2">
-                {projects.map((p) => (
-                  <button key={p.id} type="button" onClick={() => router.push(`/app/admin/projects/${p.id}`)} className="w-full text-left rounded-lg border border-gray-100 p-2 hover:bg-gray-50 transition">
-                    <p className="text-xs font-medium text-gray-900 truncate">{p.name ?? '(이름 없음)'}</p>
-                    <p className="text-xs text-gray-400">STEP {p.step ?? 0} · {p.status === 'completed' ? '완료' : p.status === 'paused' ? '일시정지' : '진행중'}</p>
-                  </button>
-                ))}
+                {projects.map((p) => {
+                  const pLaunch = p.metadata?.launch_date ?? null;
+                  const pDday = (() => {
+                    if (!pLaunch) return null;
+                    const t = new Date(); t.setHours(0,0,0,0);
+                    const e = new Date(pLaunch); e.setHours(0,0,0,0);
+                    const d = Math.ceil((e.getTime() - t.getTime()) / (1000*60*60*24));
+                    if (d < 0) return { label: `D+${Math.abs(d)}`, color: 'text-red-600' };
+                    if (d <= 7) return { label: `D-${d}`, color: 'text-red-600' };
+                    if (d <= 30) return { label: `D-${d}`, color: 'text-yellow-600' };
+                    return { label: `D-${d}`, color: 'text-green-600' };
+                  })();
+                  return (
+                    <button key={p.id} type="button" onClick={() => router.push(`/app/admin/projects/${p.id}`)} className="w-full text-left rounded-lg border border-gray-100 p-2 hover:bg-gray-50 transition">
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-gray-900 truncate">{p.name ?? '(이름 없음)'}</p>
+                          <p className="text-xs text-gray-400">STEP {p.step ?? 0} · {p.status === 'completed' ? '완료' : p.status === 'paused' ? '일시정지' : '진행중'}</p>
+                        </div>
+                        {pDday && <span className={`shrink-0 text-xs font-semibold ${pDday.color}`}>{pDday.label}</span>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
