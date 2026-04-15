@@ -39,20 +39,20 @@ const RIGHT_MIN = 260;
 const RIGHT_MAX = 420;
 
 function useResizable(storageKey: string, defaultVal: number, min: number, max: number) {
-  const [width, setWidth] = useState(defaultVal);
-  const dragging = useRef(false);
-  const startX = useRef(0);
-  const startW = useRef(defaultVal);
-
-  useEffect(() => {
+  const [width, setWidth] = useState(() => {
+    if (typeof window === 'undefined') return defaultVal;
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const n = Number(saved);
-        if (n >= min && n <= max) setWidth(n);
+        if (n >= min && n <= max) return n;
       }
     } catch {}
-  }, [storageKey, min, max]);
+    return defaultVal;
+  });
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startW = useRef(defaultVal);
 
   const onMouseDown = (e: React.MouseEvent, direction: 1 | -1) => {
     e.preventDefault();
