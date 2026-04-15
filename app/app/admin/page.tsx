@@ -167,23 +167,6 @@ export default function AdminDashboardPage() {
 
   return (
     <AppLayout user={currentUser}>
-      {/* Progress bar */}
-      <style>{`
-        @keyframes loading-slide {
-          0% { transform: translateX(-100%); }
-          60% { transform: translateX(0%); }
-          100% { transform: translateX(100%); }
-        }
-        .loading-bar-inner { animation: loading-slide 1.4s ease-in-out infinite; }
-      `}</style>
-      <div
-        className={`fixed top-0 left-0 right-0 z-50 h-0.5 overflow-hidden transition-opacity duration-500 ${
-          dataLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <div className="loading-bar-inner h-full w-full bg-blue-500" />
-      </div>
-
       <div className="max-w-6xl space-y-6">
         {/* Header */}
         <div>

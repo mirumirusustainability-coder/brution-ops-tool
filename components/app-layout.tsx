@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
+import { ProgressBar } from './ProgressBar';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@/types';
 
@@ -29,6 +30,7 @@ export function AppLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      <ProgressBar />
       {/* Sidebar */}
       <Sidebar
         userRole={user.role}
