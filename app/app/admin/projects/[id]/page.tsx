@@ -182,7 +182,7 @@ export default function AdminProjectDetailPage({
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   // ── resizable right panel (hooks must be before any early return) ────────
-  const [rightWidth, setRightWidth] = useState(300)
+  const [rightWidth, setRightWidth] = useState(400)
   const [panelMounted, setPanelMounted] = useState(false)
   const rightDragging = useRef(false)
 
@@ -191,7 +191,7 @@ export default function AdminProjectDetailPage({
   const dotMenuRef = useRef<HTMLDivElement>(null)
 
   // ── center tab ──────────────────────────────────────────────────────────
-  const [detailTab, setDetailTab] = useState<'drops' | 'gantt' | 'history'>('drops')
+  const [detailTab, setDetailTab] = useState<'drops' | 'gantt' | 'certs' | 'sample' | 'history'>('drops')
 
   // ── drop dot menu ────────────────────────────────────────────────────────
   const [dropMenuId, setDropMenuId] = useState<string | null>(null)
@@ -207,6 +207,9 @@ export default function AdminProjectDetailPage({
   // ── staff users for assignee ────────────────────────────────────────────
   const [staffUsers, setStaffUsers] = useState<{ user_id: string; name: string | null; email: string }[]>([])
 
+  // ── memo delete ──────────────────────────────────────────────────────────
+  const [memoDeleteIdx, setMemoDeleteIdx] = useState<number | null>(null)
+
   // ── memo input ──────────────────────────────────────────────────────────
   const [memoInput, setMemoInput] = useState('')
   const [memoSending, setMemoSending] = useState(false)
@@ -215,7 +218,7 @@ export default function AdminProjectDetailPage({
   useEffect(() => {
     try {
       const saved = localStorage.getItem('brution-project-right-width')
-      if (saved) { const n = Number(saved); if (n >= 240 && n <= 420) setRightWidth(n) }
+      if (saved) { const n = Number(saved); if (n >= 280 && n <= 560) setRightWidth(n) }
     } catch {}
     setPanelMounted(true)
   }, [])
@@ -782,7 +785,7 @@ export default function AdminProjectDetailPage({
     const startW = rightWidth
     const onMove = (ev: MouseEvent) => {
       if (!rightDragging.current) return
-      const next = Math.max(240, Math.min(420, startW - (ev.clientX - startX)))
+      const next = Math.max(280, Math.min(560, startW - (ev.clientX - startX)))
       setRightWidth(next)
     }
     const onUp = () => {
@@ -797,6 +800,17 @@ export default function AdminProjectDetailPage({
     document.body.style.userSelect = 'none'
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
+  }
+
+  const handleDeleteMemo = async (noteIdx: number) => {
+    const nextNotes = projectNotes.filter((_, i) => i !== noteIdx)
+    try {
+      const r = await fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: nextNotes }) })
+      if (!r.ok) { showToast('메모 삭제에 실패했습니다', 'error'); return }
+      setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), notes: nextNotes } } : prev)
+      setMemoDeleteIdx(null)
+      showToast('메모가 삭제되었습니다', 'success')
+    } catch { showToast('메모 삭제에 실패했습니다', 'error') }
   }
 
   const handleSendMemo = async () => {
@@ -899,7 +913,7 @@ export default function AdminProjectDetailPage({
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* tabs */}
             <div className="flex gap-1 border-b border-gray-200 shrink-0 mb-3">
-              {([['drops', '드롭'], ['gantt', '간트차트'], ['history', '히스토리']] as const).map(([key, label]) => (
+              {([['drops', '드롭'], ['gantt', '간트차트'], ['certs', '인증 관리'], ['sample', '샘플/생산'], ['history', '히스토리']] as const).map(([key, label]) => (
                 <button key={key} type="button" onClick={() => setDetailTab(key)} className={`px-3 py-2 text-sm border-b-2 -mb-px ${detailTab === key ? 'border-primary text-primary font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>{label}</button>
               ))}
             </div>
@@ -995,6 +1009,153 @@ export default function AdminProjectDetailPage({
               <div className="flex-1 flex items-center justify-center text-sm text-gray-400">간트차트는 Phase A 이후 구현 예정입니다.</div>
             )}
 
+            {detailTab === 'certs' && (
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold text-gray-900">인증 현황</h2>
+                  <button type="button" onClick={() => {
+                    const certs = Array.isArray((project?.metadata as any)?.certifications) ? (project?.metadata as any).certifications : []
+                    const newCert = { id: Math.random().toString(36).slice(2, 10), name: '', status: '준비중', expected_date: '', agency: '', rejection_note: '' }
+                    const next = [...certs, newCert]
+                    fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { certifications: next } }) })
+                      .then((r) => { if (r.ok) { setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), certifications: next } as any } : prev); showToast('인증이 추가되었습니다', 'success') } })
+                  }} className="text-sm text-primary hover:underline">+ 인증 추가</button>
+                </div>
+                {(() => {
+                  const certs = Array.isArray((project?.metadata as any)?.certifications) ? (project?.metadata as any).certifications : []
+                  if (certs.length === 0) return <p className="text-sm text-gray-400 text-center py-6">등록된 인증이 없습니다.</p>
+                  const certStatusStyles: Record<string, string> = { '준비중': 'bg-gray-100 text-gray-600', '신청완료': 'bg-blue-50 text-blue-600', '심사중': 'bg-yellow-50 text-yellow-600', '완료': 'bg-green-50 text-green-700', '반려': 'bg-red-50 text-red-600' }
+                  return (
+                    <div className="space-y-2">
+                      {certs.map((cert: any, ci: number) => (
+                        <div key={cert.id ?? ci} className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={cert.name ?? ''} onChange={(e) => {
+                              const next = [...certs]; next[ci] = { ...next[ci], name: e.target.value }
+                              setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), certifications: next } as any } : prev)
+                            }} placeholder="인증명 (예: KC안전인증)" className="px-2 py-1.5 text-sm border border-gray-200 rounded-md" />
+                            <select value={cert.status ?? '준비중'} onChange={(e) => {
+                              const next = [...certs]; next[ci] = { ...next[ci], status: e.target.value }
+                              setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), certifications: next } as any } : prev)
+                            }} className="px-2 py-1.5 text-sm border border-gray-200 rounded-md">
+                              {['준비중', '신청완료', '심사중', '완료', '반려'].map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="date" value={cert.expected_date ?? ''} onChange={(e) => {
+                              const next = [...certs]; next[ci] = { ...next[ci], expected_date: e.target.value }
+                              setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), certifications: next } as any } : prev)
+                            }} className="px-2 py-1.5 text-sm border border-gray-200 rounded-md" />
+                            <input value={cert.agency ?? ''} onChange={(e) => {
+                              const next = [...certs]; next[ci] = { ...next[ci], agency: e.target.value }
+                              setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), certifications: next } as any } : prev)
+                            }} placeholder="담당기관" className="px-2 py-1.5 text-sm border border-gray-200 rounded-md" />
+                          </div>
+                          {cert.status === '반려' && (
+                            <textarea value={cert.rejection_note ?? ''} onChange={(e) => {
+                              const next = [...certs]; next[ci] = { ...next[ci], rejection_note: e.target.value }
+                              setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), certifications: next } as any } : prev)
+                            }} placeholder="반려 사유 / 개선사항" className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md" rows={2} />
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${certStatusStyles[cert.status] ?? 'bg-gray-100 text-gray-600'}`}>{cert.status}</span>
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => {
+                                const next = certs.filter((_: any, i: number) => i !== ci)
+                                fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { certifications: next } }) })
+                                  .then((r) => { if (r.ok) { setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), certifications: next } as any } : prev); showToast('삭제되었습니다', 'success') } })
+                              }} className="text-xs text-red-400 hover:text-red-600">삭제</button>
+                              <button type="button" onClick={() => {
+                                fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { certifications: certs } }) })
+                                  .then((r) => { if (r.ok) { showToast('저장되었습니다', 'success') } else { showToast('저장에 실패했습니다', 'error') } })
+                              }} className="text-xs text-primary hover:underline">저장</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+            {detailTab === 'sample' && (
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                {/* Sample checklist */}
+                <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">샘플 체크리스트</p>
+                  {(() => {
+                    const checklist = (project?.metadata as any)?.sample_checklist ?? {}
+                    const items = [
+                      { key: 'sample_received', label: '샘플 수령' },
+                      { key: 'modify', label: '개선/모디파이 사항' },
+                      { key: 'pantone', label: '팬톤 컬러 지정' },
+                      { key: 'barcode', label: '바코드 (KC인증번호 포함)' },
+                      { key: 'package_design', label: '패키지 디자인 확정' },
+                      { key: 'manual', label: '설명서 초안' },
+                    ]
+                    const statusOptions = ['미완료', '완료', '고객사 승인 대기', '승인완료']
+                    const statusStyles: Record<string, string> = { '미완료': 'text-gray-500', '완료': 'text-green-600', '고객사 승인 대기': 'text-yellow-600', '승인완료': 'text-blue-600' }
+                    return (
+                      <div className="space-y-2">
+                        {items.map(({ key, label }) => (
+                          <div key={key} className="flex items-center justify-between">
+                            <span className="text-sm text-gray-700">{label}</span>
+                            <select value={checklist[key] ?? '미완료'} onChange={(e) => {
+                              const next = { ...checklist, [key]: e.target.value }
+                              fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { sample_checklist: next } }) })
+                                .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), sample_checklist: next } as any } : prev) })
+                            }} className={`text-xs border border-gray-200 rounded px-2 py-1 ${statusStyles[checklist[key] ?? '미완료'] ?? ''}`}>
+                              {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
+                </div>
+                {/* QC */}
+                <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">QC 검수</p>
+                  {(() => {
+                    const qc = (project?.metadata as any)?.qc_status ?? {}
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700">고객사 의뢰 확인</span>
+                          <select value={qc.confirmed ?? '미확인'} onChange={(e) => {
+                            const next = { ...qc, confirmed: e.target.value }
+                            fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { qc_status: next } }) })
+                              .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), qc_status: next } as any } : prev) })
+                          }} className="text-xs border border-gray-200 rounded px-2 py-1">
+                            <option value="미확인">미확인</option>
+                            <option value="확인완료">확인완료</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700">검수 결과</span>
+                          <select value={qc.result ?? '대기'} onChange={(e) => {
+                            const next = { ...qc, result: e.target.value }
+                            fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { qc_status: next } }) })
+                              .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), qc_status: next } as any } : prev) })
+                          }} className="text-xs border border-gray-200 rounded px-2 py-1">
+                            <option value="대기">대기</option>
+                            <option value="합격">합격</option>
+                            <option value="불합격">불합격</option>
+                          </select>
+                        </div>
+                        {qc.result === '불합격' && (
+                          <textarea value={qc.rework_note ?? ''} onChange={(e) => {
+                            const next = { ...qc, rework_note: e.target.value }
+                            fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { qc_status: next } }) })
+                              .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), qc_status: next } as any } : prev) })
+                          }} placeholder="재작업 요청 메모" className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md" rows={2} />
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
+
             {detailTab === 'history' && (
               <div className="flex-1 overflow-y-auto pr-2">
                 <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
@@ -1051,6 +1212,30 @@ export default function AdminProjectDetailPage({
               </div>
             )}
 
+            {/* design rounds */}
+            <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">디자인 시안</p>
+              <div className="flex gap-2">
+                {['R1', 'R2', 'R3', 'Final'].map((round) => {
+                  const rounds = (project?.metadata as any)?.design_rounds ?? {}
+                  const done = rounds[round] === 'done'
+                  return (
+                    <button key={round} type="button" onClick={() => {
+                      const next = { ...rounds, [round]: done ? null : 'done' }
+                      fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { design_rounds: next } }) })
+                        .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), design_rounds: next } as any } : prev) })
+                    }} className={`flex-1 py-1.5 text-xs font-medium rounded-md border ${done ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>{round}</button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* forwarding placeholder */}
+            <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">포워딩 현황</p>
+              <p className="text-xs text-gray-400">Phase D에서 구현 예정입니다.</p>
+            </div>
+
             {/* memo widget — fills remaining height */}
             <div className="bg-white border border-gray-100 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
               <div className="px-4 py-2.5 border-b border-gray-100 shrink-0 flex items-center justify-between">
@@ -1061,19 +1246,32 @@ export default function AdminProjectDetailPage({
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {sortedNotes.length === 0 && <p className="text-xs text-gray-400 text-center py-4">메모가 없습니다.</p>}
                 {[...sortedNotes].reverse().map((note, idx) => {
+                  const origIdx = projectNotes.indexOf(note)
                   const parts = (note.author ?? '').split('|')
                   const name = parts[0] || '알 수 없음'
                   const dept = parts[1] || ''
+                  const isAdmin = currentUser?.role === 'staff_admin'
                   return (
-                    <div key={idx} className="flex gap-2">
+                    <div key={idx} className="group flex gap-2">
                       <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">{name.charAt(0)}</div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 text-xs">
                           <span className="font-medium text-gray-700">{name}</span>
                           {dept && <span className="text-gray-400">{dept}</span>}
                           <span className="text-gray-300">{note.date} {note.time ?? ''}</span>
+                          {isAdmin && memoDeleteIdx !== origIdx && (
+                            <button type="button" onClick={() => setMemoDeleteIdx(origIdx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity ml-auto">✕</button>
+                          )}
                         </div>
-                        <p className="text-sm text-gray-700 whitespace-pre-line mt-0.5">{note.content}</p>
+                        {memoDeleteIdx === origIdx ? (
+                          <div className="flex items-center gap-2 mt-1 text-xs">
+                            <span className="text-gray-500">삭제하시겠습니까?</span>
+                            <button type="button" onClick={() => handleDeleteMemo(origIdx)} className="text-red-500 hover:text-red-700 font-medium">확인</button>
+                            <button type="button" onClick={() => setMemoDeleteIdx(null)} className="text-gray-400 hover:text-gray-600">취소</button>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-700 whitespace-pre-line mt-0.5">{note.content}</p>
+                        )}
                       </div>
                     </div>
                   )
@@ -1106,19 +1304,32 @@ export default function AdminProjectDetailPage({
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {sortedNotes.length === 0 && <p className="text-sm text-gray-400 text-center py-8">메모가 없습니다.</p>}
               {[...sortedNotes].reverse().map((note, idx) => {
+                const origIdx = projectNotes.indexOf(note)
                 const parts = (note.author ?? '').split('|')
                 const name = parts[0] || '알 수 없음'
                 const dept = parts[1] || ''
+                const isAdmin = currentUser?.role === 'staff_admin'
                 return (
-                  <div key={idx} className="flex gap-3">
+                  <div key={idx} className="group flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold flex items-center justify-center shrink-0 mt-0.5">{name.charAt(0)}</div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="font-medium text-gray-700">{name}</span>
                         {dept && <span className="text-gray-400">{dept}</span>}
                         <span className="text-gray-300">{note.date} {note.time ?? ''}</span>
+                        {isAdmin && memoDeleteIdx !== origIdx && (
+                          <button type="button" onClick={() => setMemoDeleteIdx(origIdx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity ml-auto">✕</button>
+                        )}
                       </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-line mt-1">{note.content}</p>
+                      {memoDeleteIdx === origIdx ? (
+                        <div className="flex items-center gap-2 mt-1 text-xs">
+                          <span className="text-gray-500">삭제하시겠습니까?</span>
+                          <button type="button" onClick={() => handleDeleteMemo(origIdx)} className="text-red-500 hover:text-red-700 font-medium">확인</button>
+                          <button type="button" onClick={() => setMemoDeleteIdx(null)} className="text-gray-400 hover:text-gray-600">취소</button>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-700 whitespace-pre-line mt-1">{note.content}</p>
+                      )}
                     </div>
                   </div>
                 )

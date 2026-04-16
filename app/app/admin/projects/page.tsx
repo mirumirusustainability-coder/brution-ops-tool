@@ -156,6 +156,8 @@ export default function AdminProjectsPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [collapsedSteps, setCollapsedSteps] = useState<Set<number>>(new Set())
+  const [sortCol, setSortCol] = useState<string>('dday')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   // create modal
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -246,13 +248,27 @@ export default function AdminProjectsPage() {
     else if (filter === 'completed') result = result.filter((p) => p.status === 'completed')
     else if (filter.startsWith('step')) result = result.filter((p) => p.step === Number(filter.replace('step', '')))
     if (kw) result = result.filter((p) => p.name.toLowerCase().includes(kw) || getCompany(p.companies).name.toLowerCase().includes(kw))
+    const dir = sortDir === 'asc' ? 1 : -1
     return [...result].sort((a, b) => {
+      if (sortCol === 'name') return dir * a.name.localeCompare(b.name, 'ko')
+      if (sortCol === 'step') return dir * ((a.step ?? 0) - (b.step ?? 0))
+      if (sortCol === 'assignee') {
+        const aa = (a.metadata?.assignee ?? '') as string
+        const bb = (b.metadata?.assignee ?? '') as string
+        return dir * aa.localeCompare(bb, 'ko')
+      }
+      if (sortCol === 'updated') {
+        const ta = a.updated_at ? new Date(a.updated_at).getTime() : 0
+        const tb = b.updated_at ? new Date(b.updated_at).getTime() : 0
+        return dir * (ta - tb)
+      }
+      // default: dday
       const endA = a.metadata?.launch_date ?? ''
       const endB = b.metadata?.launch_date ?? ''
       if (!endA && !endB) return 0; if (!endA) return 1; if (!endB) return -1
-      return new Date(endA).getTime() - new Date(endB).getTime()
+      return dir * (new Date(endA).getTime() - new Date(endB).getTime())
     })
-  }, [projects, query, filter])
+  }, [projects, query, filter, sortCol, sortDir])
 
   const filterTabs: { key: Filter; label: string }[] = [
     { key: 'all', label: '전체' }, { key: 'step0', label: 'STEP 0' }, { key: 'step1', label: 'STEP 1' }, { key: 'step2', label: 'STEP 2' }, { key: 'step3', label: 'STEP 3' }, { key: 'step4', label: 'STEP 4' }, { key: 'active', label: '진행중' }, { key: 'completed', label: '완료' },
@@ -367,9 +383,23 @@ export default function AdminProjectsPage() {
           <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden ${isDragging ? 'cursor-col-resize' : ''}`}>
             {/* Header */}
             <div className="hidden md:grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide" style={{ gridTemplateColumns: gridTemplate }}>
-              {['프로젝트', 'STEP', '출시 D-day', '드롭', '담당자', '최근 활동'].map((label, i) => (
-                <div key={label} className="relative">
-                  {label}
+              {[
+                { label: '프로젝트', col: 'name' },
+                { label: 'STEP', col: 'step' },
+                { label: '출시 D-day', col: 'dday' },
+                { label: '드롭', col: '' },
+                { label: '담당자', col: 'assignee' },
+                { label: '최근 활동', col: 'updated' },
+              ].map(({ label, col }, i) => (
+                <div key={label} className="relative flex items-center gap-1">
+                  {col ? (
+                    <button type="button" onClick={() => { if (sortCol === col) setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc') } }} className="hover:text-gray-700 flex items-center gap-0.5">
+                      {label}
+                      {sortCol === col && <span className="text-blue-500">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                    </button>
+                  ) : (
+                    <span>{label}</span>
+                  )}
                   {i < 5 && <Divider idx={i} />}
                 </div>
               ))}
@@ -445,7 +475,7 @@ export default function AdminProjectsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">출시 예정일</label>
+                  <label className="text-xs text-gray-500 mb-1 block">출시 예정일 <span className="text-gray-300 font-normal">오늘: {new Date().toLocaleDateString('ko-KR')}</span></label>
                   <input type="date" value={formLaunchDate} onChange={(e) => setFormLaunchDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                 </div>
               </div>
