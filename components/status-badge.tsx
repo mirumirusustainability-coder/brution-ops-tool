@@ -6,7 +6,7 @@ interface StatusBadgeProps {
   className?: string;
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; className: string }> = {
   draft: {
     label: '검토중',
     className: 'bg-yellow-100 text-yellow-700 border-yellow-300',
@@ -14,6 +14,14 @@ const statusConfig = {
   in_review: {
     label: '완료',
     className: 'bg-blue-100 text-blue-700 border-blue-300',
+  },
+  revision: {
+    label: '반영중',
+    className: 'bg-blue-100 text-blue-700 border-blue-300',
+  },
+  published: {
+    label: '최종본',
+    className: 'bg-green-100 text-green-700 border-green-300',
   },
 };
 

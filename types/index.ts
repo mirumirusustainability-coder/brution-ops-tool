@@ -2,7 +2,7 @@
 export type UserRole = 'staff_admin' | 'staff_member' | 'client_admin' | 'client_member';
 
 // Version Status
-export type VersionStatus = 'draft' | 'in_review';
+export type VersionStatus = 'draft' | 'in_review' | 'revision' | 'published';
 
 // Deliverable Types
 export type DeliverableType =
@@ -21,7 +21,16 @@ export type DeliverableType =
   | 'content_request'
   | 'photo_video'
   | 'performance_report'
-  | 'sales_strategy';
+  | 'sales_strategy'
+  | 'brand_philosophy'
+  | 'logo_design'
+  | 'color_variation'
+  | 'bi_application'
+  | 'package_design'
+  | 'label_design'
+  | 'detail_page'
+  | 'viral_content'
+  | 'thumbnail';
 
 // User
 export interface User {

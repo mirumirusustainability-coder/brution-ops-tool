@@ -54,9 +54,8 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => cookieStore.get(name)?.value,
-        set: (name, value, options) => cookieStore.set({ name, value, ...options }),
-        remove: (name, options) => cookieStore.set({ name, value: '', ...options, maxAge: 0 }),
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookies) => { cookies.forEach(({ name, value, ...options }) => cookieStore.set({ name, value, ...options })) },
       },
     }
   );

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react'
 import { AppLayout } from '@/components/app-layout'
@@ -141,7 +141,7 @@ type Filter = 'all' | 'step0' | 'step1' | 'step2' | 'step3' | 'step4' | 'active'
 
 // ─── page component ──────────────────────────────────────────────────────
 
-export default function AdminProjectsPage() {
+function AdminProjectsPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { showToast } = useToast()
@@ -475,8 +475,11 @@ export default function AdminProjectsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">출시 예정일 <span className="text-gray-300 font-normal">오늘: {new Date().toLocaleDateString('ko-KR')}</span></label>
-                  <input type="date" value={formLaunchDate} onChange={(e) => setFormLaunchDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                  <label className="text-xs text-gray-500 mb-1 block">출시 예정일</label>
+                  <div className="relative">
+                    <input type="date" value={formLaunchDate} onChange={(e) => setFormLaunchDate(e.target.value)} className={`w-full px-3 py-2 border border-gray-300 rounded-md ${!formLaunchDate ? 'text-gray-400' : ''}`} />
+                    {!formLaunchDate && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-300 pointer-events-none">{new Date().toISOString().slice(0, 10)}</span>}
+                  </div>
                 </div>
               </div>
               <div>
@@ -502,5 +505,13 @@ export default function AdminProjectsPage() {
 
       <ToastContainer />
     </AppLayout>
+  )
+}
+
+export default function AdminProjectsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 min-h-screen" />}>
+      <AdminProjectsPageInner />
+    </Suspense>
   )
 }

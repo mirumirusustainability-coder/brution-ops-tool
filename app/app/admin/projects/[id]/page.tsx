@@ -13,6 +13,10 @@ import {
   DELIVERABLE_STEP_ORDER,
   STEP_DELIVERABLE_GROUPS,
   STEP_LABELS,
+  DESIGN_TYPE_CATEGORIES,
+  ALL_DESIGN_TYPES,
+  getDesignCategory,
+  DESIGN_VERSION_STEPS,
 } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
 import { DeliverableType, User, UserRole, VersionStatus } from '@/types'
@@ -89,6 +93,8 @@ type AdminAsset = {
 const versionStatusOptions = [
   { value: 'draft', label: '검토중' },
   { value: 'in_review', label: '완료' },
+  { value: 'revision', label: '반영중' },
+  { value: 'published', label: '최종본' },
 ]
 
 const getDefaultDeliverableType = (step?: number) => {
@@ -814,7 +820,7 @@ export default function AdminProjectDetailPage({
   }
 
   const handleSendMemo = async () => {
-    if (!memoInput.trim()) return
+    if (!memoInput.trim() || memoSending) return
     const dept = currentUser?.role === 'staff_admin' ? '브루션 관리자' : '브루션 팀'
     const newNote: ProjectNote = {
       date: getTodayDate(),
@@ -824,11 +830,11 @@ export default function AdminProjectDetailPage({
     }
     const nextNotes = [...projectNotes, newNote]
     setMemoSending(true)
+    setMemoInput('')
     try {
       const r = await fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: nextNotes }) })
       if (!r.ok) { showToast('메모 저장에 실패했습니다', 'error'); setMemoSending(false); return }
       setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), notes: nextNotes } } : prev)
-      setMemoInput('')
       showToast('메모가 저장되었습니다', 'success')
       setTimeout(() => memoEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
     } catch { showToast('메모 저장에 실패했습니다', 'error') }
@@ -942,7 +948,10 @@ export default function AdminProjectDetailPage({
                             <div key={d.id} className="bg-white border border-gray-200 rounded-lg p-3">
                               <div className="flex items-start justify-between gap-2 mb-2">
                                 <div>
-                                  <p className="text-sm font-medium text-gray-900">{d.title ?? DELIVERABLE_TYPE_LABELS[d.type]}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-gray-900">{d.title ?? DELIVERABLE_TYPE_LABELS[d.type]}</p>
+                                    {(() => { const cat = getDesignCategory(d.type); return cat ? <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${cat.color}`}>{cat.label}</span> : null })()}
+                                  </div>
                                   <p className="text-xs text-gray-400">{DELIVERABLE_TYPE_LABELS[d.type]} · {d.visibility === 'client' ? '고객사 공개' : '내부'}</p>
                                 </div>
                                 <div ref={dropMenuId === d.id ? dropMenuRef : undefined} className="relative">
@@ -966,7 +975,7 @@ export default function AdminProjectDetailPage({
                                         <div className="flex items-center justify-between gap-2">
                                           <div className="flex items-center gap-2">
                                             <span className="text-xs font-medium text-gray-700">v{v.version_no}</span>
-                                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${v.status === 'in_review' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{v.status === 'in_review' ? '완료' : '검토중'}</span>
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${DESIGN_VERSION_STEPS.find((s) => s.value === v.status)?.color ?? 'bg-gray-100 text-gray-600'}`}>{DESIGN_VERSION_STEPS.find((s) => s.value === v.status)?.label ?? v.status}</span>
                                           </div>
                                           <div className="flex items-center gap-1">
                                             <select value={v.status} onChange={(e) => handleVersionStatusChange(v.id, e.target.value as VersionStatus)} disabled={versionUpdatingId === v.id} className="text-xs border border-gray-200 rounded px-1 py-0.5">
@@ -994,6 +1003,21 @@ export default function AdminProjectDetailPage({
                                   })}
                                 </div>
                               )}
+                              {/* design step progress bar */}
+                              {ALL_DESIGN_TYPES.includes(d.type) && (d.versions ?? []).length > 0 && (() => {
+                                const latestStatus = (d.versions ?? [])[(d.versions ?? []).length - 1]?.status ?? 'draft'
+                                const stepIdx = DESIGN_VERSION_STEPS.findIndex((s) => s.value === latestStatus)
+                                return (
+                                  <div className="flex items-center gap-1 mt-2">
+                                    {DESIGN_VERSION_STEPS.map((s, i) => (
+                                      <div key={s.value} className="flex items-center gap-1">
+                                        <div className={`h-1.5 flex-1 rounded-full min-w-[40px] ${i <= stepIdx ? 'bg-blue-500' : 'bg-gray-200'}`} />
+                                        <span className={`text-[10px] whitespace-nowrap ${i <= stepIdx ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>{s.label}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              })()}
                               <button type="button" onClick={() => { setSelectedDeliverable(d); setVersionTitle(''); setVersionError(null); setShowVersionModal(true) }} className="mt-2 text-xs text-primary hover:underline">+ 버전 추가</button>
                             </div>
                           ))}
@@ -1093,21 +1117,26 @@ export default function AdminProjectDetailPage({
                       { key: 'manual', label: '설명서 초안' },
                     ]
                     const statusOptions = ['미완료', '완료', '고객사 승인 대기', '승인완료']
-                    const statusStyles: Record<string, string> = { '미완료': 'text-gray-500', '완료': 'text-green-600', '고객사 승인 대기': 'text-yellow-600', '승인완료': 'text-blue-600' }
+                    const statusBorder: Record<string, string> = { '미완료': 'border-l-gray-300', '완료': 'border-l-green-500', '고객사 승인 대기': 'border-l-yellow-400', '승인완료': 'border-l-blue-500' }
+                    const statusBg: Record<string, string> = { '미완료': 'bg-gray-50', '완료': 'bg-green-50', '고객사 승인 대기': 'bg-yellow-50', '승인완료': 'bg-blue-50' }
+                    const statusText: Record<string, string> = { '미완료': 'text-gray-500', '완료': 'text-green-700', '고객사 승인 대기': 'text-yellow-700', '승인완료': 'text-blue-700' }
                     return (
                       <div className="space-y-2">
-                        {items.map(({ key, label }) => (
-                          <div key={key} className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700">{label}</span>
-                            <select value={checklist[key] ?? '미완료'} onChange={(e) => {
-                              const next = { ...checklist, [key]: e.target.value }
-                              fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { sample_checklist: next } }) })
-                                .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), sample_checklist: next } as any } : prev) })
-                            }} className={`text-xs border border-gray-200 rounded px-2 py-1 ${statusStyles[checklist[key] ?? '미완료'] ?? ''}`}>
-                              {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        ))}
+                        {items.map(({ key, label }) => {
+                          const st = checklist[key] ?? '미완료'
+                          return (
+                            <div key={key} className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-4 ${statusBorder[st] ?? 'border-l-gray-300'} ${statusBg[st] ?? 'bg-gray-50'}`}>
+                              <span className="text-sm font-medium text-gray-800">{label}</span>
+                              <select value={st} onChange={(e) => {
+                                const next = { ...checklist, [key]: e.target.value }
+                                fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { sample_checklist: next } }) })
+                                  .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), sample_checklist: next } as any } : prev) })
+                              }} className={`text-xs font-medium border border-gray-200 rounded-md px-2 py-1.5 ${statusText[st] ?? ''}`}>
+                                {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </div>
+                          )
+                        })}
                       </div>
                     )
                   })()}
@@ -1117,26 +1146,31 @@ export default function AdminProjectDetailPage({
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">QC 검수</p>
                   {(() => {
                     const qc = (project?.metadata as any)?.qc_status ?? {}
+                    const confirmBorder = qc.confirmed === '확인완료' ? 'border-l-green-500' : 'border-l-gray-300'
+                    const confirmBg = qc.confirmed === '확인완료' ? 'bg-green-50' : 'bg-gray-50'
+                    const resultVal = qc.result ?? '대기'
+                    const resultBorder = resultVal === '합격' ? 'border-l-green-500' : resultVal === '불합격' ? 'border-l-red-400' : 'border-l-gray-300'
+                    const resultBg = resultVal === '합격' ? 'bg-green-50' : resultVal === '불합격' ? 'bg-red-50' : 'bg-gray-50'
                     return (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-700">고객사 의뢰 확인</span>
+                      <div className="space-y-2">
+                        <div className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-4 ${confirmBorder} ${confirmBg}`}>
+                          <span className="text-sm font-medium text-gray-800">고객사 의뢰 확인</span>
                           <select value={qc.confirmed ?? '미확인'} onChange={(e) => {
                             const next = { ...qc, confirmed: e.target.value }
                             fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { qc_status: next } }) })
                               .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), qc_status: next } as any } : prev) })
-                          }} className="text-xs border border-gray-200 rounded px-2 py-1">
+                          }} className="text-xs font-medium border border-gray-200 rounded-md px-2 py-1.5">
                             <option value="미확인">미확인</option>
                             <option value="확인완료">확인완료</option>
                           </select>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-700">검수 결과</span>
-                          <select value={qc.result ?? '대기'} onChange={(e) => {
+                        <div className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-4 ${resultBorder} ${resultBg}`}>
+                          <span className="text-sm font-medium text-gray-800">검수 결과</span>
+                          <select value={resultVal} onChange={(e) => {
                             const next = { ...qc, result: e.target.value }
                             fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { qc_status: next } }) })
                               .then((r) => { if (r.ok) setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), qc_status: next } as any } : prev) })
-                          }} className="text-xs border border-gray-200 rounded px-2 py-1">
+                          }} className="text-xs font-medium border border-gray-200 rounded-md px-2 py-1.5">
                             <option value="대기">대기</option>
                             <option value="합격">합격</option>
                             <option value="불합격">불합격</option>
@@ -1229,6 +1263,33 @@ export default function AdminProjectDetailPage({
                 })}
               </div>
             </div>
+
+            {/* design status */}
+            {(() => {
+              const designDrops = deliverables.filter((d) => ALL_DESIGN_TYPES.includes(d.type))
+              if (designDrops.length === 0) return null
+              return (
+                <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">디자인 현황</p>
+                  <div className="space-y-2">
+                    {designDrops.map((d) => {
+                      const cat = getDesignCategory(d.type)
+                      const latestVersion = (d.versions ?? [])[(d.versions ?? []).length - 1]
+                      const stepInfo = DESIGN_VERSION_STEPS.find((s) => s.value === (latestVersion?.status ?? 'draft'))
+                      return (
+                        <div key={d.id} className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {cat && <span className={`text-[9px] px-1 py-0.5 rounded font-medium shrink-0 ${cat.color}`}>{cat.label.slice(0, 2)}</span>}
+                            <span className="text-xs text-gray-700 truncate">{d.title ?? DELIVERABLE_TYPE_LABELS[d.type]}</span>
+                          </div>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${stepInfo?.color ?? 'bg-gray-100 text-gray-600'}`}>{stepInfo?.label ?? '대기'}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* forwarding placeholder */}
             <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
@@ -1362,25 +1423,35 @@ export default function AdminProjectDetailPage({
                 placeholder="제목"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               />
-              <select
-                value={deliverableType}
-                onChange={(e) => setDeliverableType(e.target.value as DeliverableType)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                {orderedStepGroups.map((step) => (
-                  <optgroup
-                    key={step}
-                    label={`STEP ${step} · ${STEP_LABELS[step]}`}
-                    className={step === currentStep ? 'font-semibold text-blue-600' : ''}
-                  >
-                    {STEP_DELIVERABLE_GROUPS[step].map((type) => (
-                      <option key={type} value={type}>
-                        {DELIVERABLE_TYPE_LABELS[type]}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              <div>
+                <select
+                  value={deliverableType}
+                  onChange={(e) => setDeliverableType(e.target.value as DeliverableType)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  {Object.entries(DESIGN_TYPE_CATEGORIES).map(([key, cat]) => (
+                    <optgroup key={key} label={cat.label}>
+                      {cat.types.map((type) => (
+                        <option key={type} value={type}>{DELIVERABLE_TYPE_LABELS[type]}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  {orderedStepGroups.map((step) => (
+                    <optgroup
+                      key={step}
+                      label={`STEP ${step} · ${STEP_LABELS[step]}`}
+                    >
+                      {STEP_DELIVERABLE_GROUPS[step].map((type) => (
+                        <option key={type} value={type}>
+                          {DELIVERABLE_TYPE_LABELS[type]}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {/* category badge preview */}
+                {(() => { const cat = getDesignCategory(deliverableType); return cat ? <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${cat.color}`}>{cat.label}</span> : null })()}
+              </div>
               <select
                 value={deliverableVisibility}
                 onChange={(e) => setDeliverableVisibility(e.target.value as 'internal' | 'client')}
@@ -1462,25 +1533,34 @@ export default function AdminProjectDetailPage({
                 placeholder="제목"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               />
-              <select
-                value={editDeliverableType}
-                onChange={(event) => setEditDeliverableType(event.target.value as DeliverableType)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                {orderedStepGroups.map((step) => (
-                  <optgroup
-                    key={step}
-                    label={`STEP ${step} · ${STEP_LABELS[step]}`}
-                    className={step === currentStep ? 'font-semibold text-blue-600' : ''}
-                  >
-                    {STEP_DELIVERABLE_GROUPS[step].map((type) => (
-                      <option key={type} value={type}>
-                        {DELIVERABLE_TYPE_LABELS[type]}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              <div>
+                <select
+                  value={editDeliverableType}
+                  onChange={(event) => setEditDeliverableType(event.target.value as DeliverableType)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  {Object.entries(DESIGN_TYPE_CATEGORIES).map(([key, cat]) => (
+                    <optgroup key={key} label={cat.label}>
+                      {cat.types.map((type) => (
+                        <option key={type} value={type}>{DELIVERABLE_TYPE_LABELS[type]}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  {orderedStepGroups.map((step) => (
+                    <optgroup
+                      key={step}
+                      label={`STEP ${step} · ${STEP_LABELS[step]}`}
+                    >
+                      {STEP_DELIVERABLE_GROUPS[step].map((type) => (
+                        <option key={type} value={type}>
+                          {DELIVERABLE_TYPE_LABELS[type]}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {(() => { const cat = getDesignCategory(editDeliverableType); return cat ? <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${cat.color}`}>{cat.label}</span> : null })()}
+              </div>
               <select
                 value={editDeliverableVisibility}
                 onChange={(event) =>
@@ -1550,12 +1630,15 @@ export default function AdminProjectDetailPage({
               </select>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">출시 예정일</label>
-                <input
-                  type="date"
-                  value={editLaunchDate}
-                  onChange={(event) => setEditLaunchDate(event.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={editLaunchDate}
+                    onChange={(event) => setEditLaunchDate(event.target.value)}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md ${!editLaunchDate ? 'text-gray-400' : ''}`}
+                  />
+                  {!editLaunchDate && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-300 pointer-events-none">{new Date().toISOString().slice(0, 10)}</span>}
+                </div>
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">담당자</label>

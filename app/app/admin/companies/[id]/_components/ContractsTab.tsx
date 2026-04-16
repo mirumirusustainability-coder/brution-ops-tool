@@ -209,7 +209,7 @@ export function ContractsTab({ company, onUpdate }: ContractsTabProps) {
                   </span>
                 </label>
               ) : (
-                <div>{renderBooleanBadge(profileDraft.starter_package)}</div>
+                <div>{renderBooleanBadge(Boolean(profileDraft.starter_package))}</div>
               )}
             </div>
             <div>
