@@ -193,6 +193,20 @@ export default function AdminProjectDetailPage({
   // ── center tab ──────────────────────────────────────────────────────────
   const [detailTab, setDetailTab] = useState<'drops' | 'gantt' | 'history'>('drops')
 
+  // ── drop dot menu ────────────────────────────────────────────────────────
+  const [dropMenuId, setDropMenuId] = useState<string | null>(null)
+  const dropMenuRef = useRef<HTMLDivElement>(null)
+
+  // ── memo slide panel ────────────────────────────────────────────────────
+  const [memoSlideOpen, setMemoSlideOpen] = useState(false)
+
+  // ── edit modal: step confirm ────────────────────────────────────────────
+  const [editStep, setEditStep] = useState(0)
+  const [editStepConfirm, setEditStepConfirm] = useState(false)
+
+  // ── staff users for assignee ────────────────────────────────────────────
+  const [staffUsers, setStaffUsers] = useState<{ user_id: string; name: string | null; email: string }[]>([])
+
   // ── memo input ──────────────────────────────────────────────────────────
   const [memoInput, setMemoInput] = useState('')
   const [memoSending, setMemoSending] = useState(false)
@@ -212,6 +226,13 @@ export default function AdminProjectDetailPage({
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [dotMenuOpen])
+
+  useEffect(() => {
+    if (!dropMenuId) return
+    const h = (e: MouseEvent) => { if (dropMenuRef.current && !dropMenuRef.current.contains(e.target as Node)) setDropMenuId(null) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [dropMenuId])
 
   const buildAssetsByVersion = (assets: AdminAsset[]) =>
     assets.reduce<Record<string, AdminAsset[]>>((acc, asset) => {
@@ -539,6 +560,8 @@ export default function AdminProjectDetailPage({
     setEditCompanyId(project.company_id ?? '')
     setEditLaunchDate((project as any).metadata?.launch_date ?? '')
     setEditAssignee((project as any).metadata?.assignee ?? '')
+    setEditStep(project.step ?? 0)
+    setEditStepConfirm(false)
     setEditError(null)
     setShowEditModal(true)
   }
@@ -634,6 +657,12 @@ export default function AdminProjectDetailPage({
         if (active) {
           setCompanies(filteredItems)
         }
+      }
+
+      const staffResponse = await fetch('/api/admin/staff', { cache: 'no-store' })
+      if (staffResponse.ok) {
+        const staffData = await staffResponse.json()
+        if (active) setStaffUsers(Array.isArray(staffData?.staff) ? staffData.staff : [])
       }
 
       if (active) {
@@ -902,9 +931,15 @@ export default function AdminProjectDetailPage({
                                   <p className="text-sm font-medium text-gray-900">{d.title ?? DELIVERABLE_TYPE_LABELS[d.type]}</p>
                                   <p className="text-xs text-gray-400">{DELIVERABLE_TYPE_LABELS[d.type]} · {d.visibility === 'client' ? '고객사 공개' : '내부'}</p>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <button type="button" onClick={() => { setEditingDeliverable(d); setEditDeliverableTitle(d.title ?? ''); setEditDeliverableType(d.type); setEditDeliverableVisibility(d.visibility); setEditDeliverableError(null); setShowDeliverableEditModal(true) }} className="text-xs text-gray-400 hover:text-gray-700 underline">수정</button>
-                                  <button type="button" onClick={() => handleDeliverableDelete(d)} disabled={deletingDeliverableId === d.id} className="text-xs text-red-400 hover:text-red-600 underline">삭제</button>
+                                <div ref={dropMenuId === d.id ? dropMenuRef : undefined} className="relative">
+                                  <button type="button" onClick={() => setDropMenuId(dropMenuId === d.id ? null : d.id)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 text-base leading-none">···</button>
+                                  {dropMenuId === d.id && (
+                                    <div className="absolute right-0 top-7 z-20 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                                      <button type="button" onClick={() => { setDropMenuId(null); setEditingDeliverable(d); setEditDeliverableTitle(d.title ?? ''); setEditDeliverableType(d.type); setEditDeliverableVisibility(d.visibility); setEditDeliverableError(null); setShowDeliverableEditModal(true) }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">드롭 수정</button>
+                                      <div className="border-t border-gray-100 my-1" />
+                                      <button type="button" onClick={() => { setDropMenuId(null); handleDeliverableDelete(d) }} disabled={deletingDeliverableId === d.id} className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50">드롭 삭제</button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               {/* versions */}
@@ -1018,8 +1053,9 @@ export default function AdminProjectDetailPage({
 
             {/* memo widget — fills remaining height */}
             <div className="bg-white border border-gray-100 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+              <div className="px-4 py-2.5 border-b border-gray-100 shrink-0 flex items-center justify-between">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">프로젝트 메모</p>
+                <button type="button" onClick={() => setMemoSlideOpen(true)} className="text-xs text-gray-400 hover:text-gray-700">확대 보기</button>
               </div>
               {/* messages */}
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -1056,6 +1092,47 @@ export default function AdminProjectDetailPage({
         </div>
       </div>
 
+
+      {/* Memo Slide Panel */}
+      {memoSlideOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setMemoSlideOpen(false)} />
+          <div className="absolute right-0 top-0 h-full w-[480px] max-w-full bg-white shadow-2xl flex flex-col animate-[slideIn_0.2s_ease-out]">
+            <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+              <p className="text-base font-semibold text-gray-900">프로젝트 메모</p>
+              <button type="button" onClick={() => setMemoSlideOpen(false)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {sortedNotes.length === 0 && <p className="text-sm text-gray-400 text-center py-8">메모가 없습니다.</p>}
+              {[...sortedNotes].reverse().map((note, idx) => {
+                const parts = (note.author ?? '').split('|')
+                const name = parts[0] || '알 수 없음'
+                const dept = parts[1] || ''
+                return (
+                  <div key={idx} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold flex items-center justify-center shrink-0 mt-0.5">{name.charAt(0)}</div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-medium text-gray-700">{name}</span>
+                        {dept && <span className="text-gray-400">{dept}</span>}
+                        <span className="text-gray-300">{note.date} {note.time ?? ''}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-line mt-1">{note.content}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="p-4 border-t border-gray-100 shrink-0">
+              <div className="flex gap-2">
+                <textarea value={memoInput} onChange={(e) => setMemoInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMemo() } }} placeholder="메모 입력..." className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm min-h-[40px] max-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400" rows={1} />
+                <button type="button" onClick={handleSendMemo} disabled={memoSending || !memoInput.trim()} className="shrink-0 px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-hover disabled:opacity-50">{memoSending ? '...' : '전송'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeliverableModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -1271,13 +1348,27 @@ export default function AdminProjectDetailPage({
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">담당자</label>
-                <input
-                  type="text"
+                <select
                   value={editAssignee}
                   onChange={(event) => setEditAssignee(event.target.value)}
-                  placeholder="담당자명"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
+                >
+                  <option value="">선택</option>
+                  {staffUsers.map((s) => (
+                    <option key={s.user_id} value={s.name ?? s.email}>{s.name ?? s.email}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">STEP</label>
+                <div className="flex gap-2">
+                  {[0, 1, 2, 3, 4].map((s) => (
+                    <button key={s} type="button" onClick={() => { setEditStep(s); setEditStepConfirm(s !== (project?.step ?? 0)) }} className={`flex-1 py-2 text-xs font-semibold rounded-md border-2 transition-colors ${editStep === s ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>{s}</button>
+                  ))}
+                </div>
+                {editStepConfirm && (
+                  <p className="text-xs text-yellow-600 mt-1">STEP {editStep}으로 변경됩니다.</p>
+                )}
               </div>
               {editError && <p className="text-sm text-red-600">{editError}</p>}
             </div>
@@ -1313,6 +1404,7 @@ export default function AdminProjectDetailPage({
                       name: editName.trim(),
                       description: editDescription.trim() || null,
                       companyId: editCompanyId,
+                      step: editStep,
                       metadata: editMetadata,
                     }),
                   })
