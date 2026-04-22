@@ -40,7 +40,7 @@
 ## AI 모델 규칙 (Advisor Strategy)
 
 - 실행 주체: Claude Sonnet 4.6
-- 어드바이저: Claude Opus 4.6 (복잡한 판단 필요시만, max_uses: 3)
+- 어드바이저: Claude Opus 4.7 (복잡한 판단 필요시만, max_uses: 3)
 - 단순 처리: Claude Haiku
 
 ---
@@ -76,13 +76,13 @@ push 실패 시 git pull --rebase origin main 후 재시도.
 ## 모델 전략 (작업별 권장 모델)
 
 ### 모델 변경 방법
-/model claude-opus-4-6
+/model claude-opus-4-7
 /model claude-sonnet-4-6
 /model claude-haiku-4-5-20251001
 
 ### 상황별 권장 모델
 
-Opus 4.6 — 설계/판단
+Opus 4.7 — 설계/판단
 - 전체 아키텍처 설계
 - 복잡한 버그 원인 분석
 - DB 스키마 설계
