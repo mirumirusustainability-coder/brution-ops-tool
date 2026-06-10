@@ -168,3 +168,111 @@ export const getSearchVolume = async (keywords: string[]): Promise<NaverVolume[]
     }
   })
 }
+
+export type RelatedKeywordVolume = {
+  keyword: string
+  searchVolume: number // PC + 모바일 월간 검색량 (= 조회수)
+}
+
+/**
+ * 검색광고 API로 메인 키워드의 연관 키워드 목록 + 조회수를 가져온다.
+ * 상품명 엔진의 "연관검색어" 데이터 구성용. (getSearchVolume의 확장판 — 전체 목록 반환)
+ */
+export const getRelatedKeywordVolumes = async (
+  mainKeyword: string,
+  limit = 25
+): Promise<RelatedKeywordVolume[]> => {
+  const apiKey = process.env.NAVER_AD_API_KEY!
+  const secretKey = process.env.NAVER_AD_SECRET_KEY!
+  const customerId = process.env.NAVER_AD_CUSTOMER_ID!
+
+  const timestamp = String(Date.now())
+  const path = '/keywordstool'
+  const signature = crypto
+    .createHmac('sha256', secretKey)
+    .update(`${timestamp}.GET.${path}`)
+    .digest('base64')
+
+  const url = new URL(`https://api.naver.com${path}`)
+  url.searchParams.set('hintKeywords', mainKeyword.replace(/\s/g, ''))
+  url.searchParams.set('showDetail', '1')
+
+  const res = await fetch(url, {
+    headers: {
+      'X-Timestamp': timestamp,
+      'X-API-KEY': apiKey,
+      'X-Customer': customerId,
+      'X-Signature': signature,
+    },
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`NAVER_SEARCHAD_${res.status}: ${text.slice(0, 200)}`)
+  }
+
+  const data = (await res.json()) as {
+    keywordList?: {
+      relKeyword: string
+      monthlyPcQcCnt: string | number
+      monthlyMobileQcCnt: string | number
+    }[]
+  }
+
+  const parseCount = (v: string | number) => {
+    if (typeof v === 'number') return v
+    if (v.includes('<')) return 5
+    return Number(v.replace(/,/g, '')) || 0
+  }
+
+  return (data.keywordList ?? [])
+    .map((item) => ({
+      keyword: item.relKeyword,
+      searchVolume: parseCount(item.monthlyPcQcCnt) + parseCount(item.monthlyMobileQcCnt),
+    }))
+    .filter((k) => k.keyword && k.searchVolume > 0)
+    .sort((a, b) => b.searchVolume - a.searchVolume)
+    .slice(0, limit)
+}
+
+/** 쇼핑 검색 API로 키워드의 전체 상품수(total)를 가져온다. */
+export const getProductCount = async (keyword: string): Promise<number | null> => {
+  const url = new URL('https://openapi.naver.com/v1/search/shop.json')
+  url.searchParams.set('query', keyword)
+  url.searchParams.set('display', '1')
+
+  const res = await fetch(url, {
+    headers: {
+      'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID!,
+      'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET!,
+    },
+  })
+
+  if (!res.ok) return null
+  const data = (await res.json()) as { total?: number }
+  return typeof data.total === 'number' ? data.total : null
+}
+
+/** 메인 키워드의 대표 카테고리(쇼핑 상위 상품 다수결)를 가져온다. */
+export const getDominantCategory = async (keyword: string): Promise<string | null> => {
+  try {
+    const products = await searchNaverShopping(keyword, 20)
+    if (products.length === 0) return null
+    const counts = new Map<string, number>()
+    for (const p of products) {
+      if (!p.category) continue
+      counts.set(p.category, (counts.get(p.category) ?? 0) + 1)
+    }
+    let best: string | null = null
+    let max = 0
+    for (const [cat, n] of counts) {
+      if (n > max) {
+        max = n
+        best = cat
+      }
+    }
+    return best
+  } catch {
+    return null
+  }
+}

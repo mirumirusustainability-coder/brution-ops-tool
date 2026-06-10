@@ -2,21 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileSpreadsheet, Sparkles } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, ShoppingCart } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { createBrowserClient } from '@supabase/ssr';
 import { User, UserRole } from '@/types';
 import { ExcelMode } from './_components/ExcelMode';
 import { SimpleMode } from './_components/SimpleMode';
+import { NaverMode } from './_components/NaverMode';
 
-type Mode = 'excel' | 'simple';
+type Mode = 'naver' | 'excel' | 'simple';
 
 export default function NamingPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<Mode>('excel');
+  const [mode, setMode] = useState<Mode>('naver');
 
   useEffect(() => {
     let active = true;
@@ -106,7 +107,16 @@ export default function NamingPage() {
         </div>
 
         {/* Mode Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+        <div className="flex flex-wrap gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+          <button
+            onClick={() => setMode('naver')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              mode === 'naver' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <ShoppingCart className="w-4 h-4" />
+            네이버 연동 (키워드만)
+          </button>
           <button
             onClick={() => setMode('excel')}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -127,7 +137,13 @@ export default function NamingPage() {
           </button>
         </div>
 
-        {mode === 'excel' ? <ExcelMode /> : <SimpleMode />}
+        {mode === 'naver' ? (
+          <NaverMode userId={currentUser.id} />
+        ) : mode === 'excel' ? (
+          <ExcelMode />
+        ) : (
+          <SimpleMode />
+        )}
       </div>
     </AppLayout>
   );
