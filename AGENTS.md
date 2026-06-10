@@ -8,9 +8,10 @@
 ## 프로젝트 개요
 
 - 프로젝트명: brution-ops-tool
+- 프로젝트 경로: ~/Desktop/00_브루션/ops_tool (기존 ~/Desktop/brution-ops-tool에서 이동됨)
 - 스택: Next.js 15 (App Router), TypeScript, Tailwind CSS, Supabase
 - 목적: 브루션 내부 운영툴 + 고객사 포털
-- 설계 문서: brution_design_v3.md 참고
+- 설계 문서: brution_design_v3.md 참고 (/Users/bugi/Desktop/00_브루션/ops_tool/brution_design_v3.md)
 
 ---
 
