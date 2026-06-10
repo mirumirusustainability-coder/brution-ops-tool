@@ -44,6 +44,14 @@ type NaverProductRow = {
   price: number | null
 }
 
+type NamingExcelPayload = {
+  mainKeyword?: string
+  categorySummary?: string
+  tags?: string[]
+  top?: { keyword: string; searchVolume: number; productCount: number; competition: number }[]
+  productNames?: { title: string; usedKeywords: string[] }[]
+}
+
 const AD_TYPE_LABELS: Record<string, string> = {
   headline: '헤드라인',
   body: '본문',
@@ -115,6 +123,54 @@ const buildNaverSheet = (workbook: ExcelJS.Workbook, rows: NaverProductRow[]) =>
   rows.forEach((row) => sheet.addRow(row))
 }
 
+const buildNamingExcelBook = (workbook: ExcelJS.Workbook, payload: NamingExcelPayload) => {
+  const kwSheet = workbook.addWorksheet('공략 키워드 TOP15')
+  kwSheet.columns = [
+    { header: '순위', key: 'rank', width: 8 },
+    { header: '키워드', key: 'keyword', width: 30 },
+    { header: '조회수', key: 'searchVolume', width: 14 },
+    { header: '상품수', key: 'productCount', width: 14 },
+    { header: '경쟁강도', key: 'competition', width: 12 },
+  ]
+  kwSheet.getRow(1).font = { bold: true }
+  ;(payload.top ?? []).forEach((t, i) =>
+    kwSheet.addRow({
+      rank: i + 1,
+      keyword: t.keyword,
+      searchVolume: t.searchVolume,
+      productCount: t.productCount,
+      competition: t.competition,
+    })
+  )
+
+  const nameSheet = workbook.addWorksheet('추천 상품명')
+  nameSheet.columns = [
+    { header: 'NO', key: 'no', width: 6 },
+    { header: '상품명', key: 'title', width: 60 },
+    { header: '글자수', key: 'len', width: 8 },
+    { header: '사용 공략 키워드', key: 'keywords', width: 50 },
+  ]
+  nameSheet.getRow(1).font = { bold: true }
+  ;(payload.productNames ?? []).forEach((p, i) =>
+    nameSheet.addRow({
+      no: i + 1,
+      title: p.title,
+      len: p.title.length,
+      keywords: (p.usedKeywords ?? []).join(', '),
+    })
+  )
+
+  const infoSheet = workbook.addWorksheet('상품 정보')
+  infoSheet.columns = [
+    { header: '항목', key: 'k', width: 18 },
+    { header: '내용', key: 'v', width: 70 },
+  ]
+  infoSheet.getRow(1).font = { bold: true }
+  infoSheet.addRow({ k: '메인키워드', v: payload.mainKeyword ?? '' })
+  infoSheet.addRow({ k: '카테고리 요약', v: payload.categorySummary ?? '' })
+  infoSheet.addRow({ k: '태그', v: (payload.tags ?? []).join(', ') })
+}
+
 export const POST = async (request: Request) => {
   try {
     await requireAuth(request)
@@ -122,14 +178,22 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
   }
 
-  let body: { tool?: 'keyword' | 'ads' | 'naming' | 'naver'; rows?: unknown[] }
+  let body: {
+    tool?: 'keyword' | 'ads' | 'naming' | 'naver' | 'naming-excel'
+    rows?: unknown[]
+    payload?: NamingExcelPayload
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 })
   }
 
-  if (!body.tool || !Array.isArray(body.rows) || body.rows.length === 0) {
+  if (body.tool === 'naming-excel') {
+    if (!body.payload) {
+      return NextResponse.json({ error: '내보낼 데이터가 없습니다.' }, { status: 400 })
+    }
+  } else if (!body.tool || !Array.isArray(body.rows) || body.rows.length === 0) {
     return NextResponse.json({ error: '내보낼 데이터가 없습니다.' }, { status: 400 })
   }
 
@@ -147,6 +211,9 @@ export const POST = async (request: Request) => {
   } else if (body.tool === 'naver') {
     buildNaverSheet(workbook, body.rows as NaverProductRow[])
     fileName = 'naver_shopping.xlsx'
+  } else if (body.tool === 'naming-excel') {
+    buildNamingExcelBook(workbook, body.payload!)
+    fileName = 'product_names_pro.xlsx'
   } else {
     return NextResponse.json({ error: '지원하지 않는 도구입니다.' }, { status: 400 })
   }
