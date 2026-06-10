@@ -20,6 +20,20 @@ type AdRow = {
   status: string
 }
 
+type NamingRow = {
+  title: string
+  strategy: string
+  score: number
+  reason: string
+  feedback?: string
+}
+
+const STRATEGY_LABELS: Record<string, string> = {
+  order_fixed: '순서고정형',
+  weight_based: '가중치형',
+  position_aware: '위치최적형',
+}
+
 const AD_TYPE_LABELS: Record<string, string> = {
   headline: '헤드라인',
   body: '본문',
@@ -56,6 +70,26 @@ const buildAdsSheet = (workbook: ExcelJS.Workbook, rows: AdRow[]) => {
   )
 }
 
+const buildNamingSheet = (workbook: ExcelJS.Workbook, rows: NamingRow[]) => {
+  const sheet = workbook.addWorksheet('상품명 후보')
+  sheet.columns = [
+    { header: '상품명', key: 'title', width: 50 },
+    { header: '전략', key: 'strategy', width: 12 },
+    { header: '점수', key: 'score', width: 8 },
+    { header: '글자수', key: 'charCount', width: 8 },
+    { header: '평가 근거', key: 'reason', width: 60 },
+    { header: '피드백', key: 'feedback', width: 10 },
+  ]
+  sheet.getRow(1).font = { bold: true }
+  rows.forEach((row) =>
+    sheet.addRow({
+      ...row,
+      strategy: STRATEGY_LABELS[row.strategy] ?? row.strategy,
+      charCount: row.title.length,
+    })
+  )
+}
+
 export const POST = async (request: Request) => {
   try {
     await requireAuth(request)
@@ -63,7 +97,7 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
   }
 
-  let body: { tool?: 'keyword' | 'ads'; rows?: unknown[] }
+  let body: { tool?: 'keyword' | 'ads' | 'naming'; rows?: unknown[] }
   try {
     body = await request.json()
   } catch {
@@ -82,6 +116,9 @@ export const POST = async (request: Request) => {
   } else if (body.tool === 'ads') {
     buildAdsSheet(workbook, body.rows as AdRow[])
     fileName = 'ad_copy.xlsx'
+  } else if (body.tool === 'naming') {
+    buildNamingSheet(workbook, body.rows as NamingRow[])
+    fileName = 'product_names.xlsx'
   } else {
     return NextResponse.json({ error: '지원하지 않는 도구입니다.' }, { status: 400 })
   }
