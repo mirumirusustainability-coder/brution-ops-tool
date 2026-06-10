@@ -24,6 +24,12 @@ export const anthropicErrorResponse = (error: unknown) => {
     return { status: 429, body: { error: '요청이 많아 잠시 후 다시 시도해주세요.' } }
   }
   if (error instanceof Anthropic.APIError) {
+    if (error.message.includes('credit balance')) {
+      return {
+        status: 402,
+        body: { error: 'Claude API 크레딧이 부족합니다. console.anthropic.com → Plans & Billing에서 충전해주세요.' },
+      }
+    }
     return { status: 502, body: { error: `Claude API 오류 (${error.status})` } }
   }
   return null
