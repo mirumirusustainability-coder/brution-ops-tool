@@ -11,6 +11,7 @@ import {
   Palette,
   Building2,
   FolderOpen,
+  ShoppingCart,
   X,
 } from 'lucide-react';
 import { UserRole } from '@/types';
@@ -66,6 +67,12 @@ const menuItems: MenuItem[] = [
     icon: FileText,
     allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
   },
+  {
+    label: '네이버 데이터',
+    href: '/app/tools/naver',
+    icon: ShoppingCart,
+    allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
+  },
 ]
 
 const adminMenuItems: MenuItem[] = [
@@ -112,6 +119,8 @@ export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
         return pathname === '/app/tools/brand';
       case '/app/tools/naming':
         return pathname === '/app/tools/naming';
+      case '/app/tools/naver':
+        return pathname === '/app/tools/naver';
       default:
         return pathname === href;
     }

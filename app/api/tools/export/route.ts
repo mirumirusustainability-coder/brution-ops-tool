@@ -34,6 +34,16 @@ const STRATEGY_LABELS: Record<string, string> = {
   position_aware: '위치최적형',
 }
 
+type NaverProductRow = {
+  rank: number
+  productName: string
+  brand: string
+  maker: string
+  category: string
+  mallName: string
+  price: number | null
+}
+
 const AD_TYPE_LABELS: Record<string, string> = {
   headline: '헤드라인',
   body: '본문',
@@ -90,6 +100,21 @@ const buildNamingSheet = (workbook: ExcelJS.Workbook, rows: NamingRow[]) => {
   )
 }
 
+const buildNaverSheet = (workbook: ExcelJS.Workbook, rows: NaverProductRow[]) => {
+  const sheet = workbook.addWorksheet('네이버 쇼핑 상품')
+  sheet.columns = [
+    { header: '순위', key: 'rank', width: 8 },
+    { header: '상품명', key: 'productName', width: 50 },
+    { header: '브랜드', key: 'brand', width: 16 },
+    { header: '제조사', key: 'maker', width: 16 },
+    { header: '카테고리', key: 'category', width: 40 },
+    { header: '판매처', key: 'mallName', width: 18 },
+    { header: '최저가', key: 'price', width: 12 },
+  ]
+  sheet.getRow(1).font = { bold: true }
+  rows.forEach((row) => sheet.addRow(row))
+}
+
 export const POST = async (request: Request) => {
   try {
     await requireAuth(request)
@@ -97,7 +122,7 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
   }
 
-  let body: { tool?: 'keyword' | 'ads' | 'naming'; rows?: unknown[] }
+  let body: { tool?: 'keyword' | 'ads' | 'naming' | 'naver'; rows?: unknown[] }
   try {
     body = await request.json()
   } catch {
@@ -119,6 +144,9 @@ export const POST = async (request: Request) => {
   } else if (body.tool === 'naming') {
     buildNamingSheet(workbook, body.rows as NamingRow[])
     fileName = 'product_names.xlsx'
+  } else if (body.tool === 'naver') {
+    buildNaverSheet(workbook, body.rows as NaverProductRow[])
+    fileName = 'naver_shopping.xlsx'
   } else {
     return NextResponse.json({ error: '지원하지 않는 도구입니다.' }, { status: 400 })
   }
