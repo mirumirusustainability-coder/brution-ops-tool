@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { Upload, FileSpreadsheet, FileJson, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check } from 'lucide-react';
+import { Upload, FileSpreadsheet, FileJson, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Loader2, Download } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
-import { StatusBadge } from '@/components/status-badge';
-import { DownloadButton } from '@/components/download-button';
-import { mockKeywordData } from '@/lib/mock-data';
 import { KeywordData, User, UserRole } from '@/types';
+
+const getAccessToken = async () => {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+};
 
 export default function KeywordAnalysisPage() {
   const router = useRouter();
@@ -18,21 +24,99 @@ export default function KeywordAnalysisPage() {
   const [hasResult, setHasResult] = useState(false);
   const [results, setResults] = useState<KeywordData[]>([]);
   const [copied, setCopied] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [truncatedInfo, setTruncatedInfo] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    e.target.value = '';
+    if (!file || analyzing) return;
 
-    // Mock processing
-    setTimeout(() => {
-      setResults(mockKeywordData);
+    setAnalyzing(true);
+    setAnalysisError(null);
+    setTruncatedInfo(null);
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/tools/keyword', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setAnalysisError(data.error ?? '분석 중 오류가 발생했습니다.');
+        return;
+      }
+
+      setResults(data.results);
       setHasResult(true);
-    }, 1500);
+      if (data.truncated) {
+        setTruncatedInfo(
+          `업로드된 ${data.totalUploaded}개 중 상위 ${data.analyzed}개만 분석되었습니다.`
+        );
+      }
+    } catch {
+      setAnalysisError('분석 요청에 실패했습니다. 네트워크를 확인해주세요.');
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
+    const tsv = [
+      ['키워드', '검색량', '상품수', '카테고리', '분류', '메모'].join('\t'),
+      ...results.map((r) =>
+        [r.keyword, r.searchVolume ?? '', r.productCount ?? '', r.category ?? '', r.classification, r.customerNote ?? ''].join('\t')
+      ),
+    ].join('\n');
+    await navigator.clipboard.writeText(tsv);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleExport = async () => {
+    if (exporting || results.length === 0) return;
+    setExporting(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
+      const response = await fetch('/api/tools/export', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tool: 'keyword', rows: results }),
+      });
+      if (!response.ok) {
+        setAnalysisError('엑셀 파일 생성에 실패했습니다.');
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '키워드_분석.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   useEffect(() => {
@@ -158,21 +242,41 @@ export default function KeywordAnalysisPage() {
 
             {/* Upload Box */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
-              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm font-medium text-gray-900 mb-1">
-                Excel 또는 JSON 파일을 업로드하세요
-              </p>
-              <p className="text-xs text-gray-500 mb-4">최대 10MB</p>
-              <label className="inline-block bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover cursor-pointer transition-colors">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.json"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                파일 선택
-              </label>
+              {analyzing ? (
+                <>
+                  <Loader2 className="w-12 h-12 text-primary mx-auto mb-3 animate-spin" />
+                  <p className="text-sm font-medium text-gray-900 mb-1">
+                    키워드를 분석하고 있습니다...
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    키워드 수에 따라 최대 1~2분 정도 걸릴 수 있어요
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-900 mb-1">
+                    Excel 또는 JSON 파일을 업로드하세요
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4">최대 10MB</p>
+                  <label className="inline-block bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-hover cursor-pointer transition-colors">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.json"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    파일 선택
+                  </label>
+                </>
+              )}
             </div>
+
+            {analysisError && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
+                {analysisError}
+              </div>
+            )}
 
             {/* File Format Info */}
             <div className="mt-6 space-y-3">
@@ -222,6 +326,12 @@ export default function KeywordAnalysisPage() {
               </div>
             ) : (
               <div className="space-y-4">
+                {truncatedInfo && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-xs text-yellow-800">
+                    {truncatedInfo}
+                  </div>
+                )}
+
                 {/* Summary */}
                 <div className="bg-muted rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">요약</h3>
@@ -255,7 +365,7 @@ export default function KeywordAnalysisPage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-gray-900">
-                      키워드 목록 (상위 {Math.min(5, results.length)}개)
+                      키워드 목록 ({results.length}개)
                     </h3>
                     <button
                       onClick={handleCopy}
@@ -275,7 +385,7 @@ export default function KeywordAnalysisPage() {
                     </button>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-h-80 overflow-y-auto">
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
@@ -291,7 +401,7 @@ export default function KeywordAnalysisPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {results.slice(0, 5).map((item, idx) => (
+                        {results.map((item, idx) => (
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-gray-900">
                               {item.keyword}
@@ -336,13 +446,18 @@ export default function KeywordAnalysisPage() {
                   <p className="text-xs text-gray-600 mb-2">
                     완성된 엑셀 파일을 다운로드하세요
                   </p>
-                  <DownloadButton
-                    status="approved"
-                    userRole={currentUser.role}
-                    assetId="asset-keyword-tool-v1"
-                    fileName="키워드_분석_v1.xlsx"
-                    className="w-full"
-                  />
+                  <button
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="w-full flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
+                  >
+                    {exporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    엑셀 다운로드
+                  </button>
                 </div>
               </div>
             )}

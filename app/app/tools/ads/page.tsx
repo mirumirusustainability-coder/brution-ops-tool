@@ -3,11 +3,24 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { Sparkles, ThumbsUp, ThumbsDown, Copy } from 'lucide-react';
+import { Sparkles, ThumbsUp, ThumbsDown, Copy, Check, Loader2, Download } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
-import { DownloadButton } from '@/components/download-button';
-import { mockAdResults } from '@/lib/mock-data';
 import { AdResultItem, User, UserRole } from '@/types';
+
+const getAccessToken = async () => {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+};
+
+const STATUS_CYCLE: Record<AdResultItem['status'], AdResultItem['status']> = {
+  보류: '선택',
+  선택: '제외',
+  제외: '보류',
+};
 
 export default function AdsPage() {
   const router = useRouter();
@@ -17,14 +30,95 @@ export default function AdsPage() {
   const [generationCount, setGenerationCount] = useState<10 | 20>(20);
   const [hasResult, setHasResult] = useState(false);
   const [results, setResults] = useState<AdResultItem[]>([]);
+  const [campaignName, setCampaignName] = useState('');
+  const [targetAudience, setTargetAudience] = useState('');
+  const [productFeatures, setProductFeatures] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
-  const handleGenerate = (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock generation
-    setTimeout(() => {
-      setResults(mockAdResults);
+    if (generating) return;
+
+    setGenerating(true);
+    setGenerationError(null);
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
+
+      const response = await fetch('/api/tools/ads', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          campaignName,
+          targetAudience,
+          productFeatures,
+          count: generationCount,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setGenerationError(data.error ?? '생성 중 오류가 발생했습니다.');
+        return;
+      }
+
+      setResults(data.items);
       setHasResult(true);
-    }, 2000);
+    } catch {
+      setGenerationError('생성 요청에 실패했습니다. 네트워크를 확인해주세요.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleStatusToggle = (id: string) => {
+    setResults((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, status: STATUS_CYCLE[item.status] } : item
+      )
+    );
+  };
+
+  const handleExport = async () => {
+    if (exporting || results.length === 0) return;
+    setExporting(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
+      const response = await fetch('/api/tools/export', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tool: 'ads', rows: results }),
+      });
+      if (!response.ok) {
+        setGenerationError('엑셀 파일 생성에 실패했습니다.');
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '광고_문구.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   useEffect(() => {
@@ -158,6 +252,8 @@ export default function AdsPage() {
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="예: 여름 시즌 에어컨 특가"
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
                   required
                 />
               </div>
@@ -169,6 +265,8 @@ export default function AdsPage() {
                 <textarea
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary h-20"
                   placeholder="예: 30-40대 여성, 에너지 절약에 관심 있는 소비자"
+                  value={targetAudience}
+                  onChange={(e) => setTargetAudience(e.target.value)}
                   required
                 />
               </div>
@@ -180,6 +278,8 @@ export default function AdsPage() {
                 <textarea
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary h-20"
                   placeholder="예: 에너지 효율 1등급, 스마트 온도 조절, 조용한 작동"
+                  value={productFeatures}
+                  onChange={(e) => setProductFeatures(e.target.value)}
                   required
                 />
               </div>
@@ -220,11 +320,27 @@ export default function AdsPage() {
 
               <button
                 type="submit"
-                className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors flex items-center justify-center gap-2"
+                disabled={generating}
+                className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <Sparkles className="w-4 h-4" />
-                생성하기
+                {generating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    생성 중... (최대 1~2분)
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    생성하기
+                  </>
+                )}
               </button>
+
+              {generationError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
+                  {generationError}
+                </div>
+              )}
             </form>
           </div>
 
@@ -236,38 +352,54 @@ export default function AdsPage() {
 
             {!hasResult ? (
               <div className="flex items-center justify-center h-96 text-gray-400">
-                <p className="text-sm">정보를 입력하고 생성 버튼을 눌러주세요</p>
+                {generating ? (
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 text-primary mx-auto mb-3 animate-spin" />
+                    <p className="text-sm">광고 문구를 생성하고 있습니다...</p>
+                  </div>
+                ) : (
+                  <p className="text-sm">정보를 입력하고 생성 버튼을 눌러주세요</p>
+                )}
               </div>
             ) : (
               <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
+                <p className="text-xs text-gray-500">
+                  상태 뱃지를 클릭하면 보류 → 선택 → 제외 순서로 변경됩니다
+                </p>
+
                 {/* Headline */}
                 <ResultSection
                   title="헤드라인"
                   items={groupedResults.headline}
+                  onStatusToggle={handleStatusToggle}
                 />
 
                 {/* Body */}
                 <ResultSection
                   title="본문"
                   items={groupedResults.body}
+                  onStatusToggle={handleStatusToggle}
                 />
 
                 {/* Hook */}
                 <ResultSection
                   title="후킹 메시지"
                   items={groupedResults.hook}
+                  onStatusToggle={handleStatusToggle}
                 />
 
                 {/* CTA */}
                 <ResultSection
                   title="행동 유도 (CTA)"
                   items={groupedResults.cta}
+                  onStatusToggle={handleStatusToggle}
                 />
 
                 {/* Creative */}
                 <ResultSection
                   title="소재 아이디어"
                   items={groupedResults.creative}
+                  onStatusToggle={handleStatusToggle}
                 />
 
                 {/* Feedback & Download */}
@@ -283,13 +415,18 @@ export default function AdsPage() {
                     </button>
                   </div>
 
-                  <DownloadButton
-                    status="approved"
-                    userRole={currentUser.role}
-                    assetId="asset-ads-tool-v1"
-                    fileName="광고_문구_v1.xlsx"
-                    className="w-full"
-                  />
+                  <button
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="w-full flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
+                  >
+                    {exporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    엑셀 다운로드
+                  </button>
                 </div>
               </div>
             )}
@@ -303,10 +440,22 @@ export default function AdsPage() {
 function ResultSection({
   title,
   items,
+  onStatusToggle,
 }: {
   title: string;
   items: AdResultItem[];
+  onStatusToggle: (id: string) => void;
 }) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleItemCopy = async (item: AdResultItem) => {
+    await navigator.clipboard.writeText(item.content);
+    setCopiedId(item.id);
+    setTimeout(() => setCopiedId((prev) => (prev === item.id ? null : prev)), 2000);
+  };
+
+  if (items.length === 0) return null;
+
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-900 mb-2">{title}</h3>
@@ -318,22 +467,31 @@ function ResultSection({
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm text-gray-900 flex-1">{item.content}</p>
-              <button className="p-1 text-gray-400 hover:text-primary">
-                <Copy className="w-4 h-4" />
+              <button
+                onClick={() => handleItemCopy(item)}
+                className="p-1 text-gray-400 hover:text-primary"
+                title="복사"
+              >
+                {copiedId === item.id ? (
+                  <Check className="w-4 h-4 text-green-600" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
               </button>
             </div>
             <div className="flex items-center gap-2 mt-2">
-              <span
-                className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+              <button
+                onClick={() => onStatusToggle(item.id)}
+                className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
                   item.status === '선택'
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
                     : item.status === '보류'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-red-100 text-red-700'
+                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                    : 'bg-red-100 text-red-700 hover:bg-red-200'
                 }`}
               >
                 {item.status}
-              </span>
+              </button>
               {item.customerNote && (
                 <span className="text-xs text-gray-500">
                   메모: {item.customerNote}

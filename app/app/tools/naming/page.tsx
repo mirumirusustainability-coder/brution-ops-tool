@@ -2,21 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, AlertCircle, Copy, Check, PenTool } from 'lucide-react';
+import { Sparkles, AlertCircle, Copy, Check, PenTool, Loader2 } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
 import { createBrowserClient } from '@supabase/ssr';
 import { User, UserRole } from '@/types';
 
-const mockNamingResults = [
-  '브루션 에어쿨 프라임',
-  '에어슬림 쿨핏',
-  '쿨에센스 플러스',
-  '브리즈팝 라이트',
-  '쿨베이스 프로',
-  '에어컴포트 미니',
-  '썸머핏 쿨링',
-  '클린브리즈 맥스',
-];
+const getAccessToken = async () => {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+};
 
 export default function NamingPage() {
   const router = useRouter();
@@ -98,17 +96,56 @@ export default function NamingPage() {
     };
   }, [router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [generating, setGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (generating) return;
+
+    setGenerating(true);
+    setGenerationError(null);
     setHasResult(false);
 
-    setTimeout(() => {
-      setResults(mockNamingResults);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
+
+      const response = await fetch('/api/tools/naming', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          features,
+          differentiators,
+          target,
+          forbiddenWords,
+          requiredWords,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setGenerationError(data.error ?? '생성 중 오류가 발생했습니다.');
+        return;
+      }
+
+      setResults(data.names);
       setHasResult(true);
-    }, 800);
+    } catch {
+      setGenerationError('생성 요청에 실패했습니다. 네트워크를 확인해주세요.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(results.join('\n'));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -203,11 +240,27 @@ export default function NamingPage() {
 
               <button
                 type="submit"
-                className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors flex items-center justify-center gap-2"
+                disabled={generating}
+                className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <Sparkles className="w-4 h-4" />
-                후보 생성
+                {generating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    생성 중...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    후보 생성
+                  </>
+                )}
               </button>
+
+              {generationError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
+                  {generationError}
+                </div>
+              )}
             </form>
 
             <div className="mt-6 bg-blue-50 border border-blue-200 rounded-md p-4">
@@ -230,7 +283,14 @@ export default function NamingPage() {
 
             {!hasResult ? (
               <div className="flex items-center justify-center h-64 text-gray-400">
-                <p className="text-sm">정보를 입력하고 후보 생성을 눌러주세요</p>
+                {generating ? (
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 text-primary mx-auto mb-3 animate-spin" />
+                    <p className="text-sm">상품명 후보를 생성하고 있습니다...</p>
+                  </div>
+                ) : (
+                  <p className="text-sm">정보를 입력하고 후보 생성을 눌러주세요</p>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
