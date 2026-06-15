@@ -7,6 +7,7 @@ import { AppLayout } from '@/components/app-layout'
 import { Breadcrumb } from '@/components/breadcrumb'
 import { StepProgress } from '@/components/step-progress'
 import { ToastContainer } from '@/components/toast'
+import { GanttChart, GanttTask } from './_components/GanttChart'
 import { createBrowserClient } from '@supabase/ssr'
 import {
   DELIVERABLE_TYPE_LABELS,
@@ -1030,7 +1031,14 @@ export default function AdminProjectDetailPage({
             )}
 
             {detailTab === 'gantt' && (
-              <div className="flex-1 flex items-center justify-center text-sm text-gray-400">간트차트는 Phase A 이후 구현 예정입니다.</div>
+              <GanttChart
+                tasks={Array.isArray((project?.metadata as any)?.gantt_tasks) ? (project!.metadata as any).gantt_tasks : []}
+                onChange={(next) => {
+                  setProject((prev) => prev ? { ...prev, metadata: { ...(prev.metadata ?? {}), gantt_tasks: next } as any } : prev)
+                  fetch(`/api/admin/projects/${resolvedParams.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metadata: { gantt_tasks: next } }) })
+                    .then((r) => { if (!r.ok) showToast('간트 일정 저장에 실패했습니다', 'error') })
+                }}
+              />
             )}
 
             {detailTab === 'certs' && (

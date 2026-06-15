@@ -724,8 +724,8 @@ export default function CompaniesAdminPage() {
                               onChange={(e) => setStaffEditRole(e.target.value as 'staff_admin' | 'staff_member')}
                               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
                             >
-                              <option value="staff_admin">ADMIN</option>
-                              <option value="staff_member">MEMBER</option>
+                              <option value="staff_admin">관리자</option>
+                              <option value="staff_member">직원</option>
                             </select>
                           </div>
                           <div>
@@ -868,8 +868,8 @@ export default function CompaniesAdminPage() {
                     onChange={(e) => setStaffRole(e.target.value as 'staff_admin' | 'staff_member')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   >
-                    <option value="staff_admin">ADMIN</option>
-                    <option value="staff_member">MEMBER</option>
+                    <option value="staff_admin">관리자</option>
+                    <option value="staff_member">직원</option>
                   </select>
                 </div>
 

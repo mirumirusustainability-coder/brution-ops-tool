@@ -697,9 +697,9 @@ export function CompanyDetailClient({
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">드롭 현황</p>
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-400" />Published</span><span className="font-semibold">{dropStatusCounts.published}</span></div>
-              <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400" />In Review</span><span className="font-semibold">{dropStatusCounts.in_review}</span></div>
-              <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-gray-400" />Draft</span><span className="font-semibold">{dropStatusCounts.draft}</span></div>
+              <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-400" />최종본</span><span className="font-semibold">{dropStatusCounts.published}</span></div>
+              <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400" />완료</span><span className="font-semibold">{dropStatusCounts.in_review}</span></div>
+              <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-gray-400" />검토중</span><span className="font-semibold">{dropStatusCounts.draft}</span></div>
             </div>
           </div>
 
