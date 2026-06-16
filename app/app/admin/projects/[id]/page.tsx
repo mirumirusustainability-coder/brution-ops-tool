@@ -272,11 +272,19 @@ export default function AdminProjectDetailPage({
     const companyData = data?.company ?? projectData?.company ?? null
     setProject(projectData ? { ...projectData, company: companyData } : projectData)
 
-    const deliverableItems = Array.isArray(data?.deliverables)
+    const rawDeliverables = Array.isArray(data?.deliverables)
       ? data.deliverables
       : Array.isArray(projectData?.deliverables)
         ? projectData.deliverables
         : []
+    // API는 조인 결과를 `deliverable_versions`로 주지만 렌더/타입은 `versions`를 기대한다.
+    // 이 불일치 때문에 버전이 화면에 안 보였음 → 정규화 + 버전 번호순 정렬.
+    const deliverableItems = rawDeliverables.map((d: any) => ({
+      ...d,
+      versions: [...(d.deliverable_versions ?? d.versions ?? [])].sort(
+        (a: any, b: any) => (a.version_no ?? 0) - (b.version_no ?? 0)
+      ),
+    }))
     setDeliverables(deliverableItems)
 
     const assets = Array.isArray(data?.assets)
