@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 import { ResultView, EngineResult } from './ResultView';
+import type { UserRole } from '@/types';
 
 const getAccessToken = async () => {
   const supabase = createBrowserClient(
@@ -17,7 +18,7 @@ const getAccessToken = async () => {
 
 const CONSENT_KEY = 'brution_naver_consent_v1';
 
-export function NaverMode({ userId }: { userId: string }) {
+export function NaverMode({ userId, userRole }: { userId: string; userRole: UserRole }) {
   const router = useRouter();
   const [mainKeyword, setMainKeyword] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -158,7 +159,7 @@ export function NaverMode({ userId }: { userId: string }) {
       )}
 
       {result && !generating && (
-        <ResultView result={result} exporting={exporting} onExport={handleExport} />
+        <ResultView result={result} exporting={exporting} onExport={handleExport} userRole={userRole} />
       )}
 
       {!result && !generating && (

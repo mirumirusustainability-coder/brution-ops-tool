@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Upload, FileSpreadsheet, FileJson, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Loader2, Download } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
+import { SaveToProject } from '@/components/save-to-project';
 import { KeywordData, User, UserRole } from '@/types';
 
 const getAccessToken = async () => {
@@ -441,23 +442,30 @@ export default function KeywordAnalysisPage() {
                   </button>
                 </div>
 
-                {/* Download Section */}
+                {/* Download / Save Section */}
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-xs text-gray-600 mb-2">
-                    완성된 엑셀 파일을 다운로드하세요
+                    엑셀로 받거나, 프로젝트 드롭으로 저장하세요
                   </p>
-                  <button
-                    onClick={handleExport}
-                    disabled={exporting}
-                    className="w-full flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
-                  >
-                    {exporting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    엑셀 다운로드
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleExport}
+                      disabled={exporting}
+                      className="flex-1 flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
+                    >
+                      {exporting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      엑셀 다운로드
+                    </button>
+                    <SaveToProject
+                      userRole={currentUser.role}
+                      defaultTitle="키워드 분석"
+                      getBody={() => ({ tool: 'keyword', rows: results })}
+                    />
+                  </div>
                 </div>
               </div>
             )}

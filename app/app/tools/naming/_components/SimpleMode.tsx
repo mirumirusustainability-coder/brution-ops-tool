@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, AlertCircle, Copy, Check, Loader2, Download, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
+import { SaveToProject } from '@/components/save-to-project';
+import type { UserRole } from '@/types';
 
 const getAccessToken = async () => {
   const supabase = createBrowserClient(
@@ -42,7 +44,7 @@ const STRATEGY_META: Record<Strategy, { label: string; description: string; badg
   },
 };
 
-export function SimpleMode() {
+export function SimpleMode({ userRole }: { userRole: UserRole }) {
   const router = useRouter();
   const [hasResult, setHasResult] = useState(false);
   const [candidates, setCandidates] = useState<NameCandidate[]>([]);
@@ -427,15 +429,29 @@ export function SimpleMode() {
               ))}
             </div>
 
-            <div className="pt-3 border-t border-gray-200">
+            <div className="pt-3 border-t border-gray-200 flex gap-2">
               <button
                 onClick={handleExport}
                 disabled={exporting}
-                className="w-full flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
+                className="flex-1 flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
               >
                 {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 엑셀 다운로드 (피드백 포함)
               </button>
+              <SaveToProject
+                userRole={userRole}
+                defaultTitle="상품명 후보"
+                getBody={() => ({
+                  tool: 'naming',
+                  rows: candidates.map((c) => ({
+                    title: c.title,
+                    strategy: c.strategy,
+                    score: c.score,
+                    reason: c.reason,
+                    feedback: feedback[c.id] === 'up' ? '좋아요' : feedback[c.id] === 'down' ? '별로예요' : '',
+                  })),
+                })}
+              />
             </div>
           </div>
         )}

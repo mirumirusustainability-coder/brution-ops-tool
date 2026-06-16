@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Loader2, Download, Copy, Check, AlertCircle, Tag } from 'lucide-react';
+import { SaveToProject } from '@/components/save-to-project';
+import type { UserRole } from '@/types';
 
 export type TopKeyword = {
   keyword: string;
@@ -35,10 +37,12 @@ export function ResultView({
   result,
   exporting,
   onExport,
+  userRole,
 }: {
   result: EngineResult;
   exporting: boolean;
   onExport: () => void;
+  userRole?: UserRole;
 }) {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
@@ -120,14 +124,32 @@ export function ResultView({
           <h3 className="text-sm font-semibold text-gray-900">
             🧠 추천 상품명 {result.productNames.length}개
           </h3>
-          <button
-            onClick={onExport}
-            disabled={exporting}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary border border-primary/30 rounded-md hover:bg-blue-50 transition-colors disabled:opacity-60"
-          >
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            엑셀 다운로드
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onExport}
+              disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary border border-primary/30 rounded-md hover:bg-blue-50 transition-colors disabled:opacity-60"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              엑셀 다운로드
+            </button>
+            {userRole && (
+              <SaveToProject
+                userRole={userRole}
+                defaultTitle={`상품명 — ${result.mainKeyword || '결과'}`}
+                getBody={() => ({
+                  tool: 'naming-excel',
+                  payload: {
+                    mainKeyword: result.mainKeyword,
+                    categorySummary: result.categorySummary,
+                    tags: result.tags,
+                    top: result.top,
+                    productNames: result.productNames,
+                  },
+                })}
+              />
+            )}
+          </div>
         </div>
 
         <div className="space-y-3">

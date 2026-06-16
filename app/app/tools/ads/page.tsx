@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Sparkles, ThumbsUp, ThumbsDown, Copy, Check, Loader2, Download } from 'lucide-react';
 import { AppLayout } from '@/components/app-layout';
+import { SaveToProject } from '@/components/save-to-project';
 import { AdResultItem, User, UserRole } from '@/types';
 
 const getAccessToken = async () => {
@@ -415,18 +416,25 @@ export default function AdsPage() {
                     </button>
                   </div>
 
-                  <button
-                    onClick={handleExport}
-                    disabled={exporting}
-                    className="w-full flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
-                  >
-                    {exporting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    엑셀 다운로드
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleExport}
+                      disabled={exporting}
+                      className="flex-1 flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
+                    >
+                      {exporting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      엑셀 다운로드
+                    </button>
+                    <SaveToProject
+                      userRole={currentUser.role}
+                      defaultTitle="광고 문구"
+                      getBody={() => ({ tool: 'ads', rows: results })}
+                    />
+                  </div>
                 </div>
               </div>
             )}

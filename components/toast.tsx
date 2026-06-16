@@ -1,11 +1,9 @@
 'use client'
 
-import { Toaster } from '@/components/ui/sonner'
-
 /**
- * 기존 호출부 호환을 위해 이름은 유지하되, 내부는 sonner Toaster로 전환.
- * 라우트당 한 번 렌더되므로 중복 마운트되지 않는다.
+ * 토스트는 이제 AppLayout이 sonner <Toaster/>를 한 번만 마운트한다.
+ * 기존 페이지들이 <ToastContainer/>를 렌더해도 중복되지 않도록 no-op 유지.
  */
 export function ToastContainer() {
-  return <Toaster position="bottom-right" richColors closeButton />
+  return null
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 import { ResultView, EngineResult } from './ResultView';
+import type { UserRole } from '@/types';
 
 const getAccessToken = async () => {
   const supabase = createBrowserClient(
@@ -15,7 +16,7 @@ const getAccessToken = async () => {
   return session?.access_token ?? null;
 };
 
-export function ExcelMode() {
+export function ExcelMode({ userRole }: { userRole: UserRole }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -197,7 +198,7 @@ export function ExcelMode() {
             )}
           </div>
         ) : (
-          <ResultView result={result} exporting={exporting} onExport={handleExport} />
+          <ResultView result={result} exporting={exporting} onExport={handleExport} userRole={userRole} />
         )}
       </div>
     </div>

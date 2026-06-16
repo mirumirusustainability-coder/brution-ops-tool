@@ -138,11 +138,11 @@ export default function NamingPage() {
         </div>
 
         {mode === 'naver' ? (
-          <NaverMode userId={currentUser.id} />
+          <NaverMode userId={currentUser.id} userRole={currentUser.role} />
         ) : mode === 'excel' ? (
-          <ExcelMode />
+          <ExcelMode userRole={currentUser.role} />
         ) : (
-          <SimpleMode />
+          <SimpleMode userRole={currentUser.role} />
         )}
       </div>
     </AppLayout>

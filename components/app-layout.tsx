@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { ProgressBar } from './ProgressBar';
+import { Toaster } from '@/components/ui/sonner';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@/types';
 
@@ -50,6 +51,7 @@ export function AppLayout({
         />
         <main className="flex-1 p-6">{children}</main>
       </div>
+      <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
 }
