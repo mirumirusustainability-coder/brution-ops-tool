@@ -12,6 +12,7 @@ import {
   Building2,
   FolderOpen,
   ShoppingCart,
+  MessageCircle,
   X,
 } from 'lucide-react';
 import { UserRole } from '@/types';
@@ -36,6 +37,12 @@ const menuItems: MenuItem[] = [
     href: '/app/projects',
     icon: LayoutDashboard,
     allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
+  },
+  {
+    label: '브루션 문의',
+    href: '/app/chat',
+    icon: MessageCircle,
+    allowedRoles: ['client_admin', 'client_member'],
   },
   {
     label: '키워드 분석',

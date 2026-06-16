@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { useToast } from '@/hooks/use-toast';
+import { ChatPanel } from '@/components/chat-panel';
 import { ContractsTab } from './ContractsTab';
 import { UsersTab } from './UsersTab';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
@@ -648,7 +649,9 @@ export function CompanyDetailClient({
           )}
 
           {centerTab === 'chat' && (
-            <div className="flex-1 flex items-center justify-center text-sm text-gray-400">채팅 기능은 Phase B에서 구현 예정입니다.</div>
+            <div className="flex-1 min-h-0">
+              <ChatPanel companyId={company.id} className="h-full" />
+            </div>
           )}
 
           {centerTab === 'history' && (
