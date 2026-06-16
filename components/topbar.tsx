@@ -1,9 +1,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Menu, ChevronDown, LogOut } from 'lucide-react';
+import { Menu, LogOut, ChevronDown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface TopbarProps {
   user: User;
@@ -11,6 +19,11 @@ interface TopbarProps {
   onMenuClick: () => void;
   onLogout?: () => void;
 }
+
+const initials = (name: string, email: string) => {
+  const base = (name || email || '?').trim();
+  return base.slice(0, 1).toUpperCase();
+};
 
 export function Topbar({ user, currentProject, onMenuClick, onLogout }: TopbarProps) {
   const router = useRouter();
@@ -20,49 +33,56 @@ export function Topbar({ user, currentProject, onMenuClick, onLogout }: TopbarPr
       await onLogout();
       return;
     }
-
     const supabase = createClient();
     await supabase.auth.signOut();
     router.replace('/login');
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-border">
-      <div className="flex items-center justify-between px-4 py-3">
-        {/* Left: Menu Button + Project Selector */}
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border">
+      <div className="flex items-center justify-between h-14 px-4">
+        {/* Left */}
+        <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="p-2 hover:bg-muted rounded-md md:hidden"
+            className="p-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md md:hidden"
           >
             <Menu className="w-5 h-5" />
           </button>
 
           {currentProject && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
-              <span className="text-sm font-medium text-gray-700">
-                {currentProject.name}
-              </span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md bg-accent text-sm font-medium text-foreground">
+              {currentProject.name}
+            </span>
           )}
         </div>
 
-        {/* Right: User Info + Logout */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col items-end">
-            <p className="text-sm font-medium text-gray-900">{user.name}</p>
-            <p className="text-xs text-gray-500">{user.email}</p>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-muted rounded-md transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">로그아웃</span>
-          </button>
-        </div>
+        {/* Right: user dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-2 h-9 pl-1 pr-2 rounded-md hover:bg-accent transition-colors focus:outline-none">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+              {initials(user.name, user.email)}
+            </span>
+            <span className="hidden sm:block max-w-[140px] truncate text-sm font-medium text-foreground">
+              {user.name || user.email}
+            </span>
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-foreground truncate">{user.name || '사용자'}</span>
+              <span className="text-xs font-normal text-muted-foreground truncate">{user.email}</span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="text-destructive focus:text-destructive cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              로그아웃
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

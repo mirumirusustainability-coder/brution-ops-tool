@@ -31,7 +31,7 @@ interface MenuItem {
   allowedRoles: UserRole[];
 }
 
-const menuItems: MenuItem[] = [
+const mainItems: MenuItem[] = [
   {
     label: '프로젝트',
     href: '/app/projects',
@@ -44,6 +44,9 @@ const menuItems: MenuItem[] = [
     icon: MessageCircle,
     allowedRoles: ['client_admin', 'client_member'],
   },
+];
+
+const toolItems: MenuItem[] = [
   {
     label: '키워드 분석',
     href: '/app/tools/keyword',
@@ -80,7 +83,7 @@ const menuItems: MenuItem[] = [
     icon: ShoppingCart,
     allowedRoles: ['staff_admin', 'staff_member', 'client_admin', 'client_member'],
   },
-]
+];
 
 const adminMenuItems: MenuItem[] = [
   {
@@ -101,138 +104,141 @@ const adminMenuItems: MenuItem[] = [
     icon: Building2,
     allowedRoles: ['staff_admin'],
   },
-]
+];
+
+const isActivePath = (pathname: string, href: string) => {
+  switch (href) {
+    case '/app/admin':
+      return pathname === '/app/admin';
+    case '/app/admin/projects':
+      return pathname.startsWith('/app/admin/projects') || pathname.startsWith('/admin/projects');
+    case '/app/admin/companies':
+      return pathname.startsWith('/app/admin/companies');
+    case '/app/projects':
+      return pathname.startsWith('/app/projects');
+    default:
+      return pathname === href;
+  }
+};
+
+function NavLink({
+  item,
+  active,
+  onClose,
+}: {
+  item: MenuItem;
+  active: boolean;
+  onClose: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onClose}
+      className={cn(
+        'group flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] transition-colors',
+        active
+          ? 'bg-accent text-foreground font-medium'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+      )}
+    >
+      <Icon
+        className={cn(
+          'w-[18px] h-[18px] shrink-0',
+          active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+        )}
+      />
+      {item.label}
+    </Link>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-2.5 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+      {children}
+    </p>
+  );
+}
 
 export function Sidebar({ userRole, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
 
-  const isActivePath = (href: string) => {
-    switch (href) {
-      case '/app/admin':
-        return pathname === '/app/admin';
-      case '/app/admin/projects':
-        return pathname.startsWith('/app/admin/projects') || pathname.startsWith('/admin/projects');
-      case '/app/admin/companies':
-        return pathname.startsWith('/app/admin/companies');
-      case '/app/projects':
-        return pathname.startsWith('/app/projects');
-      case '/app/tools/keyword':
-        return pathname === '/app/tools/keyword';
-      case '/app/tools/ads':
-        return pathname === '/app/tools/ads';
-      case '/app/tools/market':
-        return pathname === '/app/tools/market';
-      case '/app/tools/brand':
-        return pathname === '/app/tools/brand';
-      case '/app/tools/naming':
-        return pathname === '/app/tools/naming';
-      case '/app/tools/naver':
-        return pathname === '/app/tools/naver';
-      default:
-        return pathname === href;
-    }
-  };
-
-  const filteredItems = menuItems.filter((item) =>
-    item.allowedRoles.includes(userRole)
-  );
-  const filteredAdminItems = adminMenuItems.filter((item) =>
-    item.allowedRoles.includes(userRole)
-  );
+  const allow = (item: MenuItem) => item.allowedRoles.includes(userRole);
+  const main = mainItems.filter(allow);
+  const tools = toolItems.filter(allow);
+  const admin = adminMenuItems.filter(allow);
 
   return (
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={onClose} />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-0 left-0 h-full bg-white border-r border-border z-50 transition-transform duration-300',
+          'fixed top-0 left-0 h-full bg-background border-r border-border z-50 transition-transform duration-200',
           'w-64 flex flex-col',
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
-        {/* Logo & Close Button */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h1 className="text-xl font-bold text-primary">Brution</h1>
+        {/* Logo */}
+        <div className="flex items-center justify-between h-14 px-4 border-b border-border">
+          <Link href="/app/projects" onClick={onClose} className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brution-gradient text-white text-xs font-bold">
+              B
+            </span>
+            <span className="text-[15px] font-semibold tracking-tight text-foreground">Brution</span>
+          </Link>
           <button
             onClick={onClose}
-            className="md:hidden p-1 hover:bg-muted rounded"
+            className="md:hidden p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Menu Items */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
-          <ul className="space-y-1">
-            {filteredItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = isActivePath(item.href);
-
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={onClose}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-gray-700 hover:bg-muted'
-                    )}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
+        {/* Nav */}
+        <nav className="flex-1 px-2.5 py-2 overflow-y-auto">
+          <ul className="space-y-0.5">
+            {main.map((item) => (
+              <li key={item.href}>
+                <NavLink item={item} active={isActivePath(pathname, item.href)} onClose={onClose} />
+              </li>
+            ))}
           </ul>
 
-          {filteredAdminItems.length > 0 && (
-            <div className="mt-6">
-              <p className="px-3 text-xs font-semibold text-gray-400">관리자</p>
-              <div className="my-2 h-px bg-gray-200" />
-              <ul className="space-y-1">
-                {filteredAdminItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = isActivePath(item.href);
-
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={onClose}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                          isActive
-                            ? 'bg-primary/10 text-primary'
-                            : 'text-gray-700 hover:bg-muted'
-                        )}
-                      >
-                        <Icon className="w-5 h-5" />
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
+          {tools.length > 0 && (
+            <>
+              <SectionLabel>AI 도구</SectionLabel>
+              <ul className="space-y-0.5">
+                {tools.map((item) => (
+                  <li key={item.href}>
+                    <NavLink item={item} active={isActivePath(pathname, item.href)} onClose={onClose} />
+                  </li>
+                ))}
               </ul>
-            </div>
+            </>
+          )}
+
+          {admin.length > 0 && (
+            <>
+              <SectionLabel>관리자</SectionLabel>
+              <ul className="space-y-0.5">
+                {admin.map((item) => (
+                  <li key={item.href}>
+                    <NavLink item={item} active={isActivePath(pathname, item.href)} onClose={onClose} />
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </nav>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-border">
-          <p className="text-xs text-gray-500">
-            운영지원툴 v1.0
-          </p>
+        <div className="px-4 py-3 border-t border-border">
+          <p className="text-[11px] text-muted-foreground">운영지원툴 v1.0</p>
         </div>
       </aside>
     </>
