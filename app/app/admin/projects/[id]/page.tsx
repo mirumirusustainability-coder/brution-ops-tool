@@ -19,7 +19,10 @@ import {
   ALL_DESIGN_TYPES,
   getDesignCategory,
   DESIGN_VERSION_STEPS,
+  DELIVERABLE_TYPE_GROUPS,
+  VERSION_STATUS_META,
 } from '@/lib/constants'
+import { StatusBadge } from '@/components/status-badge'
 import { useToast } from '@/hooks/use-toast'
 import { DeliverableType, User, UserRole, VersionStatus } from '@/types'
 
@@ -456,6 +459,20 @@ export default function AdminProjectDetailPage({
   const handleDeleteAsset = (assetId: string, versionId: string) => {
     setDeleteConfirm({ type: 'asset', id: assetId, versionId, label: '파일' })
     setDeleteConfirmText('')
+  }
+
+  const handleDownloadAsset = async (assetId: string) => {
+    try {
+      const res = await fetch(`/api/assets/${assetId}/download`, { cache: 'no-store' })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        window.open(data.url, '_blank')
+      } else {
+        showToast(data.error ?? '다운로드에 실패했습니다', 'error')
+      }
+    } catch {
+      showToast('다운로드 중 오류가 발생했습니다', 'error')
+    }
   }
 
   const handleDeleteProject = () => {
@@ -941,18 +958,20 @@ export default function AdminProjectDetailPage({
                   <h2 className="text-base font-semibold text-gray-900">드롭 목록</h2>
                   <CreateDropDialog projectId={resolvedParams.id} onCreated={fetchProject} />
                 </div>
-                {orderedStepGroups.map((groupStep) => {
-                  const groupDeliverables = deliverables.filter((d) => {
-                    const stepTypes = STEP_DELIVERABLE_GROUPS[groupStep] || []
-                    return stepTypes.includes(d.type as DeliverableType)
-                  })
-                  if (groupDeliverables.length === 0 && groupStep !== currentStep) return null
+                {deliverables.length === 0 && (
+                  <div className="text-center py-12 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                    등록된 드롭이 없습니다. 우측 상단 &lsquo;새 드롭&rsquo;으로 추가하세요.
+                  </div>
+                )}
+                {DELIVERABLE_TYPE_GROUPS.map((group) => {
+                  const groupDeliverables = deliverables.filter((d) =>
+                    group.types.includes(d.type as DeliverableType)
+                  )
+                  if (groupDeliverables.length === 0) return null
                   return (
-                    <div key={groupStep}>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">STEP {groupStep} · {STEP_LABELS[groupStep]}</h3>
-                      {groupDeliverables.length === 0 ? (
-                        <p className="text-xs text-gray-400 mb-3">등록된 드롭이 없습니다</p>
-                      ) : (
+                    <div key={group.label}>
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">{group.label}</h3>
+                      {(
                         <div className="space-y-2 mb-3">
                           {groupDeliverables.map((d) => (
                             <div key={d.id} className="bg-white border border-gray-200 rounded-lg p-3">
@@ -985,11 +1004,11 @@ export default function AdminProjectDetailPage({
                                         <div className="flex items-center justify-between gap-2">
                                           <div className="flex items-center gap-2">
                                             <span className="text-xs font-medium text-gray-700">v{v.version_no}</span>
-                                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${DESIGN_VERSION_STEPS.find((s) => s.value === v.status)?.color ?? 'bg-gray-100 text-gray-600'}`}>{DESIGN_VERSION_STEPS.find((s) => s.value === v.status)?.label ?? v.status}</span>
+                                            <StatusBadge status={v.status} />
                                           </div>
                                           <div className="flex items-center gap-1">
-                                            <select value={v.status} onChange={(e) => handleVersionStatusChange(v.id, e.target.value as VersionStatus)} disabled={versionUpdatingId === v.id} className="text-xs border border-gray-200 rounded px-1 py-0.5">
-                                              {versionStatusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                            <select value={v.status === 'revision' ? 'in_review' : v.status} onChange={(e) => handleVersionStatusChange(v.id, e.target.value as VersionStatus)} disabled={versionUpdatingId === v.id} className="text-xs border border-gray-200 rounded px-1 py-0.5">
+                                              {(['draft', 'in_review', 'published'] as const).map((s) => <option key={s} value={s}>{VERSION_STATUS_META[s].label}</option>)}
                                             </select>
                                             <label className="text-xs text-primary cursor-pointer hover:underline">
                                               {uploadingVersionId === v.id ? '...' : '📎'}
@@ -1001,8 +1020,10 @@ export default function AdminProjectDetailPage({
                                         {vAssets.length > 0 && (
                                           <div className="mt-1.5 space-y-1">
                                             {vAssets.map((a) => (
-                                              <div key={a.id} className="flex items-center justify-between text-xs text-gray-600">
-                                                <span className="truncate">{a.original_name ?? getFileNameFromPath(a.path) ?? a.id}</span>
+                                              <div key={a.id} className="flex items-center justify-between gap-2 text-xs text-gray-600">
+                                                <button type="button" onClick={() => handleDownloadAsset(a.id)} className="truncate text-left text-primary hover:underline" title="다운로드">
+                                                  {a.original_name ?? getFileNameFromPath(a.path) ?? a.id}
+                                                </button>
                                                 <button type="button" onClick={() => handleDeleteAsset(a.id, v.id)} disabled={deletingAssetId === a.id} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
                                               </div>
                                             ))}
@@ -1013,21 +1034,6 @@ export default function AdminProjectDetailPage({
                                   })}
                                 </div>
                               )}
-                              {/* design step progress bar */}
-                              {ALL_DESIGN_TYPES.includes(d.type) && (d.versions ?? []).length > 0 && (() => {
-                                const latestStatus = (d.versions ?? [])[(d.versions ?? []).length - 1]?.status ?? 'draft'
-                                const stepIdx = DESIGN_VERSION_STEPS.findIndex((s) => s.value === latestStatus)
-                                return (
-                                  <div className="flex items-center gap-1 mt-2">
-                                    {DESIGN_VERSION_STEPS.map((s, i) => (
-                                      <div key={s.value} className="flex items-center gap-1">
-                                        <div className={`h-1.5 flex-1 rounded-full min-w-[40px] ${i <= stepIdx ? 'bg-blue-500' : 'bg-gray-200'}`} />
-                                        <span className={`text-[10px] whitespace-nowrap ${i <= stepIdx ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>{s.label}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )
-                              })()}
                               <button type="button" onClick={() => { setSelectedDeliverable(d); setVersionTitle(''); setVersionError(null); setShowVersionModal(true) }} className="mt-2 text-xs text-primary hover:underline">+ 버전 추가</button>
                             </div>
                           ))}
