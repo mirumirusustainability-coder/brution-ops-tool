@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { toast as sonnerToast } from 'sonner'
 
 export type ToastType = 'success' | 'error' | 'info'
 
@@ -10,38 +11,22 @@ export type ToastItem = {
   type: ToastType
 }
 
-let toasts: ToastItem[] = []
-let listeners: Array<(items: ToastItem[]) => void> = []
-
-const emit = () => {
-  listeners.forEach((listener) => listener(toasts))
-}
-
-const removeToast = (id: string) => {
-  toasts = toasts.filter((toast) => toast.id !== id)
-  emit()
-}
-
-const addToast = (message: string, type: ToastType = 'info') => {
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  toasts = [...toasts, { id, message, type }]
-  emit()
-  setTimeout(() => removeToast(id), 3000)
+/**
+ * sonner 어댑터. 기존 showToast(message, type) 시그니처를 유지해
+ * 호출부를 수정하지 않고 토스트만 sonner로 전환한다.
+ * 실제 렌더링은 <ToastContainer/>(= sonner <Toaster/>)가 담당.
+ */
+export const showToast = (message: string, type: ToastType = 'info') => {
+  if (type === 'success') sonnerToast.success(message)
+  else if (type === 'error') sonnerToast.error(message)
+  else sonnerToast(message)
 }
 
 export const useToast = () => {
-  const [items, setItems] = useState<ToastItem[]>(toasts)
-
-  useEffect(() => {
-    listeners.push(setItems)
-    return () => {
-      listeners = listeners.filter((listener) => listener !== setItems)
-    }
+  const show = useCallback((message: string, type: ToastType = 'info') => {
+    showToast(message, type)
   }, [])
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    addToast(message, type)
-  }, [])
-
-  return { toasts: items, showToast, removeToast }
+  // toasts/removeToast는 하위호환용(이제 sonner가 렌더링하므로 빈 배열)
+  return { toasts: [] as ToastItem[], showToast: show, removeToast: (_id: string) => {} }
 }
