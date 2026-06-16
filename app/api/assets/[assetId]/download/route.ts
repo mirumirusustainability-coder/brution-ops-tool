@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 
 import { createSupabaseAdmin } from '@/lib/supabase/server'
+import { isStaff } from '@/lib/supabase/auth'
 
 export const GET = async (
   request: Request,
@@ -50,12 +51,38 @@ export const GET = async (
 
     const { data: asset, error: assetError } = await admin
       .from('assets')
-      .select('id, bucket, path, original_name')
+      .select('id, bucket, path, original_name, company_id, deliverable_version_id')
       .eq('id', assetId)
       .single()
 
     if (assetError || !asset) {
       return NextResponse.json({ error: 'ASSET_NOT_FOUND' }, { status: 404 })
+    }
+
+    // ── 접근 제어 (service role은 RLS를 우회하므로 여기서 명시 검증) ──
+    // 직원: 모든 산출물 접근 가능. 고객: 자기 회사 + published + client 공개분만.
+    if (!isStaff(profile.role)) {
+      if (!profile.company_id || asset.company_id !== profile.company_id) {
+        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+      }
+      if (!asset.deliverable_version_id) {
+        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+      }
+      const { data: version, error: versionError } = await admin
+        .from('deliverable_versions')
+        .select('status, deliverables(visibility)')
+        .eq('id', asset.deliverable_version_id)
+        .single()
+
+      if (versionError || !version) {
+        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+      }
+      const deliverable = Array.isArray((version as any).deliverables)
+        ? (version as any).deliverables[0]
+        : (version as any).deliverables
+      if (version.status !== 'published' || deliverable?.visibility !== 'client') {
+        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
+      }
     }
 
     const { data: signedUrl, error: signedError } = await admin.storage
