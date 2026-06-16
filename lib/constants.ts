@@ -46,6 +46,16 @@ export const STEP_DELIVERABLE_GROUPS: Record<number, DeliverableType[]> = {
 
 export const DELIVERABLE_STEP_ORDER = [0, 1, 2, 3, 4] as const
 
+// 드롭 생성 드롭다운용 — 25개 타입을 6개 친숙한 그룹으로 (데이터 무손실, UI 그룹핑)
+export const DELIVERABLE_TYPE_GROUPS: { label: string; types: DeliverableType[] }[] = [
+  { label: '분석·리서치', types: ['keyword_report', 'competitor_report', 'market_research', 'sample_analysis'] },
+  { label: '브랜드·BI', types: ['brand_identity', 'brand_philosophy', 'logo_design', 'color_variation', 'bi_application'] },
+  { label: '제품·패키지', types: ['product_candidate', 'product_design', 'packaging_design', 'package_design', 'label_design'] },
+  { label: '콘텐츠·광고', types: ['content_request', 'detail_page', 'viral_content', 'thumbnail', 'photo_video'] },
+  { label: '생산·인증', types: ['certification', 'qc_report', 'delivery_confirm'] },
+  { label: '견적·성과', types: ['quotation', 'performance_report', 'sales_strategy'] },
+]
+
 // ── Design deliverable types ────────────────────────────────────────────────
 
 export const DESIGN_TYPE_CATEGORIES: Record<string, { label: string; color: string; types: DeliverableType[] }> = {

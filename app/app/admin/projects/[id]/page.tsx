@@ -8,6 +8,7 @@ import { Breadcrumb } from '@/components/breadcrumb'
 import { StepProgress } from '@/components/step-progress'
 import { ToastContainer } from '@/components/toast'
 import { GanttChart, GanttTask } from './_components/GanttChart'
+import { CreateDropDialog } from './_components/CreateDropDialog'
 import { createBrowserClient } from '@supabase/ssr'
 import {
   DELIVERABLE_TYPE_LABELS,
@@ -938,7 +939,7 @@ export default function AdminProjectDetailPage({
                 {/* existing drops content */}
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-semibold text-gray-900">드롭 목록</h2>
-                  <button onClick={() => { setDeliverableType(getDefaultDeliverableType(currentStep)); setDeliverableTitle(''); setDeliverableVisibility('internal'); setDeliverableError(null); setShowDeliverableModal(true) }} className="flex items-center gap-1 text-sm text-primary hover:underline"><Plus className="w-4 h-4" /> 드롭 추가</button>
+                  <CreateDropDialog projectId={resolvedParams.id} onCreated={fetchProject} />
                 </div>
                 {orderedStepGroups.map((groupStep) => {
                   const groupDeliverables = deliverables.filter((d) => {
