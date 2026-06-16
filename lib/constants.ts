@@ -1,4 +1,4 @@
-import { DeliverableType } from '@/types'
+import { DeliverableType, VersionStatus } from '@/types'
 
 export const DELIVERABLE_TYPE_LABELS: Record<DeliverableType, string> = {
   keyword_report: '키워드 분석 리포트',
@@ -75,6 +75,19 @@ export const getDesignCategory = (type: DeliverableType) => {
   return null
 }
 
+// 산출물 버전 상태의 단일 소스 (라벨/뱃지 톤). 모든 상태 뱃지·셀렉트가 여기서 파생.
+export type StatusTone = 'neutral' | 'warning' | 'info' | 'success'
+
+export const VERSION_STATUS_META: Record<VersionStatus, { label: string; tone: StatusTone }> = {
+  draft: { label: '초안', tone: 'neutral' },
+  in_review: { label: '검토중', tone: 'warning' },
+  revision: { label: '반영중', tone: 'info' },
+  published: { label: '최종본', tone: 'success' },
+}
+
+export const VERSION_STATUS_ORDER: VersionStatus[] = ['draft', 'in_review', 'revision', 'published']
+
+// 디자인 시안 단계 선택용 (상태 뱃지와 별개 — 단계 흐름 라벨은 도메인 특화 유지)
 export const DESIGN_VERSION_STEPS: { value: string; label: string; color: string }[] = [
   { value: 'draft', label: '초안제작', color: 'bg-gray-100 text-gray-600' },
   { value: 'in_review', label: '피드백', color: 'bg-yellow-100 text-yellow-700' },
