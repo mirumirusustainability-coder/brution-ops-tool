@@ -18,6 +18,7 @@ type ApiProject = {
   step: number;
   created_at: string;
   updated_at: string;
+  metadata?: Record<string, any> | null;
   companies?: { name?: string } | { name?: string }[] | null;
 };
 
@@ -87,6 +88,7 @@ export default function ProjectDetailPage({
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [projectMeta, setProjectMeta] = useState<Record<string, any> | null>(null);
   const [deliverables, setDeliverables] = useState<ApiDeliverable[]>([]);
   const [companyName, setCompanyName] = useState('');
   const [versionsByDeliverable, setVersionsByDeliverable] = useState<
@@ -319,6 +321,7 @@ export default function ProjectDetailPage({
       if (active) {
         setCurrentUser(user);
         setProject(detail);
+        setProjectMeta((projectData?.project?.metadata ?? null) as Record<string, any> | null);
         setDeliverables(deliverableList);
         setVersionsByDeliverable(nextVersions);
         setAssetsByVersion(nextAssets);
@@ -386,6 +389,23 @@ export default function ProjectDetailPage({
             <StepProgress currentStep={project.step ?? 0} readonly={true} />
           </div>
         </div>
+
+        {/* 진행 현황 (프로젝트 관리에서 입력한 데이터 연동) */}
+        <ProgressSummary
+          meta={projectMeta}
+          dropCounts={(() => {
+            let published = 0, in_review = 0, draft = 0;
+            for (const list of Object.values(versionsByDeliverable)) {
+              for (const v of list) {
+                const s = v.status as string;
+                if (s === 'published') published++;
+                else if (s === 'in_review') in_review++;
+                else draft++;
+              }
+            }
+            return { published, in_review, draft };
+          })()}
+        />
 
         {loading && (
           <div className="text-sm text-gray-500 mb-4">프로젝트 정보를 불러오는 중입니다...</div>
@@ -482,5 +502,92 @@ export default function ProjectDetailPage({
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+const SAMPLE_KEYS = ['sample_received', 'modify', 'pantone', 'barcode', 'package_design', 'manual'];
+const SAMPLE_DONE = ['완료', '승인완료'];
+
+function StatCard({
+  label,
+  done,
+  total,
+  color,
+  empty,
+}: {
+  label: string;
+  done: number;
+  total: number;
+  color: string;
+  empty?: boolean;
+}) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <div className="rounded-lg border border-border bg-white p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-gray-600">{label}</span>
+        <span className="text-sm font-semibold text-gray-900">
+          {empty ? '—' : `${done}/${total}`}
+        </span>
+      </div>
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full ${color} transition-all`} style={{ width: `${empty ? 0 : pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ProgressSummary({
+  meta,
+  dropCounts,
+}: {
+  meta: Record<string, any> | null;
+  dropCounts: { published: number; in_review: number; draft: number };
+}) {
+  const gantt: any[] = Array.isArray(meta?.gantt_tasks) ? meta!.gantt_tasks : [];
+  const ganttDone = gantt.filter((t) => t.status === '완료').length;
+
+  const certs: any[] = Array.isArray(meta?.certifications) ? meta!.certifications : [];
+  const certDone = certs.filter((c) => c.status === '완료').length;
+
+  const checklist: Record<string, string> = meta?.sample_checklist ?? {};
+  const sampleDone = SAMPLE_KEYS.filter((k) => SAMPLE_DONE.includes(checklist[k])).length;
+
+  const dropTotal = dropCounts.published + dropCounts.in_review + dropCounts.draft;
+
+  return (
+    <div className="mb-8">
+      <h2 className="text-xl font-semibold text-gray-900 mb-3">진행 현황</h2>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          label="드롭 (최종본)"
+          done={dropCounts.published}
+          total={dropTotal}
+          color="bg-green-500"
+          empty={dropTotal === 0}
+        />
+        <StatCard
+          label="간트 일정"
+          done={ganttDone}
+          total={gantt.length}
+          color="bg-blue-500"
+          empty={gantt.length === 0}
+        />
+        <StatCard
+          label="인증"
+          done={certDone}
+          total={certs.length}
+          color="bg-purple-500"
+          empty={certs.length === 0}
+        />
+        <StatCard
+          label="샘플/생산"
+          done={sampleDone}
+          total={SAMPLE_KEYS.length}
+          color="bg-teal-500"
+          empty={Object.keys(checklist).length === 0}
+        />
+      </div>
+    </div>
   );
 }

@@ -276,31 +276,32 @@ export function GanttChart({
                   {trackTasks.map((t) => (
                     <div
                       key={t.id}
-                      className="grid grid-cols-[1fr_120px_120px_100px_auto] gap-2 items-center"
+                      className="flex flex-wrap items-center gap-2"
                     >
                       <input
                         value={t.name}
                         onChange={(e) => updateLocal(t.id, { name: e.target.value })}
                         onBlur={(e) => persistField(t.id, { name: e.target.value })}
                         placeholder="업무명 (예: 1차 샘플 생산)"
-                        className="px-2 py-1.5 text-sm border border-gray-200 rounded-md"
+                        className="flex-1 min-w-[140px] px-2 py-1.5 text-sm border border-gray-200 rounded-md"
                       />
                       <input
                         type="date"
                         value={t.start}
                         onChange={(e) => persistField(t.id, { start: e.target.value })}
-                        className="px-2 py-1.5 text-sm border border-gray-200 rounded-md"
+                        className="w-[150px] shrink-0 px-2 py-1.5 text-sm border border-gray-200 rounded-md"
                       />
+                      <span className="text-gray-300 text-xs">~</span>
                       <input
                         type="date"
                         value={t.end}
                         onChange={(e) => persistField(t.id, { end: e.target.value })}
-                        className="px-2 py-1.5 text-sm border border-gray-200 rounded-md"
+                        className="w-[150px] shrink-0 px-2 py-1.5 text-sm border border-gray-200 rounded-md"
                       />
                       <select
                         value={t.status}
                         onChange={(e) => persistField(t.id, { status: e.target.value as GanttStatus })}
-                        className={`px-2 py-1.5 text-xs font-medium border border-gray-200 rounded-md ${STATUS_STYLE[t.status]}`}
+                        className={`w-[90px] shrink-0 px-2 py-1.5 text-xs font-medium border border-gray-200 rounded-md ${STATUS_STYLE[t.status]}`}
                       >
                         {STATUS_OPTIONS.map((s) => (
                           <option key={s} value={s}>
@@ -311,7 +312,7 @@ export function GanttChart({
                       <button
                         type="button"
                         onClick={() => removeTask(t.id)}
-                        className="text-gray-300 hover:text-red-500 p-1"
+                        className="shrink-0 text-gray-300 hover:text-red-500 p-1"
                         title="삭제"
                       >
                         <Trash2 className="w-4 h-4" />
