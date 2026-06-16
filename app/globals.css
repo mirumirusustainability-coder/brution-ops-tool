@@ -3,20 +3,62 @@
 @tailwind utilities;
 
 :root {
+  /* Brution brand (kept) */
   --brution-blue: #1672FF;
   --brution-mint: #1FCAD3;
   --brution-lime: #CBF51A;
-  --primary: #1672FF;
   --primary-hover: #0D5FE6;
-  --background: #FFFFFF;
-  --foreground: #1F2937;
-  --muted: #F3F4F6;
-  --border: #E5E7EB;
+
+  /* shadcn/ui design tokens — Linear/Plane tone (light).
+     HSL triplets; consumed via hsl(var(--x)) in tailwind.config.ts.
+     Grays matched to prior hex so existing classes stay visually identical. */
+  --background: 0 0% 100%;
+  --foreground: 215 28% 17%;        /* ≈ #1F2937 */
+  --card: 0 0% 100%;
+  --card-foreground: 215 28% 17%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 28% 17%;
+  --primary: 217 100% 54%;          /* brution-blue #1672FF */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 215 28% 17%;
+  --muted: 220 14% 96%;             /* ≈ #F3F4F6 */
+  --muted-foreground: 220 9% 46%;   /* ≈ #6B7280 */
+  --accent: 220 14% 96%;            /* gray hover (Linear) */
+  --accent-foreground: 215 28% 17%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 13% 91%;            /* ≈ #E5E7EB */
+  --input: 220 13% 91%;
+  --ring: 217 100% 54%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 222 22% 11%;
+  --foreground: 210 17% 95%;
+  --card: 222 20% 13%;
+  --card-foreground: 210 17% 95%;
+  --popover: 222 20% 13%;
+  --popover-foreground: 210 17% 95%;
+  --primary: 217 100% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 217 17% 20%;
+  --secondary-foreground: 210 17% 95%;
+  --muted: 217 17% 20%;
+  --muted-foreground: 218 11% 65%;
+  --accent: 217 17% 22%;
+  --accent-foreground: 210 17% 95%;
+  --destructive: 0 63% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 217 17% 22%;
+  --input: 217 17% 22%;
+  --ring: 217 100% 60%;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -29,9 +71,9 @@ html {
 
 /* NProgress custom styles */
 #nprogress .bar {
-  background: #378ADD !important;
+  background: #1672FF !important;
   height: 3px !important;
 }
 #nprogress .peg {
-  box-shadow: 0 0 10px #378ADD, 0 0 5px #378ADD !important;
+  box-shadow: 0 0 10px #1672FF, 0 0 5px #1672FF !important;
 }
