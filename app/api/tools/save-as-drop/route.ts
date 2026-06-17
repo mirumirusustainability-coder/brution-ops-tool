@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { requireAuth, isStaff } from '@/lib/supabase/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/server'
 import { buildToolWorkbook, TOOL_DELIVERABLE_META, type ExportBody } from '@/lib/tool-export'
+import { incrementUsage, TOOL_USAGE_COST_KRW } from '@/lib/usage'
 
 export const maxDuration = 60
 
@@ -113,6 +114,12 @@ export const POST = async (request: Request) => {
       created_by: profile.user_id,
     })
     if (assetError) throw new Error('ASSET_CREATE_FAILED: ' + assetError.message)
+
+    // 고객사 당월 AI 사용량 누적 (best-effort)
+    await incrementUsage(admin, companyId, {
+      executions: 1,
+      costKrw: TOOL_USAGE_COST_KRW[body.tool] ?? 0,
+    })
 
     return NextResponse.json({
       ok: true,

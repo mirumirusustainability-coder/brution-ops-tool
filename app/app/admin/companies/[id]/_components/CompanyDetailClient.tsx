@@ -283,6 +283,7 @@ type CompanyDetailClientProps = {
   projects: ApiProject[];
   users: ApiUser[];
   dropStatusCounts: DropStatusCounts;
+  usage?: { ym: string; executions: number; estCostKrw: number };
   error?: string | null;
 };
 
@@ -296,6 +297,7 @@ export function CompanyDetailClient({
   projects,
   users,
   dropStatusCounts,
+  usage,
   error,
 }: CompanyDetailClientProps) {
   const router = useRouter();
@@ -456,10 +458,6 @@ export function CompanyDetailClient({
     return { label: `D-${diff}`, color: 'text-green-700', bg: 'bg-green-50', dateStr };
   }, [projects, meta.contract_end]);
 
-  const aiCreditLimit = (meta.ai_credit_limit as number) ?? 100;
-  const aiCreditUsed = (meta.ai_credit_used as number) ?? 0;
-  const aiCreditPct = aiCreditLimit > 0 ? Math.min(100, Math.round((aiCreditUsed / aiCreditLimit) * 100)) : 0;
-
   const highestStep = useMemo(() => {
     let max = -1;
     projects.forEach((p) => { if ((p.step ?? -1) > max) max = p.step ?? -1; });
@@ -549,13 +547,11 @@ export function CompanyDetailClient({
 
             <div className="border-t border-gray-100 my-3" />
 
-            {/* AI credit */}
+            {/* AI 사용량 (실제 usage_monthly 연동) */}
             <div className="space-y-1 text-xs text-gray-600">
-              <p className="text-gray-500 font-medium mb-1">AI 크레딧</p>
-              <div className="flex justify-between"><span className="text-gray-400">사용량</span><span>{aiCreditUsed} / {aiCreditLimit}</span></div>
-              <div className="h-1.5 rounded-full bg-gray-100 mt-1">
-                <div className={`h-1.5 rounded-full ${aiCreditPct > 80 ? 'bg-red-400' : 'bg-blue-500'}`} style={{ width: `${aiCreditPct}%` }} />
-              </div>
+              <p className="text-gray-500 font-medium mb-1">AI 사용량 {usage?.ym ? `(${usage.ym})` : ''}</p>
+              <div className="flex justify-between"><span className="text-gray-400">생성 산출물</span><span>{usage?.executions ?? 0}건</span></div>
+              <div className="flex justify-between"><span className="text-gray-400">예상 비용</span><span>{(usage?.estCostKrw ?? 0).toLocaleString()}원</span></div>
             </div>
 
             <div className="border-t border-gray-100 my-3" />

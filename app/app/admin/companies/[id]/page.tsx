@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { AppLayout } from '@/components/app-layout';
 import { isStaffAdmin } from '@/lib/supabase/auth';
 import { createSupabaseAdmin } from '@/lib/supabase/server';
+import { getCurrentUsage } from '@/lib/usage';
 import { CompanyDetailClient } from './_components/CompanyDetailClient';
 import type { ApiCompany, ApiProject, ApiUser } from './_components/types';
 import type { User as AppUser } from '@/types';
@@ -164,6 +165,8 @@ export default async function CompanyUsersPage({ params }: PageProps) {
     users = Array.isArray(data?.users) ? data.users : [];
   }
 
+  const usage = await getCurrentUsage(createSupabaseAdmin(), id);
+
   return (
     <CompanyDetailClient
       currentUser={currentUser}
@@ -171,6 +174,7 @@ export default async function CompanyUsersPage({ params }: PageProps) {
       projects={projects}
       users={users}
       dropStatusCounts={dropStatusCounts}
+      usage={usage}
       error={error}
     />
   );
